@@ -110,6 +110,14 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 /* stacks GROW UPWARD from the base of the hex — pieces are laid from bottom,
    never with a growing `top: Npx` (that would fill downward from the ceiling). */
 .stack{position:absolute;inset:0;z-index:2;pointer-events:none}
+/* tidy base plate: makes each pile read as one aligned block standing on the
+   hex (reference pattern: tidy, aligned, grouped piles). Warm panel tint, no
+   new palette tokens. */
+.stack .mat{position:absolute;left:50%;bottom:0;translate:-50% 0;z-index:0;
+  width:calc(var(--hx)*1.62);height:calc(var(--hx)*1.06);
+  background:rgba(248,241,213,.42);clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);
+  outline:1px solid rgba(121,72,53,.28);outline-offset:1px}
+.stack .tile{z-index:1}
 .tile{position:absolute;left:50%;bottom:0;translate:-50% 0;width:calc(var(--hx)*1.5);height:calc(var(--hx)*0.96);
   display:flex;align-items:center;justify-content:center;
   clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);outline:2px solid var(--ink);outline-offset:1px}
@@ -457,7 +465,7 @@ function cellHTML(cell, idx){
     // stacks GROW UPWARD: pieces offset from the BOTTOM (bottom:Npx), never a
     // growing `top:Npx` which would fill downward from the ceiling of the hex.
     const step=Math.max(8,Math.round(hx()*0.28));
-    stack='<div class="stack">'+cell.stack.map((c,ci)=>
+    stack='<div class="stack"><span class="mat"></span>'+cell.stack.map((c,ci)=>
       `<div class="tile" style="bottom:${ci*step}px;background:var(${tileVar(c)})"><span class="dot"></span></div>`).join('')+
       (cell.stack.length>1?`<span class="badge">${cell.stack.length}</span>`:'')+'</div>';
   }
@@ -523,7 +531,17 @@ function renderBoard(){
 function renderPool(){
   const box=$('#pool'); if(!box) return;
   const r=state.run;
-  box.innerHTML = r.pool.map((pile,i)=>{
+  // VISUAL ORDER ONLY (reference pattern: color blocks + descending staircase).
+  // The DOM order of the 3 trays is sorted, but `data-slot` keeps the REAL game
+  // index, so selection/serving logic is untouched (placeStack uses pool[slot]).
+  const order=r.pool.map((pile,i)=>({i,pile})).sort((a,b)=>{
+    const ha=a.pile?a.pile.length:0, hb=b.pile?b.pile.length:0;
+    if(!ha||!hb) return hb-ha;              // empty trays always last
+    const ca=a.pile[0], cb=b.pile[0];       // trays are monochrome
+    if(ca!==cb) return cb-ca;               // group into color blocks
+    return hb-ha;                           // staircase: taller first
+  });
+  box.innerHTML = order.map(({i,pile})=>{
     let inner = pile&&pile.length ? '<div class="tray">'+pile.map(c=>
       `<div class="ttile" style="background:var(${tileVar(c)})"><span class="d"></span></div>`).join('')+'</div>'
       : '<div class="poolempty">empty</div>';
