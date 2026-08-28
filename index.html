@@ -75,6 +75,9 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   padding:6px;box-shadow:0 3px 0 var(--shadow);text-align:center;cursor:pointer}
 .order-card.served{opacity:.5}
 .order-card.ready{background:var(--highlight);animation:pulse 1.2s infinite}
+.order-card.selected{border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-2),0 3px 0 var(--shadow)}
+.order-card.selected .bubble{background:var(--accent-2)}
+.seltag{color:var(--ink);font-weight:900;font-size:14px;line-height:1;animation:breathe 1s ease-in-out infinite}
 @keyframes pulse{0%,100%{box-shadow:0 3px 0 var(--shadow)}50%{box-shadow:0 0 0 4px rgba(255,245,178,.7)}}
 .catimg{width:44px;height:44px;object-fit:contain;margin:0 auto;display:block;animation:breathe 2s ease-in-out infinite}
 @keyframes breathe{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.03)}}
@@ -83,24 +86,46 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .order-card.ready .bubble{background:var(--highlight)}
 .minitile{width:15px;height:15px;border-radius:4px;border:2px solid var(--ink);display:inline-block}
 
-/* board */
-.board-wrap{overflow:auto;max-height:52vh;padding:8px 2px}
-.board{display:grid;gap:16px 6px;width:100%;justify-items:center;margin:0 auto}
-.cell{position:relative;width:64px;height:60px;cursor:pointer}
+/* board — 2D honeycomb (flat-top hexagons). Axial {q,r} coords group cells into
+   rows. PERFECT honeycomb geometry for the drawn hex (box 2*--hx wide; clip-path
+   3%..97% => visible hex height = 0.94*--ch): same-row center distance must be
+   3*--hx (cell 2*--hx + 1*--hx gap), alternate rows must be offset exactly
+   1.5*--hx, and the row pitch must be 0.47*--ch (= half of the visible hex
+   height) so every slanted AND flat edge of neighbor hexes coincides exactly
+   (zero gaps, zero overlap). Rows are ABSOLUTELY positioned from the axial row
+   index (r - minR); they must NOT be flex-centered per row — independent
+   per-row centering breaks the half-hex offset between rows. */
+.board-wrap{overflow:auto;max-height:54vh;padding:10px 4px}
+:root{ --hx:36px; --cw:calc(var(--hx)*2); --ch:calc(var(--hx)*1.732); }
+.board{position:relative;margin:0 auto}
+.boardrow{position:absolute;display:flex;gap:calc(var(--cw)*0.5)} /* gap 1*--hx -> centers 3*--hx apart */
+.cell{position:relative;width:var(--cw);height:var(--ch);cursor:pointer;flex:0 0 auto}
 .hexbg{position:absolute;inset:0;background:var(--wood);clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%)}
 .cell.blocked .hexbg{background:var(--lock)}
 .cell.calm .hexbg{box-shadow:inset 0 0 0 3px var(--danger)}
 .cell.targetable:not(.blocked){box-shadow:0 0 0 3px var(--highlight)}
 .cell.targetmode .hexbg{box-shadow:0 0 0 3px var(--danger)}
 .cell.swapmode .hexbg{box-shadow:0 0 0 3px var(--tile-blue)}
+.cell.serve-target:not(.blocked){box-shadow:0 0 0 3px var(--accent-2)}
+/* stacks GROW UPWARD from the base of the hex — pieces are laid from bottom,
+   never with a growing `top: Npx` (that would fill downward from the ceiling). */
 .stack{position:absolute;inset:0;z-index:2;pointer-events:none}
-.tile{position:absolute;left:6px;width:52px;height:50px;display:flex;align-items:center;justify-content:center;
-  clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%);outline:2px solid var(--ink);outline-offset:1px}
+.tile{position:absolute;left:50%;bottom:0;translate:-50% 0;width:calc(var(--hx)*1.5);height:calc(var(--hx)*0.96);
+  display:flex;align-items:center;justify-content:center;
+  clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);outline:2px solid var(--ink);outline-offset:1px}
 .tile .dot{width:7px;height:7px;background:rgba(121,72,53,.35);border-radius:50%}
+.stack .badge{position:absolute;top:-8px;left:50%;translate:-50% 0;z-index:5;background:var(--highlight);
+  border:2px solid var(--ink);border-radius:999px;font-size:10px;font-weight:800;padding:0 6px;line-height:1.2}
 .calmk{position:absolute;top:-9px;right:-3px;z-index:4;width:18px;height:18px;background:var(--danger);
   clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);border:2px solid var(--ink)}
 .lockovl{position:absolute;inset:0;z-index:3;background:var(--lock);display:flex;align-items:center;justify-content:center;
   clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%);border:2px dashed var(--ink);font-size:20px}
+/* expansion: free adjacent hex positions, highlighted; tap one to place a tile */
+.expand-slot .hexbg{background:var(--accent-2);opacity:.45;box-shadow:inset 0 0 0 3px var(--accent)}
+.expand-slot{animation:pulseGlow 1.6s ease-in-out infinite}
+.expand-slot .exicon{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  color:var(--ink);font-size:24px;font-weight:900;pointer-events:none;z-index:2}
+@keyframes pulseGlow{0%,100%{box-shadow:0 0 0 0 rgba(246,167,193,.0)}50%{box-shadow:0 0 0 9px rgba(246,167,193,.4)}}
 
 /* pool */
 .pool{display:flex;gap:8px;padding:10px;background:var(--wood);border:3px solid var(--ink);border-radius:14px;margin-top:10px}
@@ -165,7 +190,8 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 @keyframes conf{0%{opacity:1;transform:translate(0,0) rotate(0)}60%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(720deg)}}
 
 @media(min-width:720px){#app{max-width:680px}.powerbar{flex-wrap:nowrap}}
-@media(max-width:440px){.cell{width:56px;height:56px}}
+@media(max-width:520px){:root{--hx:29px}}
+@media(max-width:360px){:root{--hx:24px}}
 @media(hover:none){.btn:hover{transform:none;filter:none}}
 @media(prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01s!important;transition:none!important}}
 </style>
@@ -238,7 +264,7 @@ import {
 
 let state = null;
 const KEY = 'cozy-cat-cafe.save.v1';
-const ui = { slot:false, mode:null, swapFirst:null };
+const ui = { slot:false, mode:null, swapFirst:null, servingOrder:null, placeTile:false };
 
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
@@ -298,8 +324,8 @@ function confetti(){ if(state.settings.reducedMotion) return;
   document.body.appendChild(c); setTimeout(()=>c.remove(),900);
 }
 const ERRT={ noFunds:'Not enough coins', blocked:'That tile is locked', locked:'Needs a higher café level 💭',
-  noUses:'No uses left this café', notReady:"That stack doesn't match yet", emptySlot:'Tray slot is empty',
-  noOrder:'No order there', noCell:'No tile there', same:'Pick two different tiles', owned:'Already owned',
+  noUses:'No uses left this café', notReady:'Esas piezas no le alcanzan / el color no coincide', emptyPool:'Nada que colocar',
+  emptySlot:'Tray slot is empty', noOrder:'No order there', noCell:'No tile there', same:'Pick two different tiles', owned:'Already owned',
   noKind:'Unknown expansion', noSystem:'Unknown system', maxed:'Maxed out' };
 const err = r => toast(ERRT[(r&&r.error)||''] || (r&&r.error)||'');
 function persist(){ state.meta.lastSavedAt = Date.now(); localStorage.setItem(KEY, serializeState(state)); }
@@ -334,7 +360,6 @@ function renderMenu(){
 // ============================================================================
 // RUN SCENE
 // ============================================================================
-function boardCols(){ const n=state.progress.boardCells; return n>=30?6:n>=20?5:n>=15?4:3; }
 function renderRun(){
   $('#app').innerHTML = `
     <div class="scene active">
@@ -349,9 +374,9 @@ function renderRun(){
       </div>
       <div class="idledecor" id="idleDecor"></div>
       <div class="orders" id="orders"></div>
-      <div class="board-wrap"><div class="board" id="board" style="grid-template-columns:repeat(${boardCols()},1fr)"></div></div>
+      <div class="board-wrap"><div class="board" id="board"></div></div>
       <div class="pool" id="pool"></div>
-      <div class="hint" id="hint">Tap a tray stack → tap a tile to stack it.</div>
+      <div class="hint" id="hint">Toca un cliente de la cola, luego una pila del tablero para servirlo.</div>
       <div class="powerbar" id="powerbar"></div>
       <button class="btn btn-sec" id="btnClose" style="width:100%">🚪 Close café (keep coins)</button>
     </div>`;
@@ -374,50 +399,126 @@ function renderOrders(){
   const r=state.run;
   box.innerHTML = r.orders.map((o,i)=>{
     const cat = 'cat_client_'+( (i%3)+1 );
-    const ready = !o.served && readyOrder(o);
-    return `<div class="order-card ${o.served?'served':''} ${ready?'ready':''}" data-oid="${o.id}">
+    const ready = !o.served && orderIsReady(o);
+    const sel = ui.servingOrder===o.id;
+    return `<div class="order-card ${o.served?'served':''} ${ready?'ready':''} ${sel?'selected':''}" data-oid="${o.id}">
       ${spr(cat,44)}
       <div class="bubble">${o.qty}<span class="minitile" style="background:var(${tileVar(o.color)})"></span></div>
-      ${o.served?'✔':''}</div>`;
+      ${o.served?'✔':''}${sel?'<div class="seltag">▼</div>':''}</div>`;
   }).join('');
   $$('#orders .order-card').forEach(c=>c.addEventListener('click',()=>{
     const o=r.orders.find(x=>x.id===c.dataset.oid); if(!o||o.served) return;
-    if(readyOrder(o)) serveOrderFlow(o, o.cell);
-    else toast(`Need ${o.qty} of ${colorName(o.color)} on top`);
+    if(ui.mode){ ui.mode=null; ui.swapFirst=null; renderPowers(); }
+    if(ui.placeTile) ui.placeTile=false;
+    ui.slot=false;
+    ui.servingOrder = ui.servingOrder===o.id ? null : o.id;
+    $('#hint').textContent = ui.servingOrder
+      ? `Cliente seleccionado: ${o.qty} de ${colorName(o.color)} — ahora toca una PILA del tablero`
+      : 'Toca un cliente de la cola para servirlo.';
+    renderOrders(); renderBoard();
   }));
 }
 function colorName(c){ return {1:'peppermint',2:'sky',3:'rose',4:'blush',5:'lavender',6:'vanilla'}[c]||'tile'; }
-function readyStack(stack,o){
-  if(!stack||!stack.length) return false;
-  const t=stack[stack.length-1]; let n=0;
-  for(let i=stack.length-1;i>=0;i--){ if(stack[i]!==t) break; n++; }
-  return t===o.color && n===o.qty;
+// an order is "ready" when ANY non-blocked cell currently holds the exact top run
+function orderIsReady(o){
+  const r=state.run; if(!r) return false;
+  return r.board.some(c=>{
+    if(c.blocked||!c.stack||!c.stack.length) return false;
+    const t=c.stack[c.stack.length-1]; let n=0;
+    for(let i=c.stack.length-1;i>=0;i--){ if(c.stack[i]!==t) break; n++; }
+    return t===o.color && n===o.qty;
+  });
 }
-const readyOrder = o => readyStack(state.run.board[o.cell].stack, o);
 
+function hx(){ const v=getComputedStyle(document.documentElement).getPropertyValue('--hx').trim(); const n=parseFloat(v); return isNaN(n)?36:n; }
+const HEX_DIRS=[[1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]];
+const key=(q,r)=>q+','+r;
+// axial honeycomb for cells that lack explicit {q,r} (fallback for old saves).
+function assignHoneycomb(n){
+  if(n===7) return [{q:0,r:-1},{q:1,r:-1},{q:-1,r:0},{q:0,r:0},{q:1,r:0},{q:-1,r:1},{q:0,r:1}];
+  const out=[{q:0,r:0}], seen=new Set(['0,0']), queue=[{q:0,r:0}];
+  while(out.length<n&&queue.length){
+    const cur=queue.shift();
+    for(const [dq,dr] of HEX_DIRS){ const q=cur.q+dq, r=cur.r+dr, k=key(q,r);
+      if(!seen.has(k)){ seen.add(k); const node={q,r}; out.push(node); queue.push(node); if(out.length>=n) break; } }
+  }
+  return out.slice(0,n);
+}
+function cellHTML(cell, idx){
+  let cls='cell';
+  if(cell.blocked) cls+=' blocked';
+  if(cell.calamity) cls+=' calm';
+  if(ui.mode==='destroy') cls+=' targetmode';
+  if(ui.mode==='swap') cls+=' swapmode';
+  if(ui.slot!==false && !cell.blocked) cls+=' targetable';
+  if(ui.servingOrder!==null && !cell.blocked) cls+=' serve-target';
+  let stack='';
+  if(cell.stack&&cell.stack.length){
+    // stacks GROW UPWARD: pieces offset from the BOTTOM (bottom:Npx), never a
+    // growing `top:Npx` which would fill downward from the ceiling of the hex.
+    const step=Math.max(8,Math.round(hx()*0.28));
+    stack='<div class="stack">'+cell.stack.map((c,ci)=>
+      `<div class="tile" style="bottom:${ci*step}px;background:var(${tileVar(c)})"><span class="dot"></span></div>`).join('')+
+      (cell.stack.length>1?`<span class="badge">${cell.stack.length}</span>`:'')+'</div>';
+  }
+  return `<div class="${cls}" data-id="${idx}"><div class="hexbg"></div>${stack}
+    ${cell.blocked?'<div class="lockovl">🔒</div>':''}
+    ${cell.calamity?'<div class="calmk"></div>':''}</div>`;
+}
 function renderBoard(){
   const box=$('#board'); if(!box) return;
   const r=state.run;
-  box.innerHTML = r.board.map(cell=>{
-    let cls='cell';
-    if(cell.blocked) cls+=' blocked';
-    if(cell.calamity) cls+=' calm';
-    if(ui.mode==='destroy') cls+=' targetmode';
-    if(ui.mode==='swap') cls+=' swapmode';
-    let stack='';
-    if(cell.stack&&cell.stack.length){
-      stack='<div class="stack">'+cell.stack.map((c,ci)=>
-        `<div class="tile" style="top:${ci*9}px;background:var(${tileVar(c)})"><span class="dot"></span></div>`).join('')+'</div>';
+  const board=r.board||[];
+  // axial coords: prefer cell.{q,r}; fall back to a generated honeycomb for indexes
+  const coords=assignHoneycomb(board.length);
+  const coord=(c,i)=> (c.q!==undefined&&c.r!==undefined)?{q:c.q,r:c.r}:coords[i];
+  const occ=new Map();
+  board.forEach((c,i)=>{
+    const p=coord(c,i);
+    occ.set(key(p.q,p.r),{cell:c, idx:i, p});
+  });
+  // free adjacent hex positions for expansion, highlighted for the player to
+  // position — bounded: snapshot the original cell coords; never mutate occ while
+  // iterating it (that would spawn slots outward forever -> infinite loop).
+  if(ui.placeTile){
+    const cellCoords=[...occ.values()].map(v=>v.p);   // snapshot — never mutate occ while iterating it
+    for(const p of cellCoords){
+      for(const [dq,dr] of HEX_DIRS){
+        const q=p.q+dq, r=p.r+dr, k=key(q,r);
+        if(!occ.has(k)) occ.set(k,{slot:true, p:{q,r}});
+      }
     }
-    return `<div class="${cls}" data-id="${cell.cell}"><div class="hexbg"></div>${stack}
-      ${cell.blocked?'<div class="lockovl">🔒</div>':''}
-      ${cell.calamity?'<div class="calmk"></div>':''}</div>`;
-  }).join('');
-  $$('#board .cell').forEach(c=>c.addEventListener('click',()=>tapTile(+c.dataset.id)));
-  // mark targetable cells
-  if(ui.slot!==false){
-    $$('#board .cell:not(.blocked)').forEach(c=>c.classList.add('targetable'));
   }
+  // group by axial row (r); rows are ABSOLUTELY positioned with the exact
+  // honeycomb offsets (CSS comment above): x offset 1.5*hx for odd axial r,
+  // row pitch 0.47*ch, same-row centers 3*hx apart (cell 2*hx + gap 1*hx).
+  const byRow=new Map();
+  occ.forEach((v,kMinusR)=>{ const rr=v.p.r; if(!byRow.has(rr)) byRow.set(rr,[]); byRow.get(rr).push(v); });
+  const rows=[...byRow.keys()].sort((a,b)=>a-b);
+  const minR=rows.length?rows[0]:0;
+  const hxN=hx(), chN=hxN*1.732;          // live --hx/--ch (media queries resize hexes)
+  const rowStepX=hxN*3, altOffX=hxN*1.5, rowPitch=chN*0.47;
+  let html='', maxW=0;
+  const maxH=rows.length*rowPitch-rowPitch+chN;
+  for(const rf of rows){
+    const k=rf-minR, odd=((rf%2)+2)%2;    // true axial parity (robust to sparse r)
+    const left=odd?altOffX:0, top=k*rowPitch;
+    const items=byRow.get(rf).sort((a,b)=>a.p.q-b.p.q);
+    maxW=Math.max(maxW, left+items.length*rowStepX-rowStepX+hxN*2);
+    html+=`<div class="boardrow${odd?' alt':''}" data-row="${rf}" style="left:${left}px;top:${top}px">`;
+    for(const v of items){
+      if(v.slot) html+=`<div class="cell expand-slot" data-pos="${v.p.q},${v.p.r}" title="Colocar mesa aquí"><div class="hexbg"></div><div class="exicon">＋</div></div>`;
+      else html+=cellHTML(v.cell, v.idx);
+    }
+    html+='</div>';
+  }
+  box.style.width=maxW+'px';
+  box.style.height=maxH+'px';
+  box.innerHTML=html;
+  $$('#board .cell').forEach(c=>c.addEventListener('click',()=>{
+    if(c.dataset.pos){ placeTileFlow(c.dataset.pos); return; }
+    tapTile(+c.dataset.id);
+  }));
 }
 function renderPool(){
   const box=$('#pool'); if(!box) return;
@@ -431,8 +532,9 @@ function renderPool(){
   $$('#pool .poolslot').forEach(s=>s.addEventListener('click',()=>{
     const i=+(s.dataset.slot);
     if(!state.run.pool[i]||state.run.pool[i].length===0){ toast('That tray slot is empty'); return; }
+    ui.servingOrder=null; ui.placeTile=false;
     ui.slot = (ui.slot===i)?false:i;
-    $('#hint').textContent = ui.slot!==false ? 'Now tap a tile to place this stack.' : 'Tap a tray stack to pick it up.';
+    $('#hint').textContent = ui.slot!==false ? 'Ahora toca una celda del tablero para colocar la pila.' : 'Toca una bandeja para recogerla.';
     renderPool(); renderBoard(); renderPoolSel();
   }));
 }
@@ -465,13 +567,13 @@ function tapTile(id){
   const r=state.run, cell=r.board[id];
   if(ui.mode==='destroy'){ destroyFlow(id); return; }
   if(ui.mode==='swap'){ swapFlow(id); return; }
-  if(cell.blocked){ toast('Locked'); return; }
   if(ui.slot!==false){ placeFlow(id, ui.slot); return; }
-  const o=r.orders.find(x=>x.cell===id);
-  if(o && !o.served && readyOrder(o)){ serveOrderFlow(o,id); return; }
-  const k=r.pool.findIndex(p=>p.length>0);
-  if(k>=0){ ui.slot=k; $('#hint').textContent='Tap a tile to place the tray stack'; renderPool(); renderBoard(); }
-  else toast('Tray empty — place all three to refill');
+  if(ui.servingOrder!==null){
+    if(cell.blocked){ toast('Bloqueada'); return; }
+    serveOrderFlow(ui.servingOrder, id); return;
+  }
+  if(cell.blocked){ toast('Bloqueada'); return; }
+  if(r.orders.some(o=>!o.served)) toast('Toca primero un cliente de la cola, luego una pila.');
 }
 function destroyFlow(id){ const r=useDestroyPile(state,id);
   if(r.error){ err(r); } else { const el=$(`[data-id="${id}"]`); if(el) floatOn(el,'💥'); state=r; toast('Stack cleared!'); }
@@ -483,17 +585,40 @@ function swapFlow(id){ if(ui.swapFirst===null){ ui.swapFirst=id; toast('Now tap 
 function placeFlow(cell,slot){ const res=placeStack(state,cell,slot);
   if(res.error){ err(res); return; } const el=$(`[data-id="${cell}"]`); if(el) floatOn(el,'📥');
   state=res; ui.slot=false; renderAll(); checkFull(); }
-function serve(id2,o){ serveOrderFlow(o,id2); }
-function serveOrderFlow(o,cellId){ const res=serveOrder(state,o.id);
-  if(res.error){ err(res); return; }
+// 2-step serve: a client was already chosen (ui.servingOrder); tapping any pile
+// (cellId) tries to serve that order to it — the target cell is NOT bound to the order.
+// axial free neighbors of the current board — the highlighted expansion positions.
+// NOTE: bounded — iterate the ORIGINAL cell coords; never insert into the occupancy
+// set while iterating it, or slots would spawn outward forever (infinite loop).
+function freeSlots(boardCells){
+  const coords=assignHoneycomb((boardCells||[]).length);
+  const occ=new Set();
+  const cellCoords=[];
+  (boardCells||[]).forEach((c,i)=>{ const p=(c.q!==undefined&&c.r!==undefined)?{q:c.q,r:c.r}:coords[i]; cellCoords.push(p); occ.add(key(p.q,p.r)); });
+  const out=[];
+  for(const p of cellCoords) for(const [dq,dr] of HEX_DIRS){ const nk=key(p.q+dq,p.r+dr); if(!occ.has(nk)){ occ.add(nk); out.push({q:p.q+dq,r:p.r+dr}); } }
+  return out;
+}
+function placeTileFlow(pos){
+  const [q,r]=pos.split(',').map(Number);
+  const before=state.run.board.length;
+  const res=buyExpansion(state,'board',{q,r});
+  if(res && res.error){ err(res); ui.placeTile=false; renderBoard(); return; }
+  state=res;
+  if(state.run.board.length>before){ ui.placeTile=false; toast('Mesa añadida ✨'); confetti(); }
+  else { ui.placeTile=true; toast('Toca un hueco libre para colocar la mesa'); }
+  renderAll();
+}
+function serveOrderFlow(o,cellId){ const res=serveOrder(state,o.id,cellId);
+  if(res && res.error){ err(res); renderAll(); return; }
   const got=res.progress.coins-state.progress.coins; const el=$(`[data-id="${cellId}"]`);
-  state=res; if(el) floatOn(el,'+'+fmt(got)); confetti(); renderAll();
+  state=res; ui.servingOrder=null; if(el) floatOn(el,'+'+fmt(got)); confetti(); renderAll();
   if(state.run && state.run.orders.every(x=>x.served)) doClose('allServed'); }
 function checkFull(){ const r=state.run; if(!r) return;
   const free=r.board.filter(b=>!b.blocked && b.stack.length===0);
   const any=r.orders.some(o=>!o.served);
   if(free.length===0 && any) doClose('full'); }
-function openTheCafe(){ state=openRun(state, Math.random); ui.slot=false; ui.mode=null; persist(); renderAll(); }
+function openTheCafe(){ state=openRun(state, Math.random); ui.slot=false; ui.mode=null; ui.servingOrder=null; ui.placeTile=false; persist(); renderAll(); }
 function doClose(reason){ const res=closeRun(state, reason); state=res; persist();
   $('#closeTitle').textContent = reason==='allServed' ? '☕ All cats served!' : reason==='full' ? 'Full & cleared!' : 'Café closed';
   $('#closeMsg').textContent = reason==='allServed' ? 'A perfect closing — every order served!' :
@@ -536,7 +661,7 @@ function showShop(){
   $('#shopBox').innerHTML = `
     <div class="rowcard"><div class="rowinfo"><b>Extra table</b><span>${p.clients} → ${p.clients+1} cats</span></div>
       <button class="btn btn-sm" data-exp="clients">${fmt(price('clients'))}🪙</button></div>
-    <div class="rowcard"><div class="rowinfo"><b>Bigger floor</b><span>${p.boardCells} → ${p.boardCells+3} tiles</span></div>
+    <div class="rowcard"><div class="rowinfo"><b>Bigger floor</b><span>Elige un hueco adyacente y coloca una mesa</span></div>
       <button class="btn btn-sm" data-exp="board">${fmt(price('board'))}🪙</button></div>
     <div class="rowcard"><div class="rowinfo"><b>Menu variety</b><span>${p.productsBought} → ${p.productsBought+1} product</span></div>
       <button class="btn btn-sm" data-exp="products">${fmt(price('products'))}🪙</button></div>
@@ -545,6 +670,13 @@ function showShop(){
     ${idleRow('workers')}${idleRow('fame')}${idleRow('machines')}`;
   $$('#shopBox [data-exp]').forEach(b=>b.addEventListener('click',()=>{
     const k=b.dataset.exp;
+    if(k==='board'){
+      if(!state.run || freeSlots(state.run.board).length===0){ toast('No hay hueco libre junto al tablero'); return; }
+      ui.placeTile=true; ui.slot=false; ui.servingOrder=null;
+      $('#shopModal').classList.remove('show');
+      toast('Toca un hueco ✨ para colocar la mesa');
+      renderAll(); return;
+    }
     const res = k==='mult' ? buyMultiplier(state) : buyExpansion(state,k);
     if(res.error){ err(res); } else { state=res; persist(); renderAll(); showShop(); confetti(); }
   }));
