@@ -38,6 +38,14 @@ export const CONFIG = {
 const clone = (x) => structuredClone(x);
 const rngInt = (rng, lo, hi) => lo + Math.floor(rng() * (hi - lo + 1));
 
+// R3.1: build a single-color pool pile — one random color in [1, cu],
+// repeated `size` (1..3) times. Used by generateBoard, buildPick (refill) and
+// useRefreshPool so EVERY pool slot is monochrome.
+function pile(rng, cu) {
+  const color = rngInt(rng, 1, cu);
+  return Array.from({ length: rngInt(rng, 1, 3) }, () => color);
+}
+
 export function mulberry32(seed) {
   let a = seed >>> 0;
   return function () {
@@ -99,7 +107,7 @@ export function createGame(init = {}) {
     },
     progress: {
       coins: 0, totalGames: 0, cafeLevel: 1, productsBought: 0,
-      clients: 3, boardCells: 12, colorsUnlocked: 1,
+      clients: 3, boardCells: 7, colorsUnlocked: 1, // board starts as 7-cell hex 2-3-2
       econ: { multLevel: 0 },
     },
     economy: { multLevel: 0 },
@@ -141,39 +149,84 @@ function refreshProgressClose(s) {
 }
 
 // ---------------------------------------------------------------------------
-// Board / order / pool generation (R2.1, R8, R10.2)
+// Hex axial-geometry helpers (R2 board redesign). A cell is {id,q,r,stack,...}
+// where q/r are axial hex coordinates. Neighbors use the 6 standard axial deltas.
+// ---------------------------------------------------------------------------
+// standard axial hex adjacency (flat/pointy agnostic)
+export const HEX_ADJ = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]];
+
+// initial 7-cell board shaped 2-3-2 = hexagon of radius 1 (axial coords):
+//   column q=-1 : r=0, r=1        (2 cells)
+//   column q= 0 : r=-1, r=0, r=1  (3 cells)
+//   column q= 1 : r=-1, r=0       (2 cells)
+export function initialHexCells() {
+  const coords = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]];
+  return coords.map(([q, r], i) => ({
+    id: `c${i}`, q, r,
+    stack: [], blocked: false, calamity: false, calamityStack: false,
+  }));
+}
+
+export function isHexAdjacent(a, b) {
+  if (!a || !b) return false;
+  if (a.q === b.q && a.r === b.r) return false;
+  return HEX_ADJ.some(([dq, dr]) => a.q + dq === b.q && a.r + dr === b.r);
+}
+
+// every free axial position that touches >=1 occupied cell (valid drag targets)
+export function freeSlots(state) {
+  const board = state.run?.board || [];
+  const occupied = new Set(board.map((c) => `${c.q},${c.r}`));
+  const seen = new Set();
+  const out = [];
+  for (const c of board) {
+    for (const [dq, dr] of HEX_ADJ) {
+      const key = `${c.q + dq},${c.r + dr}`;
+      if (!occupied.has(key) && !seen.has(key)) { seen.add(key); out.push({ q: c.q + dq, r: c.r + dr }); }
+    }
+  }
+  return out;
+}
+
+// price of buying one new tile (reuses the board-expansion price formula R6.2)
+function tilePrice(s) {
+  return Math.round(CONFIG.EXPAND.board.price(s));
+}
+
+// not exported helper guard shared by expandTile validation
+function expandTileCheck(s, q, r) {
+  const board = s.run?.board;
+  if (!board || !board.length) return { error: 'noRun' };
+  if (board.some((c) => c.q === q && c.r === r)) return { error: 'occupied' };
+  const adjacent = board.some((c) => HEX_ADJ.some(([dq, dr]) => c.q + dq === q && c.r + dr === r));
+  if (!adjacent) return { error: 'notAdjacent' };
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Board / order / pool generation (R2 board redesign, R8, R10.2)
 // ---------------------------------------------------------------------------
 export function generateBoard(state, rng) {
   const p = state.progress;
-  const n = p.boardCells;
-  const capacity = Math.max(p.clients, n);              // never starve cells
-  const board = [];
-  for (let i = 0; i < capacity; i++) {
-    board.push({ cell: i, stack: [], blocked: false, calamity: false, calamityStack: false });
-  }
+  // every run opens on the fixed 7-cell hex (2-3-2); growth happens via expandTile
+  const board = initialHexCells();
 
-  // orders on distinct cells, unlocked colors only (R10.2), qty 2..4
-  const orderCells = pickDistinct(rng, capacity, p.clients);
-  const orders = orderCells.map((cell, i) => ({
-    id: `ord-${i}`, cell,
-    color: rngInt(rng, 1, p.colorsUnlocked),
-    qty: rngInt(rng, 2, 4),
-    served: false,
+  // orders are NOT anchored to any cell: {id,color,qty,served} (R4 redesign)
+  const orders = Array.from({ length: p.clients }, (_, i) => ({
+    id: `ord-${i}`, color: rngInt(rng, 1, p.colorsUnlocked),
+    qty: rngInt(rng, 2, 4), served: false,
   }));
 
-  // calamities (R8): only when > threshold, variable count between [lo,hi]
+  // calamities (R8): only when progress.boardCells > threshold; count variable
   let calamities = 0;
-  if (n > CONFIG.CALAMITY_THRESHOLD) {
-    const lo = Math.ceil(n / 5);
-    const hi = Math.floor(n / 3);
+  if (p.boardCells > CONFIG.CALAMITY_THRESHOLD) {
+    const lo = Math.ceil(p.boardCells / 5);
+    const hi = Math.floor(p.boardCells / 3);
     calamities = lo <= hi ? rngInt(rng, lo, hi) : 0;
-    const blockedSet = new Set(orderCells);
-    const free = [];
-    for (let i = 0; i < capacity; i++) if (!blockedSet.has(i)) free.push(i);
+    const free = board.filter((c) => !c.calamity);
     const chosen = pickDistinct(rng, free.length, Math.min(calamities, free.length));
     for (const ci of chosen) {
-      const cellId = free[ci];
-      const c = board[cellId];
+      const c = free[ci];
       c.calamity = true;
       if (rng() < CONFIG.BLOCK_PROB) {
         c.blocked = true;
@@ -187,8 +240,7 @@ export function generateBoard(state, rng) {
   }
 
   // pool: 3 piles, single color each, unlocked range (R3.1, R10.2)
-  const pool = Array.from({ length: 3 }, () =>
-    Array.from({ length: rngInt(rng, 1, 3) }, () => rngInt(rng, 1, p.colorsUnlocked)));
+  const pool = Array.from({ length: 3 }, () => pile(rng, p.colorsUnlocked));
 
   return { board, orders, pool, poolPlaced: 0, calamities };
 }
@@ -224,21 +276,23 @@ export function topGroup(stack) {
 }
 
 // ---------------------------------------------------------------------------
-// orderReadyOn — topGroup matches order color+qty exactly (R4.2)
+// orderReadyOn — topGroup of a given pile cell can serve the order (R4 redesign)
+// New signature: orderReadyOn(state, orderId, cellId). Orders have no cell anchor;
+// the player picks the client first, then the pile to inspect.
 // ---------------------------------------------------------------------------
-export function orderReadyOn(state, orderId) {
+export function orderReadyOn(state, orderId, cellId) {
   const order = state.run.orders.find((o) => o.id === orderId);
   if (!order) return false;
-  const cell = state.run.board[order.cell];
+  const cell = state.run.board[cellId];
   if (!cell || order.served) return false;
   const tg = topGroup(cell.stack);
-  return tg.color === order.color && tg.count === order.qty;
+  return tg.color === order.color && tg.count >= order.qty;
 }
 
 // ---------------------------------------------------------------------------
 // placeStack(state, cellId, slot?) — place a pool pile onto a cell (R3)
 // ---------------------------------------------------------------------------
-export function placeStack(state, cellId, slot) {
+export function placeStack(state, cellId, slot, rng) {
   const s = clone(state);
   const b = s.run.board;
   if (!b || cellId < 0 || cellId >= b.length) return { error: 'noCell' }; // R3.5
@@ -255,37 +309,60 @@ export function placeStack(state, cellId, slot) {
   s.run.pool[idx] = [];
   s.run.poolPlaced += 1;
   if (s.run.poolPlaced === 3) {
-    // refill all 3 at once (R3.3)
-    const gen = buildPick(s, 3);
-    s.run.pool = gen;
+    // refill all 3 at once (R3.3); injected rng keeps it deterministic
+    s.run.pool = buildPick(rng, 3, s.progress.colorsUnlocked);
     s.run.poolPlaced = 0;
   }
   return s;
 }
 
-function buildPick(state, n) {
-  const cu = state.progress.colorsUnlocked;
-  return Array.from({ length: n }, () =>
-    Array.from({ length: rngInt(Math.random, 1, 3) }, () => rngInt(Math.random, 1, cu)));
+function buildPick(rng, n, cu) {
+  return Array.from({ length: n }, () => pile(rng || Math.random, cu));
 }
 
 // ---------------------------------------------------------------------------
-// serveOrder(state, orderId) — clear the cell, mark served, pay (R4.3+5.1)
+// serveOrder(state, orderId, cellId) — click client (order) then pile (cell).
+// Consumes EXACTLY order.qty pieces of the order's COLOR from the top of the
+// pile (R4 redesign). Unlike the old rule, a pile larger than qty is served too
+// (pile of 4, order qty 3 -> 1 piece remains). pago R5.1.
 // ---------------------------------------------------------------------------
-export function serveOrder(state, orderId) {
+export function serveOrder(state, orderId, cellId) {
   const s = clone(state);
-  const order = s.run.orders.find((o) => o.id === orderId);
+  const order = s.run && s.run.orders.find((o) => o.id === orderId);
   if (!order) return { error: 'noOrder' };
   if (order.served) return { error: 'alreadyServed' };                    // R4.4
-  const cell = s.run.board[order.cell];
+  const cell = s.run.board[cellId];
+  if (!cell) return { error: 'noCell' };
   const tg = topGroup(cell.stack);
-  if (tg.color !== order.color || tg.count !== order.qty) {               // R4.4
-    return { error: 'notReady' };
+  // wrong color, or not enough pieces: error, consume nothing
+  if (tg.color !== order.color || tg.count < order.qty) {                 // R4.4
+    return { error: 'notEnough' };
   }
-  cell.stack = [];                                                         // R4.3 empty
+  // consume exactly order.qty pieces from the top (they are all order.color)
+  cell.stack.splice(cell.stack.length - order.qty, order.qty);
   order.served = true;
   const amount = pay(order, s.economy.multLevel);                          // R5.1
   s.progress.coins += amount;
+  return s;
+}
+
+// ---------------------------------------------------------------------------
+// expandTile(state, q, r) — buy ONE tile and place it at the axial position
+// (q,r). Valid only if the position is FREE and ADJACENT to >=1 existing cell.
+// Costs coins (R6.2 price formula) and grows boardCells by 1.
+// ---------------------------------------------------------------------------
+export function expandTile(state, q, r) {
+  const s = clone(state);
+  const guard = expandTileCheck(s, q, r);
+  if (guard) return guard;
+  const price = tilePrice(s);
+  if (s.progress.coins < price) return { error: 'noFunds' };              // R6.4
+  s.run.board.push({
+    id: `c${s.progress.boardCells}`, q, r,
+    stack: [], blocked: false, calamity: false, calamityStack: false,
+  });
+  s.progress.boardCells += 1;
+  s.progress.coins -= price;
   return s;
 }
 
@@ -367,9 +444,7 @@ export function useRefreshPool(state, rng) {
   const guard = ensureOwnedUses(state, 'refreshPool');
   if (guard) return guard;
   const s = clone(state);
-  const r = rng || Math.random;
-  s.run.pool = Array.from({ length: 3 }, () =>
-    Array.from({ length: rngInt(r, 1, 3) }, () => rngInt(r, 1, s.progress.colorsUnlocked)));
+  s.run.pool = Array.from({ length: 3 }, () => pile(rng || Math.random, s.progress.colorsUnlocked)); // R7.7 + R3.1
   s.run.poolPlaced = 0;                                                   // R7.7
   s.skills.refreshPool.uses -= 1;
   return s;
