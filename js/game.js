@@ -281,7 +281,7 @@ export function topGroup(stack) {
 // the player picks the client first, then the pile to inspect.
 // ---------------------------------------------------------------------------
 export function orderReadyOn(state, orderId, cellId) {
-  const order = state.run.orders.find((o) => o.id === orderId);
+  const order = state.run.orders.find((o) => String(o.id) === String(orderId));
   if (!order) return false;
   const cell = state.run.board[cellId];
   if (!cell || order.served) return false;
@@ -328,7 +328,7 @@ function buildPick(rng, n, cu) {
 // ---------------------------------------------------------------------------
 export function serveOrder(state, orderId, cellId) {
   const s = clone(state);
-  const order = s.run && s.run.orders.find((o) => o.id === orderId);
+  const order = s.run && s.run.orders.find((o) => String(o.id) === String(orderId));
   if (!order) return { error: 'noOrder' };
   if (order.served) return { error: 'alreadyServed' };                    // R4.4
   const cell = s.run.board[cellId];
