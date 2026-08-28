@@ -1,0 +1,179 @@
+{
+  "SPRITE_CELL": 128,
+  "cols": 5,
+  "rows": 4,
+  "sheetWidth": 640,
+  "sheetHeight": 512,
+  "sprites": [
+    {
+      "id": "cat_client_1",
+      "name": "Cat Client — Caramel",
+      "x": 0,
+      "y": 0,
+      "w": 128,
+      "h": 128,
+      "col": 0,
+      "row": 0
+    },
+    {
+      "id": "cat_client_2",
+      "name": "Cat Client — Cream",
+      "x": 128,
+      "y": 0,
+      "w": 128,
+      "h": 128,
+      "col": 1,
+      "row": 0
+    },
+    {
+      "id": "cat_client_3",
+      "name": "Cat Client — Grey",
+      "x": 256,
+      "y": 0,
+      "w": 128,
+      "h": 128,
+      "col": 2,
+      "row": 0
+    },
+    {
+      "id": "cat_worker",
+      "name": "Cat Worker (Barista)",
+      "x": 384,
+      "y": 0,
+      "w": 128,
+      "h": 128,
+      "col": 3,
+      "row": 0
+    },
+    {
+      "id": "machine_coffee",
+      "name": "Espresso Machine",
+      "x": 512,
+      "y": 0,
+      "w": 128,
+      "h": 128,
+      "col": 4,
+      "row": 0
+    },
+    {
+      "id": "machine_bar",
+      "name": "Bar / Vending Machine",
+      "x": 0,
+      "y": 128,
+      "w": 128,
+      "h": 128,
+      "col": 0,
+      "row": 1
+    },
+    {
+      "id": "furniture_table",
+      "name": "Wood Cafe Table",
+      "x": 128,
+      "y": 128,
+      "w": 128,
+      "h": 128,
+      "col": 1,
+      "row": 1
+    },
+    {
+      "id": "furniture_shelf",
+      "name": "Shelf & Plant",
+      "x": 256,
+      "y": 128,
+      "w": 128,
+      "h": 128,
+      "col": 2,
+      "row": 1
+    },
+    {
+      "id": "furniture_cup",
+      "name": "Coffee Cup",
+      "x": 384,
+      "y": 128,
+      "w": 128,
+      "h": 128,
+      "col": 3,
+      "row": 1
+    },
+    {
+      "id": "furniture_pastry",
+      "name": "Pastry (Croissant)",
+      "x": 512,
+      "y": 128,
+      "w": 128,
+      "h": 128,
+      "col": 4,
+      "row": 1
+    },
+    {
+      "id": "power_destroy",
+      "name": "Destroy Pile (Bomb)",
+      "x": 0,
+      "y": 256,
+      "w": 128,
+      "h": 128,
+      "col": 0,
+      "row": 2
+    },
+    {
+      "id": "power_swap",
+      "name": "Swap Piles",
+      "x": 128,
+      "y": 256,
+      "w": 128,
+      "h": 128,
+      "col": 1,
+      "row": 2
+    },
+    {
+      "id": "power_refresh",
+      "name": "Refresh Pool",
+      "x": 256,
+      "y": 256,
+      "w": 128,
+      "h": 128,
+      "col": 2,
+      "row": 2
+    },
+    {
+      "id": "calamity_lock",
+      "name": "Calamity / Lock",
+      "x": 384,
+      "y": 256,
+      "w": 128,
+      "h": 128,
+      "col": 3,
+      "row": 2
+    },
+    {
+      "id": "icon_coin",
+      "name": "Coin",
+      "x": 512,
+      "y": 256,
+      "w": 128,
+      "h": 128,
+      "col": 4,
+      "row": 2
+    },
+    {
+      "id": "icon_heart",
+      "name": "Heart (Payment)",
+      "x": 0,
+      "y": 384,
+      "w": 128,
+      "h": 128,
+      "col": 0,
+      "row": 3
+    },
+    {
+      "id": "icon_paw",
+      "name": "Paw (Level Badge)",
+      "x": 128,
+      "y": 384,
+      "w": 128,
+      "h": 128,
+      "col": 1,
+      "row": 3
+    }
+  ]
+}
