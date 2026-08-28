@@ -1,0 +1,11 @@
+{
+  "type": "module",
+  "name": "cozy-cat-cafe",
+  "version": "1.0.0",
+  "description": "Cozy Cat Café × HexaSort — Warm Vintage Café idle × hex-sort",
+  "main": "index.html",
+  "scripts": {
+    "test": "node --test test/rules.test.js",
+    "test:e2e": "node test/e2e.playthrough.js"
+  }
+}
