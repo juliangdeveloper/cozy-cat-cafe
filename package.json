@@ -6,6 +6,7 @@
   "main": "index.html",
   "scripts": {
     "test": "node --test test/rules.test.js",
-    "test:e2e": "node test/e2e.playthrough.js"
+    "test:e2e": "node test/e2e.playthrough.js",
+    "build": "node build.js"
   }
 }

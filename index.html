@@ -112,9 +112,15 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .stack{position:absolute;inset:0;z-index:2;pointer-events:none}
 .tile{position:absolute;left:50%;bottom:0;translate:-50% 0;width:calc(var(--hx)*1.78);height:calc(var(--hx)*1.54);
   display:flex;align-items:center;justify-content:center;
-  clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);outline:2px solid var(--ink);outline-offset:1px}
+  clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);
+  /* same-color darker border: box-shadow (not outline) because clip-path would
+     clip an outline entirely; the inset shadow follows the hexagon's 6 sides.
+     --tc is the tile color, set inline on each tile (see cellHTML). */
+  box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--tc),#000 30%)}
 .tile .dot{width:7px;height:7px;background:rgba(121,72,53,.35);border-radius:50%}
-.stack .badge{position:absolute;top:-8px;left:50%;translate:-50% 0;z-index:5;background:var(--highlight);
+/* top:-12px clears the topmost tile of a full 3-tile stack (its tip reaches
+   ~9px above the hex top with the compact 8px stack step) */
+.stack .badge{position:absolute;top:-12px;left:50%;translate:-50% 0;z-index:5;background:var(--highlight);
   border:2px solid var(--ink);border-radius:999px;font-size:10px;font-weight:800;padding:0 6px;line-height:1.2}
 .calmk{position:absolute;top:-9px;right:-3px;z-index:4;width:18px;height:18px;background:var(--danger);
   clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);border:2px solid var(--ink)}
@@ -133,9 +139,10 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   border:2px solid transparent;border-radius:10px;cursor:pointer}
 .poolslot.selected{background:var(--highlight);border:2px solid var(--accent)}
 .poolslot.drop{border:2px dashed var(--wood-dark)}
-.tray{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
-.ttile{width:46px;height:40px;margin-top:2px;display:flex;align-items:center;justify-content:center;
-  clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);box-shadow:0 2px 0 rgba(0,0,0,.15)}
+.tray{position:relative;width:46px;height:100%} /* tiles are absolute, stacked from the bottom like the board */
+.ttile{position:absolute;left:50%;bottom:0;translate:-50% 0;width:46px;height:40px;display:flex;align-items:center;justify-content:center;
+  clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);
+  box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--tc),#000 30%)}
 .ttile .d{width:6px;height:6px;background:rgba(121,72,53,.4);border-radius:50%;margin-top:-16px}
 .poolempty{font-size:10px;color:var(--wood-dark);font-weight:700;text-align:center;width:100%;align-self:flex-end;padding-bottom:6px}
 
@@ -431,6 +438,9 @@ function orderIsReady(o){
 }
 
 function hx(){ const v=getComputedStyle(document.documentElement).getPropertyValue('--hx').trim(); const n=parseFloat(v); return isNaN(n)?36:n; }
+// vertical offset between stacked hex tiles — ONE shared formula for the board
+// and the pool so both piles look identical (half the old 0.45*hx step).
+function stackStep(){ return Math.max(5,Math.round(hx()*0.225)); }
 const HEX_DIRS=[[1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]];
 const key=(q,r)=>q+','+r;
 // axial honeycomb for cells that lack explicit {q,r} (fallback for old saves).
@@ -456,9 +466,9 @@ function cellHTML(cell, idx){
   if(cell.stack&&cell.stack.length){
     // stacks GROW UPWARD: pieces offset from the BOTTOM (bottom:Npx), never a
     // growing `top:Npx` which would fill downward from the ceiling of the hex.
-    const step=Math.max(10,Math.round(hx()*0.45));
+    const step=stackStep();
     stack='<div class="stack">'+cell.stack.map((c,ci)=>
-      `<div class="tile" style="bottom:${ci*step}px;background:var(${tileVar(c)})"><span class="dot"></span></div>`).join('')+
+      `<div class="tile" style="bottom:${ci*step}px;--tc:var(${tileVar(c)});background:var(--tc)"><span class="dot"></span></div>`).join('')+
       (cell.stack.length>1?`<span class="badge">${cell.stack.length}</span>`:'')+'</div>';
   }
   return `<div class="${cls}" data-id="${idx}"><div class="hexbg"></div>${stack}
@@ -523,6 +533,7 @@ function renderBoard(){
 function renderPool(){
   const box=$('#pool'); if(!box) return;
   const r=state.run;
+  const step=stackStep(); // same compact stack offset as the board (stackStep)
   // VISUAL ORDER ONLY (reference pattern: color blocks + descending staircase).
   // The DOM order of the 3 trays is sorted, but `data-slot` keeps the REAL game
   // index, so selection/serving logic is untouched (placeStack uses pool[slot]).
@@ -534,8 +545,8 @@ function renderPool(){
     return hb-ha;                           // staircase: taller first
   });
   box.innerHTML = order.map(({i,pile})=>{
-    let inner = pile&&pile.length ? '<div class="tray">'+pile.map(c=>
-      `<div class="ttile" style="background:var(${tileVar(c)})"><span class="d"></span></div>`).join('')+'</div>'
+    let inner = pile&&pile.length ? '<div class="tray">'+pile.map((c,ci)=>
+      `<div class="ttile" style="bottom:${ci*step}px;--tc:var(${tileVar(c)});background:var(--tc)"><span class="d"></span></div>`).join('')+'</div>'
       : '<div class="poolempty">empty</div>';
     return `<div class="poolslot ${ui.slot===i?'selected':''} ${(!pile||!pile.length)?'drop':''}" data-slot="${i}">${inner}</div>`;
   }).join('');
