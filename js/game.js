@@ -280,8 +280,58 @@ function v2Pile(rng, cu) {
   return Array.from({ length: rngInt(rng, 1, 4) }, () => rngInt(rng, 1, cu));
 }
 
-export function openRun(state, rng) {
+// ---------------------------------------------------------------------------
+// applyCalamities(state, rng) — R8 v2 + R14.5 (calamidades sobre JUGABLES).
+// DECISIÓN DE DISEÑO (R14.5): con el board dual 30 el umbral R8.1 ya NO se
+// evalúa al abrir la partida (núcleo jugable = 7, nunca > 15 al abrir); entra
+// EN JUEGO cuando el jugador activa baldosas (activateTile) y el conteo de
+// celdas JUGABLES (no dormant, no blocked) cruza 15. Para que las calamidades
+// apliquen UNA sola vez por partida existe el flag run.calamitiesApplied:
+//  * openRun llama applyCalamities tras generar el board (con 7 jugables es
+//    un no-op, pero queda el camino único de generación);
+//  * activateTile re-llama applyCalamities tras activar: si jugables > 15 y
+//    el flag aún no está puesto, aplica y marca el flag. Llamadas posteriores
+//    son no-op (una sola vez por partida).
+// Rango (R8.2/R14.5): lo=ceil(jugables/5), hi=floor(jugables/3)
+// (si hi<lo, hi=lo); count = entero en [lo,hi] según rng. Cada calamidad se
+// elige (rng) entre celdas JUGABLES: 50% celda blocked (R8.4, no colocable /
+// no activable), 50% pila pre-colocada stack=[color]*rngInt(1,3) con color
+// uniforme entre los desbloqueados del pool (R8.3). Anota run.calamities=count
+// (R8.5 bonus al cerrar = bonusCalamity, ya existente).
+// ---------------------------------------------------------------------------
+export function applyCalamities(state, rng) {
   const s = clone(state);
+  if (!s.run || !Array.isArray(s.run.board)) return s;
+  if (s.run.calamitiesApplied) return s;                    // una sola vez por partida
+  const r = rng || Math.random;
+  const playable = s.run.board.filter((c) => c && !c.dormant && !c.blocked);
+  const n = playable.length;
+  if (n <= CONFIG.CALAMITY_THRESHOLD) return s;             // R8.1/R14.5 solo jugables > 15
+  const lo = Math.ceil(n * CONFIG.CALAMITY_MIN_FRAC);       // R8.2 lo
+  const hi = Math.max(Math.floor(n * CONFIG.CALAMITY_MAX_FRAC), lo); // R8.2 hi
+  const count = rngInt(r, lo, hi);                          // cantidad variable
+  // color del pool para pilas pre-colocadas: uniforme entre desbloqueados
+  const cu = poolMaxColor(s.run.rosterIndex, s.progress.colorsOwned);
+  const idxs = pickDistinct(r, n, count);                   // celdas jugables distintas
+  for (const i of idxs) {
+    const cell = playable[i];
+    cell.calamity = true;
+    if (r() < CONFIG.BLOCK_PROB) {                          // R8.4 ~50% bloqueada
+      cell.blocked = true;
+      cell.calamityStack = false;
+    } else {                                                // R8.3 ~50% pila pre-colocada
+      const color = rngInt(r, 1, cu);
+      cell.stack = Array.from({ length: rngInt(r, 1, 3) }, () => color);
+      cell.calamityStack = true;
+    }
+  }
+  s.run.calamities = count;                                 // R8.2 anotar (R8.5 bonus)
+  s.run.calamitiesApplied = true;
+  return s;
+}
+
+export function openRun(state, rng) {
+  let s = clone(state);
   if (s.progress.permTiles == null) s.progress.permTiles = 1;      // v2 default (saves v1)
   const board = generateBoard(30, rng);                            // R14.1 board dual 30
   const orders = [{ id: 'ord-0', color: 1, qty: rngInt(rng, 2, 4), served: false }]; // R13.3 Gato
@@ -289,6 +339,7 @@ export function openRun(state, rng) {
     phase: 'open', board, orders,
     pool: Array.from({ length: 3 }, () => v2Pile(rng, poolMaxColor(1, s.progress.colorsOwned))),
     poolPlaced: 0, calamities: 0,
+    calamitiesApplied: false,                                      // R14.5 una vez por partida
     rosterIndex: 1,                                                // R13.3 solo Gato
     placedCounter: 0,                                              // R13.4
     runTilesActivated: 0,                                          // R14.3
@@ -298,6 +349,9 @@ export function openRun(state, rng) {
       s.skills[key].uses = CONFIG.USES_PER_RUN[key];          // R7.4 replenish per run
     }
   }
+  // R8/R14.5: generación única de calamidades (con el núcleo 7 jugable es
+  // no-op al abrir; entra en juego vía activateTile al cruzar 15 jugables).
+  s = applyCalamities(s, rng);
   s.meta.lastSeenAt = s.meta.lastSeenAt;
   return s;
 }
@@ -471,8 +525,8 @@ function v2CellOf(s, cellId) {
 
 // NOTE: los retornos {error} llevan `state` (clone SIN mutar) — el contrato
 // v2 de la suite hace unwind({error,state}) para verificar "sin mutar".
-export function activateTile(state, cellId) {
-  const s = clone(state);
+export function activateTile(state, cellId, rng) {
+  let s = clone(state);
   if (!s.run || !Array.isArray(s.run.board)) return { error: 'noRun', state: s };
   const cell = v2CellOf(s, cellId);
   if (!cell) return { error: 'noCell', state: s };
@@ -484,6 +538,10 @@ export function activateTile(state, cellId) {
   cell.dormant = false;                                // activa ESTA partida
   s.run.runTilesActivated = (s.run.runTilesActivated || 0) + 1;
   s.progress.coins -= price;
+  // R14.5: al activar puede cruzarse el umbral de JUGABLES (> 15) — las
+  // calamidades entran UNA sola vez por partida (flag run.calamitiesApplied;
+  // applyCalamities es no-op si ya aplicaron o si no se cruzó el umbral).
+  s = applyCalamities(s, rng);
   return s;
 }
 
