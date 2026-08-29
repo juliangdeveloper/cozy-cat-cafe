@@ -38,6 +38,7 @@ export const CONFIG = {
   DEBRIS_THRESHOLD: 10,             // v2 escombros: umbral para entrar en tablero
   DEBRIS_BONUS_PER: 25,             // v2 escombros: bonus por escombro limpiado
   CASCADE_STEP_MS: 1600,            // v2 cascada: ms entre pasos (merge en cadena)
+  PREVIEW_PRICE: 80,                // v2 R15.1 precio previewPool = PREVIEW_PRICE * level
 };
 
 // ---------------------------------------------------------------------------
@@ -138,6 +139,10 @@ export function createGame(init = {}) {
       destroyPile: { owned: false, uses: 0, price: 250, unlockLevel: 5 },
       swapPiles:   { owned: false, uses: 0, price: 120, unlockLevel: 3 },
       refreshPool: { owned: false, uses: 0, price: 40,  unlockLevel: 1 },
+      // v2 R15.1 — serveManual: modelo TOGGLE (owned + autoServe, SIN uses);
+      // previewPool: modelo LEVELS (owned + level 0..3, SIN uses).
+      serveManual: { owned: false, autoServe: true, price: 150, unlockLevel: 1 },
+      previewPool: { owned: false, level: 0, price: 80, unlockLevel: 1 },
     },
     idle: {
       workers:  { level: 1, ratePerSec: CONFIG.IDLE_RATE.workers,  cap: CONFIG.IDLE_CAP.workers },
@@ -689,6 +694,28 @@ export function buySkill(state, power) {
   const sk = state.skills[power];
   if (!sk) return { error: 'noSkill' };
   const s = clone(state);
+  // v2 R15.1 — serveManual: modelo TOGGLE (owned, SIN uses)
+  if (power === 'serveManual') {
+    if (sk.owned) return { error: 'owned' };
+    if (s.progress.cafeLevel < sk.unlockLevel) return { error: 'locked' }; // R7.1
+    if (s.progress.coins < sk.price) return { error: 'noFunds' };          // R7.3
+    s.progress.coins -= sk.price;
+    s.skills.serveManual.owned = true;        // autoServe ya viene true (toggle)
+    return s;
+  }
+  // v2 R15.1 — previewPool: modelo LEVELS (level 1..3, SIN uses)
+  if (power === 'previewPool') {
+    const level = sk.level || 0;
+    if (level >= 3) return { error: 'max' };
+    const price = CONFIG.PREVIEW_PRICE * (level + 1);   // p.ej. 80*level
+    if (s.progress.cafeLevel < sk.unlockLevel) return { error: 'locked' }; // R7.1
+    if (s.progress.coins < price) return { error: 'noFunds' };             // R7.3
+    s.progress.coins -= price;
+    s.skills.previewPool.owned = true;
+    s.skills.previewPool.level = level + 1;
+    return s;
+  }
+  // v1 — skills de USES (destroyPile / swapPiles / refreshPool)
   if (sk.owned) return { error: 'owned' };
   if (s.progress.cafeLevel < sk.unlockLevel) return { error: 'locked' }; // R7.1
   if (s.progress.coins < sk.price) return { error: 'noFunds' };          // R7.3
@@ -696,6 +723,37 @@ export function buySkill(state, power) {
   s.skills[power].owned = true;
   s.skills[power].uses = CONFIG.USES_PER_RUN[power];                     // R7.3
   return s;
+}
+
+// ---------------------------------------------------------------------------
+// v2 R15.1 — toggleServe(state): invierte skills.serveManual.autoServe.
+// Requiere la skill comprada; si no, {error} sin mutar.
+// ---------------------------------------------------------------------------
+export function toggleServe(state) {
+  const sk = state.skills && state.skills.serveManual;
+  if (!sk || !sk.owned) return { error: 'locked' };
+  const s = clone(state);
+  s.skills.serveManual.autoServe = !s.skills.serveManual.autoServe;
+  return s;
+}
+
+// ---------------------------------------------------------------------------
+// v2 R15.1 — previewPool(state, rng): vista previa PURA de las próximas tandas
+// del pool. level 0 (sin comprar) => null; level N (1..3) => N tandas de 3
+// pilas monocromas con colores uniformes en 1..min(rosterIndex, colorsOwned).
+// Determinista (rng inyectado) y NO muta el estado.
+// ---------------------------------------------------------------------------
+export function previewPool(state, rng) {
+  const sk = state && state.skills && state.skills.previewPool;
+  const level = (sk && sk.level) || 0;
+  if (level <= 0) return null;
+  const r = (state && state.run) || {};
+  const cu = poolMaxColor(r.rosterIndex, state.progress && state.progress.colorsOwned);
+  return Array.from({ length: level }, () =>
+    Array.from({ length: 3 }, () => {
+      const color = rngInt(rng, 1, cu);                    // pila monocroma
+      return Array.from({ length: rngInt(rng, 1, 4) }, () => color);
+    }));
 }
 
 function ensureOwnedUses(state, power) {
@@ -837,6 +895,11 @@ export function deserializeState(json) {
       if (s.progress) {
         if (s.progress.permTiles == null) s.progress.permTiles = 1;      // R14.2 (techo inicial, ver createGame)
         if (s.progress.colorsOwned == null) s.progress.colorsOwned = 4;  // R13.7
+      }
+      if (s.skills) {
+        // R15.1 defaults para saves viejos (modelo toggle / levels, sin uses)
+        if (!s.skills.serveManual) s.skills.serveManual = { owned: false, autoServe: true };
+        if (!s.skills.previewPool) s.skills.previewPool = { owned: false, level: 0 };
       }
       return s;
     }
