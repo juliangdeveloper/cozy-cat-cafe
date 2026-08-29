@@ -107,20 +107,21 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .cell.targetmode .hexbg{box-shadow:inset 0 0 0 3px var(--danger);filter:drop-shadow(0 0 4px var(--danger))}
 .cell.swapmode .hexbg{box-shadow:inset 0 0 0 3px var(--tile-blue);filter:drop-shadow(0 0 4px var(--tile-blue))}
 .cell.serve-target:not(.blocked) .hexbg{box-shadow:inset 0 0 0 3px var(--accent-2);filter:drop-shadow(0 0 4px var(--accent-2))}
-/* stacks GROW UPWARD from the base of the hex — pieces are laid from bottom,
-   never with a growing `top: Npx` (that would fill downward from the ceiling). */
+/* stacks are CENTERED on the hex and lifted upward via --lift (one shared
+   formula: tile i gets --lift:-i*step) — same clip-path as .hexbg so a single
+   tile covers its hex exactly. */
 .stack{position:absolute;inset:0;z-index:2;pointer-events:none}
-.tile{position:absolute;left:50%;bottom:0;translate:-50% 0;width:calc(var(--hx)*1.78);height:calc(var(--hx)*1.54);
+.tile{position:absolute;left:50%;top:50%;translate:-50% calc(-50% + var(--lift,0px));width:calc(var(--hx)*1.78);height:calc(var(--hx)*1.45);
   display:flex;align-items:center;justify-content:center;
-  clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);
+  clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%);
   /* same-color darker border: box-shadow (not outline) because clip-path would
      clip an outline entirely; the inset shadow follows the hexagon's 6 sides.
      --tc is the tile color, set inline on each tile (see cellHTML). */
   box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--tc),#000 30%)}
 .tile .dot{width:7px;height:7px;background:rgba(121,72,53,.35);border-radius:50%}
-/* top:-12px clears the topmost tile of a full 3-tile stack (its tip reaches
-   ~9px above the hex top with the compact 8px stack step) */
-.stack .badge{position:absolute;top:-12px;left:50%;translate:-50% 0;z-index:5;background:var(--highlight);
+/* top:-16px clears the topmost tile of a full 3-tile stack now that tiles are
+   centered on the hex (the lifted top tile pokes above the hex top) */
+.stack .badge{position:absolute;top:-16px;left:50%;translate:-50% 0;z-index:5;background:var(--highlight);
   border:2px solid var(--ink);border-radius:999px;font-size:10px;font-weight:800;padding:0 6px;line-height:1.2}
 .calmk{position:absolute;top:-9px;right:-3px;z-index:4;width:18px;height:18px;background:var(--danger);
   clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);border:2px solid var(--ink)}
@@ -464,11 +465,11 @@ function cellHTML(cell, idx){
   if(ui.servingOrder!==null && !cell.blocked) cls+=' serve-target';
   let stack='';
   if(cell.stack&&cell.stack.length){
-    // stacks GROW UPWARD: pieces offset from the BOTTOM (bottom:Npx), never a
-    // growing `top:Npx` which would fill downward from the ceiling of the hex.
+    // stacks GROW UPWARD: tile i is centered on the hex and lifted by
+    // --lift:-i*step (a growing `top:Npx` would fill downward from the ceiling).
     const step=stackStep();
     stack='<div class="stack">'+cell.stack.map((c,ci)=>
-      `<div class="tile" style="bottom:${ci*step}px;--tc:var(${tileVar(c)});background:var(--tc)"><span class="dot"></span></div>`).join('')+
+      `<div class="tile" style="--lift:${-ci*step}px;--tc:var(${tileVar(c)});background:var(--tc)"><span class="dot"></span></div>`).join('')+
       (cell.stack.length>1?`<span class="badge">${cell.stack.length}</span>`:'')+'</div>';
   }
   return `<div class="${cls}" data-id="${idx}"><div class="hexbg"></div>${stack}
