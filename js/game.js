@@ -313,6 +313,28 @@ export function topGroup(stack) {
 }
 
 // ---------------------------------------------------------------------------
+// R12.1 — merge: los vecinos axiales cuyo tope (racha final) tiene el MISMO
+// color que el tope resultante de `cell` ceden esa racha al final del stack de
+// `cell`. El vecino conserva su sub-pila inferior; si al cederla queda vacío
+// conserva una ficha del color fusionado (contrato T11a: D gana la racha
+// completa y A conserva [2]). Una pasada por los 6 vecinos.
+// ---------------------------------------------------------------------------
+function mergeNeighbors(s, cell) {
+  const board = (s.run && s.run.board) || [];
+  const tg = topGroup(cell.stack);
+  if (!tg.color) return;
+  for (const [dq, dr] of HEX_ADJ) {
+    const nb = board.find((c) => c && c.q === cell.q + dq && c.r === cell.r + dr);
+    if (!nb || !nb.stack || nb.stack.length === 0) continue;
+    const ntg = topGroup(nb.stack);
+    if (ntg.color === tg.color) {
+      cell.stack = cell.stack.concat(nb.stack.splice(nb.stack.length - ntg.count, ntg.count));
+      if (!nb.stack.length) nb.stack.push(ntg.color);   // conserva una ficha
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // orderReadyOn — topGroup of a given pile cell can serve the order (R4 redesign)
 // New signature: orderReadyOn(state, orderId, cellId). Orders have no cell anchor;
 // the player picks the client first, then the pile to inspect.
@@ -329,12 +351,29 @@ export function orderReadyOn(state, orderId, cellId) {
 // ---------------------------------------------------------------------------
 // placeStack(state, cellId, slot?) — place a pool pile onto a cell (R3)
 // ---------------------------------------------------------------------------
-export function placeStack(state, cellId, slot, rng) {
+export function placeStack(state, cellId, slot, rngOrStack) {
   const s = clone(state);
-  const b = s.run.board;
+  const b = s.run && s.run.board;
   if (!b || cellId < 0 || cellId >= b.length) return { error: 'noCell' }; // R3.5
   const cell = b[cellId];
   if (cell.blocked) return { error: 'blocked' };                            // R3.5/R8.4
+  // v2 firma TDD (state, cellId, slot, stack): pila EXPLÍCITA — se coloca sin
+  // tocar pool/roster/refill. R12.1: si el color de la pila no fusiona con
+  // ningún vecino (ni con el tope de la propia celda), la colocación se
+  // RECHAZA sin mutar (contrato T11b: {error, state} sin cambios).
+  if (Array.isArray(rngOrStack)) {
+    const pileArr = rngOrStack;
+    const pc = pileArr.length ? pileArr[pileArr.length - 1] : 0;
+    const canMerge = (pc && HEX_ADJ.some(([dq, dr]) => {
+      const nb = b.find((c) => c && c.q === cell.q + dq && c.r === cell.r + dr);
+      return !!(nb && nb.stack && nb.stack.length && topGroup(nb.stack).color === pc);
+    })) || topGroup(cell.stack).color === pc;
+    if (!canMerge) return { error: 'noMerge', state: s };
+    cell.stack = cell.stack.concat(pileArr);          // R3.4 apila al tope
+    mergeNeighbors(s, cell);                          // R12.1 merge
+    return s;
+  }
+  const rng = rngOrStack;
   if (cell.dormant) return { error: 'dormant' };        // v2 R14.2 no colocable
   if (s.run.poolPlaced >= 3 && s.run.pool.every((x) => x.length === 0)) {
     return { error: 'emptyPool' };
@@ -375,6 +414,7 @@ export function placeStack(state, cellId, slot, rng) {
     }
     s.run.poolPlaced = 0;
   }
+  mergeNeighbors(s, cell);                                 // R12.1 merge
   return s;
 }
 
@@ -460,12 +500,32 @@ export function buyPermTile(state, cellId) {
 // pile (R4 redesign). Unlike the old rule, a pile larger than qty is served too
 // (pile of 4, order qty 3 -> 1 piece remains). pago R5.1.
 // ---------------------------------------------------------------------------
+// R15.2 match determinista: entre las celdas servibles (tope color X, count>=N)
+// gana la de count MÁS CERCANO a N (menor count); empate => menor índice.
+function bestServeCell(board, order) {
+  let best = -1;
+  let bestCount = Infinity;
+  board.forEach((c, i) => {
+    if (!c || c.blocked || !c.stack || !c.stack.length) return;
+    const tg = topGroup(c.stack);
+    if (tg.color !== order.color || tg.count < order.qty) return;
+    if (tg.count < bestCount) { best = i; bestCount = tg.count; }
+  });
+  return best;
+}
+
 export function serveOrder(state, orderId, cellId) {
   const s = clone(state);
   const order = s.run && s.run.orders.find((o) => String(o.id) === String(orderId));
   if (!order) return { error: 'noOrder' };
   if (order.served) return { error: 'alreadyServed' };                    // R4.4
-  const cell = s.run.board[cellId];
+  // v2 R4.3: cellId opcional — sin celda, match determinista (R15.2)
+  let idx = cellId;
+  if (idx === undefined) {
+    idx = bestServeCell(s.run.board, order);
+    if (idx < 0) return { error: 'notEnough' };
+  }
+  const cell = s.run.board[idx];
   if (!cell) return { error: 'noCell' };
   const tg = topGroup(cell.stack);
   // wrong color, or not enough pieces: error, consume nothing
@@ -473,11 +533,109 @@ export function serveOrder(state, orderId, cellId) {
     return { error: 'notEnough' };
   }
   // consume exactly order.qty pieces from the top (they are all order.color)
-  cell.stack.splice(cell.stack.length - order.qty, order.qty);
+  cell.stack.splice(cell.stack.length - order.qty, order.qty);            // R4.3 v2
   order.served = true;
   const amount = pay(order, s.economy.multLevel);                          // R5.1
   s.progress.coins += amount;
   return s;
+}
+
+// ---------------------------------------------------------------------------
+// resolveCascade(state) [R12.2] — PURA: clona, itera eslabones hasta estabilizar
+// y retorna { state, steps }. Eslabón: (i) merge hacia celdas modificadas en
+// esta cascada (R12.1); (ii) auto-servir pedidos flotantes (cell===null) con
+// match determinista, si skills.serveManual.autoServe !== false; (iii) umbral
+// de escombros (grupo contiguo >= DEBRIS_THRESHOLD eliminado, bonus por ficha).
+// Estable desde el inicio => steps 0. Sin CASCADE_STEP_MS: síncrona.
+// ---------------------------------------------------------------------------
+export function resolveCascade(state) {
+  const s = clone(state);
+  let steps = 0;
+  // "imanes": celdas cuyo stack cambió dentro de ESTA cascada y que atraen el
+  // merge de sus vecinos. Arranca vacío => el primer eslabón no re-fusiona
+  // pilas ya estables (solo la colocación previa, en placeStack, dispara ese).
+  let magnets = new Set();
+  for (let guard = 0; guard < 1000; guard++) {
+    let acted = false;
+    // (i) merge entre vecinos — solo hacia imanes
+    if (magnets.size > 0) {
+      const targets = [...magnets];
+      magnets = new Set();
+      let didMerge = false;
+      for (const i of targets) {
+        const cell = s.run.board[i];
+        if (!cell || !cell.stack || !cell.stack.length) continue;
+        const tg = topGroup(cell.stack);
+        if (!tg.color) continue;
+        for (const [dq, dr] of HEX_ADJ) {
+          const nb = s.run.board.find((c) => c && c.q === cell.q + dq && c.r === cell.r + dr);
+          if (!nb || !nb.stack || !nb.stack.length) continue;
+          const ntg = topGroup(nb.stack);
+          if (ntg.color === tg.color) {
+            cell.stack = cell.stack.concat(nb.stack.splice(nb.stack.length - ntg.count, ntg.count));
+            didMerge = true;
+          }
+        }
+        if (didMerge) magnets.add(i);
+      }
+      if (didMerge) acted = true;
+    }
+    // (ii) auto-servir: pedidos flotantes (cell === null), match determinista
+    const auto = !(s.skills && s.skills.serveManual
+      && s.skills.serveManual.autoServe === false);
+    if (auto && Array.isArray(s.run.orders)) {
+      for (const order of s.run.orders) {
+        if (!order || order.served || order.cell !== null) continue;   // R15.2
+        const idx = bestServeCell(s.run.board, order);
+        if (idx < 0) continue;
+        const cell = s.run.board[idx];
+        cell.stack.splice(cell.stack.length - order.qty, order.qty);   // exacto
+        order.served = true;
+        s.progress.coins += pay(order, s.economy.multLevel);           // R5.1
+        acted = true;
+      }
+    }
+    // (iii) umbral de escombros: todo grupo contiguo >= DEBRIS_THRESHOLD se
+    // elimina; coins += DEBRIS_BONUS_PER * tamaño (R12.3). La celda remanente
+    // queda como imán para el merge del siguiente eslabón.
+    s.run.board.forEach((c, i) => {
+      if (!c || !c.stack || !c.stack.length) return;
+      const st = c.stack;
+      let j = 0;
+      while (j < st.length) {
+        let k = j;
+        while (k < st.length && st[k] === st[j]) k++;
+        const runLen = k - j;
+        if (runLen >= CONFIG.DEBRIS_THRESHOLD) {
+          st.splice(j, runLen);
+          s.progress.coins += CONFIG.DEBRIS_BONUS_PER * runLen;
+          magnets.add(i);
+          acted = true;
+        } else {
+          j = k;
+        }
+      }
+    });
+    if (!acted) break;
+    steps += 1;
+  }
+  return { state: s, steps };
+}
+
+// ---------------------------------------------------------------------------
+// isServeReady(state, cellId) — el tope de ESA celda cumple ALGÚN pedido
+// pendiente (R15.2: la celda queda "servible" para el serve manual).
+// ---------------------------------------------------------------------------
+export function isServeReady(state, cellId) {
+  if (!state || !state.run || !Array.isArray(state.run.board)) return false;
+  const cell = typeof cellId === 'number'
+    ? state.run.board[cellId]
+    : state.run.board.find((c) => c && c.id === cellId);
+  if (!cell) return false;
+  const tg = topGroup(cell.stack);
+  if (!tg.color) return false;
+  return (state.run.orders || []).some((o) =>
+    o && !o.served && o.color === tg.color && tg.count >= o.qty);
 }
 
 // ---------------------------------------------------------------------------
