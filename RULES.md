@@ -50,10 +50,8 @@ export { createGame, CONFIG,
     "coins": 120,
     "totalGames": 3,                   // nº partidas cerradas (R2.5, R7.1)
     "cafeLevel": 4,                    // = totalGames + 1 (R7.1)
-    "productsBought": 0,               // catálogo → colores (R10.1)
     "clients": 3,                      // nº gatos-cliente por partida (R6.1)
-    "boardCells": 12,                  // nº celdas del tablero (R6.2)
-    "colorsUnlocked": 1,               // derivable: clamp(1+floor(products/3),1,6) (R10)
+    "colorsUnlocked": 1,               // v2: derivado de compras directas de color (R13.7)
     "colorsOwned": 4,                  // v2: colores comprados por el jugador (R13.7, COLOR_PRICE)
 
     "econ": { "multLevel": 0 }         // multiplicador mejorable (R5.2)
@@ -145,8 +143,8 @@ export { createGame, CONFIG,
 //       serveOrder(state, orderId) -> newState | { error }
 ```
 - `R4.1` — Cada **pedido** (gato) tiene `{color, qty}` y está **enlazado a una celda** (`order.cell`), una celda distinta por pedido. `cli = state.progress.clients` (R6.1). → US-4.
-- `R4.2` — **Listo para servir:** el pedido de la celda está listo ⇔ **`topGroup(board[cell].stack) === { color: order.color, count: order.qty }`** (tope de color IGUAL al pedido Y conteo EXACTO). Cuando se cumple → señal `--highlight` (render). → US-5, G1; §5 STYLE.
-- `R4.3` — **Servir:** `serveOrder` **vacía la celda completa** (`board[cell].stack = []`), marca `order.served = true`, y otorga pago (R5.1). → US-6, G1.
+- `R4.2` — **Listo para servir** [v2]: Servible ⇔ existe al menos una celda con tope de color X y count ≥ qty de un pedido pendiente de color X (match determinista R15.2). La señal `--highlight` aplica a TODAS las celdas cuyo tope cumpla algún pedido pendiente. → US-5, G1; §5 STYLE.
+- `R4.3` — **Servir** [v2]: Servir consume EXACTAMENTE qty fichas del tope (splice final); la celda NO se vacía completa — el excedente del tope queda arriba. `order.served = true` al cerrar el pedido. → US-6, G1.
 - `R4.4` — **No-se-puede-servir** (`{error}`) si: `order.served` ya era true, o el tope NO coincide con `order.color+order.qty`. No cobra, no muta. → US-5/6.
 - `R4.5` — Servir una celda **libera espacio** (queda vacía y reusable para apilar más); los pedidos ya servidos NO se re-llenan (nº de pedidos fijo = `clients`). → R4, G1.
 
@@ -162,8 +160,8 @@ export { createGame, CONFIG,
 
 ### R6. Expansiones (gasto de dinero)
 - `R6.1` — **+clientes:** `buyExpansion('clients')` gana `clients += 1` (costo `40*clientsInicial`). Más gatos por partida. → US-14.
-- `R6.2` — **+celdas de tablero:** `buyExpansion('board')` gana `boardCells += 3` (costo `60*boardCells/3`). Más espacio. → US-15, US-38.
-- `R6.3` — **+catálogo/colores:** `buyExpansion('products')` gana `productsBought += 1` (costo `50*productsBought`); se recalcula `colorsUnlocked` (R10.1). Más dificultad/recompensa. → US-16.
+- `R6.2` — **+celdas de tablero:** `buyExpansion('board')` gana `boardCells += 3` (costo `60*boardCells/3`). Más espacio. → US-15, US-38. [OBSOLETO v2 — reemplazado por R14]
+- `R6.3` — **+catálogo/colores:** `buyExpansion('products')` gana `productsBought += 1` (costo `50*productsBought`); se recalcula `colorsUnlocked` (R10.1). Más dificultad/recompensa. → US-16. [OBSOLETO v2 — reemplazado por R13.7]
 - `R6.4` — Toda expansión gasta `coins`; **no se puede comprar sin saldo** (devuelve `{error:'noFunds'}`, no muta). → US-14/15/16.
 
 ### R7. Árbol de habilidades y poderes
@@ -174,7 +172,7 @@ export { createGame, CONFIG,
 - `R7.1` — **Nivel del café desbloquea nodos:** `destroyPile` requiere `cafeLevel≥5`, `swapPiles≥3`, `refreshPool≥1`. `cafeLevel = totalGames+1` (sube con nº de partidas, R2.5). En el árbol, un nodo con nivel insuficiente = **bloqueado** (candado, no clicable). → US-20, US-21.
 - `R7.2` — **El nivel NO tiene reflejo visual en la escena**; solo se muestra en la UI del árbol (LV chip). La escena NO cambia por subir de nivel, solo cambia al **comprar** un poder (R7.3). → US-22.
 - `R7.3` — **Compra:** `buySkill(power)` exige `cafeLevel ≥ unlockLevel` Y `coins ≥ price`. Al comprar: `owned=true` (reflejo gráfico: nodo activo + arte del poder en la escena) y `uses = USES_PER_RUN`. → US-17/18/19, US-23.
-- `R7.4` — **Usos por partida:** `uses` decrementa al usar; **no puede usar si `uses===0`** ni si `!owned`. Al reabrir (`openRun`) **se reponen los `uses`** de todos los poderes poseídos. Estado visible: contador de usos / badge candado-comprado (render). → US-24.
+- `R7.4` — **Usos por partida:** `uses` decrementa al usar; **no puede usar si `uses===0`** ni si `!owned`. Al reabrir (`openRun`) **se reponen los `uses`** de todos los poderes poseídos. Estado visible: contador de usos / badge candado-comprado (render). → US-24. [v2: solo aplica a skills modelo 'uses' — ver R15.1]
 - `R7.5` — **DESTROY PILE** (más caro, `price=250`): `useDestroyPile(state, cellId)` — **vacía la pila de una celda** cualquiera (quita todo su `stack`, libera espacio), marca `uses -= 1`. Celda bloqueada (R8.4) no destruible. → US-17.
 - `R7.6` — **SWAP PILES** (medio, `price=120`): `useSwapPiles(state, cellA, cellB)` — **intercambia los `stack` completos** de 2 celdas (o 1 pila de pool ↔ 1 celda). Marca `uses -= 1`. No toca bloqueadas. → US-18.
 - `R7.7` — **REFRESH POOL** (barato, `price=40`): `useRefreshPool(state)` — **descarta el pool actual y genera otras 3 pilas** nuevas (no gasta colocaciones) con `rng`. Marca `uses -= 1`, `poolPlaced=0`. → US-19.
@@ -195,7 +193,7 @@ export { createGame, CONFIG,
 //        else         -> stack = [randColor]*rngInt(1,3) (pila pre-colocada)
 //    state.run.calamities = count
 ```
-- `R8.1` — **Solo entran si `boardCells > 15`.** A 15 o menos, `calamities = 0`. → US-25.
+- `R8.1` — **Solo entran si `boardCells > 15`.** A 15 o menos, `calamities = 0`. → US-25. [v2: ver R14.5 — se evalúa sobre jugables]
 - `R8.2` — **Cantidad entre 1/3 y 1/5 del tablero, variable:** `count ∈ [floor(n/3), ceil(n/5)]` (i.e. lo=ceil(n/5), hi=floor(n/3)), aleatorio según `rng` → cada partida distinta. → US-25, US-28.
 - `R8.3` — **Celdas con pilas pre-colocadas:** ~50% de las calamidades son celdas con una pila aleatoria ya encima (desafío de inicio); señal `--danger` (render). → US-26; §4.8 STYLE.
 - `R8.4` — **Celdas bloqueadas:** el resto son celdas `blocked=true` (candado, no clicables, no place/destroy/swap). Ocultan espacio utilizable. → US-27; §4.8 STYLE.
@@ -223,9 +221,9 @@ export { createGame, CONFIG,
 // colorsUnlocked = clamp(1 + floor(productsBought / PRODUCTS_PER_COLOR), 1, MAX_COLORS)
 ```
 - `R10.1` — **+1 color por cada 3 productos del catálogo:**
-  `products` 0-2→1, 3-5→2, 6-8→3, 9-11→4, 12-14→5, 15+→6 (tope 6). → US-37, US-16; §5 STYLE (6 colores).
+  `products` 0-2→1, 3-5→2, 6-8→3, 9-11→4, 12-14→5, 15+→6 (tope 6). → US-37, US-16; §5 STYLE (6 colores). [OBSOLETO v2 — reemplazado por R13.7]
 - `R10.2` — **Los colores generados** (pool y pedidos) se eligen **solo entre los desbloqueados** `1..colorsUnlocked`. → US-37, US-3/4.
-- `R10.3` — El tablero crece con la expansión (R6.2) para amortiguar la dificultad de más colores (cozy, sin timer). → US-38.
+- `R10.3` — El tablero crece con la expansión (R6.2) para amortiguar la dificultad de más colores (cozy, sin timer). → US-38. [OBSOLETO v2 — reemplazado por R13.7]
 
 ### R12. Merge y cascada (estilo HexaSort) [v2]
 - `R12.1` — **Al colocar (R3.4):** los TOPEs de vecinos axiales (6 deltas) con color igual al tope resultante de la celda destino se FUSIONAN: el grupo queda como N fichas contiguas en stack; vecinos conservan su sub-pila inferior.
@@ -234,23 +232,23 @@ export { createGame, CONFIG,
 - `R12.4` — destroyPile queda **PENDIENTE DE BALANCE** (pierde valor relativo frente a R12.3).
 
 ### R13. Clientes-criaturas y progresión de run [v2] (modifica R4.1, R6.1)
-- `R13.1` — Pedidos FLOTAN: `{color, qty}` sin celda anclada. Servible desde cualquier celda cuyo tope cumpla. *(⚠ R4.2/R4.3 quedan subsumidos en auto-servir R15.2 — PENDIENTE reescribir R4.2/R4.3 en v2.)*
+- `R13.1` — Pedidos FLOTAN: `{color, qty}` sin celda anclada. Servible desde cualquier celda cuyo tope cumpla. Subsumidos en auto-servir R15.2; R4.2/R4.3 reescritos en v2.
 - `R13.2` — 10 criaturas, una por color, cada una solo pide SU color. Roster: 1 Gato anfitrión, 2-4 fantásticas (zorrito, rana, dragoncito), 5-8 robots (barredor, barista, repartidor, DJ), 9-10 humanos andróginos (gemelos). Llegada = orden de desbloqueo 1→10.
 - `R13.3` — Arranque de run: 1 criatura + pool solo color 1 + núcleo 2-3-2 jugable.
 - `R13.4` — Desbloqueo: cada `UNLOCK_PLACED_PILES=3` pilas colocadas (CONFIG) → siguiente color: llega su criatura y el pool lo genera con probabilidad UNIFORME entre desbloqueados.
 - `R13.5` — Presión de compra: el roster avanza 1 color POR ENCIMA de `colorsOwned` (techo permanente), hasta 10 → completar la partida exige comprar colores.
 - `R13.6` — Victoria = servir a TODAS las criaturas llegadas. R2.2/R2.4 sin cambio.
-- `R13.7` — Colores: 10 máx, 4 de inicio (reemplaza R10.1: PRODUCTS_PER_COLOR/MAX_COLORS quedan obsoletos; compra de color en tienda con `COLOR_PRICE` CONFIG ⚖BALANCE). *(⚠ R10.2/R10.3 y R6.3 quedan tensionadas con este reemplazo — PENDIENTE conciliar.)*
+- `R13.7` — Colores: 10 máx, 4 de inicio. Compra DIRECTA en tienda: `buyColor` desbloquea el siguiente color del roster; precio `COLOR_PRICE(n) = COLOR_PRICE_BASE * (n-3)` CONFIG ⚖BALANCE. R10 queda REPLANTEADA: `productsBought`/catálogo se ELIMINA del state (§1); `colorsUnlocked`/`colorsOwned` pasa a derivarse de compras directas. R10.2 (solo colores desbloqueados se generan) se mantiene como principio. R10.1/R10.3 y R6.3 quedan marcadas OBSOLETAS-v2 (reemplazadas por R13.7).
 
 ### R14. Tablero dual 5x6 [v2] (modifica R6.2, R8)
 - `R14.1` — Tablero SIEMPRE dibujado completo: panal rectangular filas alternadas 5/6 (axial), 30 celdas. No jugable = visible apagada (estilo lock).
-- `R14.2` — Jugable al inicio = núcleo 2-3-2 (7). Activables por partida ≤ `permTiles` (techo permanente). *(⚠ R6.2 boardCells expansion queda obsoleta con tablero fijo de 30 — PENDIENTE.)*
+- `R14.2` — Jugable al inicio = núcleo 2-3-2 (7). Activables por partida ≤ `permTiles` (techo permanente). [v2] R6.2 (`boardCells += 3`) queda OBSOLETA: su rol lo cumplen las baldosas permanentes (R14.4). El campo `progress.boardCells` se ELIMINA del JSON §1. → US-52.
 - `R14.3` — Compra temporal: tocar baldosa apagada → activa esa celda esta partida; `runTilePrice = RUN_TILE_BASE × 1.6^runTilesActivated` (CONFIG ⚖BALANCE).
 - `R14.4` — Compra permanente (tienda): eliges baldosa concreta; `permTilePrice = PERM_TILE_BASE × 1.35^permTiles` (CONFIG ⚖BALANCE). Habilita el techo, la activación es siempre temporal.
-- `R14.5` — Calamidades (R8): rango se calcula sobre celdas JUGABLES, no sobre 30. *(⚠ R8.1 umbral `boardCells>15` queda sin sentido con tablero fijo — PENDIENTE.)*
+- `R14.5` — Calamidades (R8): rango se calcula sobre celdas JUGABLES, no sobre 30. [v2] R8.1 se reinterpreta: calamidades entran cuando las celdas JUGABLES (núcleo 7 + activadas) > 15. El rango lo/hi se calcula sobre jugables, no sobre 30. → US-53.
 
 ### R15. Skills v2 [v2] (amplía R7)
-- `R15.1` — Catálogo: destroyPile="Saltar a la barra", swapPiles="Mesero ágil", refreshPool="Envío de la cocina", serveManual="Modo mesero" (toggle autoServe, sin usos), previewPool="Pizarra de tiza" (levels 0-3: muestra próximas 1/2/3 tandas del pool; se sube recomprando; unlock cafeLevel 2 ⚖BALANCE). *(⚠ R7.4 usa `uses` para todos: serveManual/previewPool no encajan — PENDIENTE.)*
+- `R15.1` — Catálogo: destroyPile="Saltar a la barra", swapPiles="Mesero ágil", refreshPool="Envío de la cocina", serveManual="Modo mesero" (toggle autoServe, sin usos), previewPool="Pizarra de tiza" (levels 0-3: muestra próximas 1/2/3 tandas del pool; se sube recomprando; unlock cafeLevel 2 ⚖BALANCE). [v2] R7.4 se reescribe: cada skill declara su MODELO — 'uses' (destroyPile/swapPiles/refreshPool: se reponen al reabrir, R7.4 original aplica solo a ellos), 'toggle' (serveManual: owned bool + autoServe bool, sin usos), 'levels' (previewPool: level 0..3, subir = recomprar, sin usos).
 - `R15.2` — R4 redefinido: AUTO-SERVIR por defecto; al estabilizar cada eslabón, para cada pedido pendiente elegir tope válido (si varios: count más cercano a qty sin exceder; si no hay, el menor disponible) → paga `pay(order)`, consume exactamente qty del tope, excedente queda. serveManual.off = modo v1 (brilla `--highlight`, servir tocando).
 - `R15.3` — Pedido render: ítem dibujado (taza/pastel) construido con fichas del color; mecánicamente fichas del color.
 
