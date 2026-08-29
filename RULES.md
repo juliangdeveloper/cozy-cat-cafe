@@ -1,7 +1,8 @@
 # RULES — Cozy Cat Café × HexaSort
 
-**Fase:** ANALISTA / ARQUITECTO DE REGLAS (ciclo BMAD) · **Estado:** v1.0 · **Idioma:** código-primero (JSON/pseudocódigo/asserts), sin párrafos de relleno.
+**Fase:** ANALISTA / ARQUITECTO DE REGLAS (ciclo BMAD) · **Estado:** v2.0-draft (mecánica HexaSort merge) · **Idioma:** código-primero (JSON/pseudocódigo/asserts), sin párrafos de relleno.
 **Fuentes (fuente de verdad):** `DESIGN_DECISIONS.md` (mecánica) · `SPEC.md` (US-1..43, G1-G7) · `STYLE_GUIDE.md` (solo presentación/feedback §4-8).
+Fase v2: R12-R15 aprobadas por grill 2026-08-29; números marcados ⚖BALANCE pendientes de ajuste.
 **Trazabilidad inversa:** cada R → su(s) US/G. G1, G4, G5, G7 cubiertos aquí; G2 (Pages), G3, G6 son de deploy/arte/responsive (no lógica).
 
 ---
@@ -53,6 +54,7 @@ export { createGame, CONFIG,
     "clients": 3,                      // nº gatos-cliente por partida (R6.1)
     "boardCells": 12,                  // nº celdas del tablero (R6.2)
     "colorsUnlocked": 1,               // derivable: clamp(1+floor(products/3),1,6) (R10)
+    "colorsOwned": 4,                  // v2: colores comprados por el jugador (R13.7, COLOR_PRICE)
 
     "econ": { "multLevel": 0 }         // multiplicador mejorable (R5.2)
   },
@@ -61,10 +63,12 @@ export { createGame, CONFIG,
     "multLevel": 0
   },
 
-  "skills": {                          // árbol de habilidades (R7)
+  "skills": {                          // v2: catálogo ampliado (R15.1, R7)
     "destroyPile": { "owned": false, "uses": 0, "price": 250, "unlockLevel": 5 },
     "swapPiles":   { "owned": false, "uses": 0, "price": 120, "unlockLevel": 3 },
-    "refreshPool": { "owned": false, "uses": 0, "price": 40,  "unlockLevel": 1 }
+    "refreshPool": { "owned": false, "uses": 0, "price": 40,  "unlockLevel": 1 },
+    "serveManual": { "owned": false, "autoServe": true },  // v2: toggle, sin usos (R15.2)
+    "previewPool": { "owned": false, "level": 0 }          // v2: level 0..3 (R15.1)
   },
 
   "idle": {                            // 3 sistemas pasivos (R9)
@@ -102,6 +106,10 @@ export { createGame, CONFIG,
 > ```jsonc
 > "run": {
 >   "phase": "open",                    // destino final tras close se borra
+>   "rosterIndex": 1,                   // v2: nº criaturas llegadas (R13.2/R13.4)
+>   "placedCounter": 0,                 // v2: pilas colocadas en la run (R13.4, UNLOCK_PLACED_PILES)
+>   "runTilesActivated": 0,             // v2: n, baldosas activadas esta partida (R14.3)
+>   "permTiles": 0,                     // v2: m, techo permanente de activables, en progress (R14.2)
 >   "orders": [
 >     { "id":"ord-0", "cell":5, "color":2, "qty":3, "served":false }
 >   ],
@@ -219,6 +227,33 @@ export { createGame, CONFIG,
 - `R10.2` — **Los colores generados** (pool y pedidos) se eligen **solo entre los desbloqueados** `1..colorsUnlocked`. → US-37, US-3/4.
 - `R10.3` — El tablero crece con la expansión (R6.2) para amortiguar la dificultad de más colores (cozy, sin timer). → US-38.
 
+### R12. Merge y cascada (estilo HexaSort) [v2]
+- `R12.1` — **Al colocar (R3.4):** los TOPEs de vecinos axiales (6 deltas) con color igual al tope resultante de la celda destino se FUSIONAN: el grupo queda como N fichas contiguas en stack; vecinos conservan su sub-pila inferior.
+- `R12.2` — **CASCADA:** tras toda mutación de topes (colocar, auto-servir, destrucción umbral, swap) re-evaluar hasta estabilizar; 1 eslabón = `CASCADE_STEP_MS=1600ms` (CONFIG). Orden determinista por eslabón: merge → auto-servir (celdas en orden id ascendente, B3) → destrucción umbral → siguiente eslabón.
+- `R12.3` — **UMBRAL:** grupo contiguo ≥ `DEBRIS_THRESHOLD=10` fichas (CONFIG) se destruye al estabilizar, bonus `DEBRIS_BONUS_PER=25` × qty (CONFIG ⚖BALANCE).
+- `R12.4` — destroyPile queda **PENDIENTE DE BALANCE** (pierde valor relativo frente a R12.3).
+
+### R13. Clientes-criaturas y progresión de run [v2] (modifica R4.1, R6.1)
+- `R13.1` — Pedidos FLOTAN: `{color, qty}` sin celda anclada. Servible desde cualquier celda cuyo tope cumpla. *(⚠ R4.2/R4.3 quedan subsumidos en auto-servir R15.2 — PENDIENTE reescribir R4.2/R4.3 en v2.)*
+- `R13.2` — 10 criaturas, una por color, cada una solo pide SU color. Roster: 1 Gato anfitrión, 2-4 fantásticas (zorrito, rana, dragoncito), 5-8 robots (barredor, barista, repartidor, DJ), 9-10 humanos andróginos (gemelos). Llegada = orden de desbloqueo 1→10.
+- `R13.3` — Arranque de run: 1 criatura + pool solo color 1 + núcleo 2-3-2 jugable.
+- `R13.4` — Desbloqueo: cada `UNLOCK_PLACED_PILES=3` pilas colocadas (CONFIG) → siguiente color: llega su criatura y el pool lo genera con probabilidad UNIFORME entre desbloqueados.
+- `R13.5` — Presión de compra: el roster avanza 1 color POR ENCIMA de `colorsOwned` (techo permanente), hasta 10 → completar la partida exige comprar colores.
+- `R13.6` — Victoria = servir a TODAS las criaturas llegadas. R2.2/R2.4 sin cambio.
+- `R13.7` — Colores: 10 máx, 4 de inicio (reemplaza R10.1: PRODUCTS_PER_COLOR/MAX_COLORS quedan obsoletos; compra de color en tienda con `COLOR_PRICE` CONFIG ⚖BALANCE). *(⚠ R10.2/R10.3 y R6.3 quedan tensionadas con este reemplazo — PENDIENTE conciliar.)*
+
+### R14. Tablero dual 5x6 [v2] (modifica R6.2, R8)
+- `R14.1` — Tablero SIEMPRE dibujado completo: panal rectangular filas alternadas 5/6 (axial), 30 celdas. No jugable = visible apagada (estilo lock).
+- `R14.2` — Jugable al inicio = núcleo 2-3-2 (7). Activables por partida ≤ `permTiles` (techo permanente). *(⚠ R6.2 boardCells expansion queda obsoleta con tablero fijo de 30 — PENDIENTE.)*
+- `R14.3` — Compra temporal: tocar baldosa apagada → activa esa celda esta partida; `runTilePrice = RUN_TILE_BASE × 1.6^runTilesActivated` (CONFIG ⚖BALANCE).
+- `R14.4` — Compra permanente (tienda): eliges baldosa concreta; `permTilePrice = PERM_TILE_BASE × 1.35^permTiles` (CONFIG ⚖BALANCE). Habilita el techo, la activación es siempre temporal.
+- `R14.5` — Calamidades (R8): rango se calcula sobre celdas JUGABLES, no sobre 30. *(⚠ R8.1 umbral `boardCells>15` queda sin sentido con tablero fijo — PENDIENTE.)*
+
+### R15. Skills v2 [v2] (amplía R7)
+- `R15.1` — Catálogo: destroyPile="Saltar a la barra", swapPiles="Mesero ágil", refreshPool="Envío de la cocina", serveManual="Modo mesero" (toggle autoServe, sin usos), previewPool="Pizarra de tiza" (levels 0-3: muestra próximas 1/2/3 tandas del pool; se sube recomprando; unlock cafeLevel 2 ⚖BALANCE). *(⚠ R7.4 usa `uses` para todos: serveManual/previewPool no encajan — PENDIENTE.)*
+- `R15.2` — R4 redefinido: AUTO-SERVIR por defecto; al estabilizar cada eslabón, para cada pedido pendiente elegir tope válido (si varios: count más cercano a qty sin exceder; si no hay, el menor disponible) → paga `pay(order)`, consume exactamente qty del tope, excedente queda. serveManual.off = modo v1 (brilla `--highlight`, servir tocando).
+- `R15.3` — Pedido render: ítem dibujado (taza/pastel) construido con fichas del color; mecánicamente fichas del color.
+
 ---
 
 ## 3. ESPECIFICACIÓN DE TESTS TDD (`test/rules.test.js`, node:test)
@@ -303,6 +338,44 @@ const pay = (q, m=0) => Math.round(5 * q ** (1.25 + 0.05*m));
 - `T10.3` — **import válido reemplaza, inválido rechaza:** GIVEN blob con `version:1` + shape mínima → import OK y estado = blob; GIVEN `{}` sin version → `{error}`, save actual intacto. [R1.3]
 - `T10.4` — **export id embebido:** GIVEN state; THEN `meta.exportId` no vacío y estable entre save/load. [R1.1, R1.3]
 
+### T11. Merge y cascada [v2]
+- `T11.1` — **merge con tope de 2 vecinos:** GIVEN celda destino con tope color 2, vecinos axiales A y B con tope color 2; WHEN `placeStack` con pila [2]; THEN el grupo fusionado queda como N fichas contiguas en el stack destino y los stacks de A/B pierden solo su tope (conservan sub-pila inferior). [R12.1]
+- `T11.2` — **no merge si color difiere:** GIVEN vecinos con tope color ≠ tope destino; WHEN colocar; THEN stacks de vecinos intactos. [R12.1]
+- `T11.3` — **orden determinista de eslabón:** GIVEN una colocación que dispara merge + pedidos servibles + grupo ≥ umbral; THEN al estabilizar el eslabón se ejecuta en orden: merge → auto-servir (ids ascendentes) → destrucción umbral; nunca antes. [R12.2]
+- `T11.4` — **cascada itera hasta estabilizar:** GIVEN merge que deja un nuevo tope servible; THEN se evalúa el siguiente eslabón tras `CASCADE_STEP_MS` y la cascada termina solo sin mutaciones pendientes. [R12.2]
+- `T11.5` — **umbral 10 destruye y bonifica:** GIVEN grupo contiguo de 10 fichas; WHEN estabiliza; THEN grupo destruido y `coins += DEBRIS_BONUS_PER*qty` (25×qty). GIVEN grupo de 9; THEN no se destruye. [R12.3]
+- `T11.6` — **swap dispara cascada:** GIVEN `useSwapPiles` que alinea topes; THEN cascada se re-evalúa igual que en colocación. [R12.2]
+
+### T12. Clientes-criaturas y progresión [v2]
+- `T12.1` — **desbloqueo cada 3 pilas:** GIVEN `placedCounter` 0→3; WHEN colocar la 3ª pila; THEN `rosterIndex += 1` (llega criatura del siguiente color) y `placedCounter` se resetea. [R13.4]
+- `T12.2` — **techo roster > colorsOwned:** GIVEN `colorsOwned=4`; WHEN roster avanza; THEN puede llegar a color 5 (una unidad por encima) pero no más; requires compra para seguir. [R13.5]
+- `T12.3` — **pool uniforme entre desbloqueados:** GIVEN colores desbloqueados {1,2,3}; THEN el pool genera cada color con probabilidad uniforme (muchas semillas → frecuencias ≈ iguales). [R13.4]
+- `T12.4` — **pedidos flotan, servibles desde cualquier celda:** GIVEN pedido {color:2, qty:3} sin `cell` y dos celdas con tope [2,2,2]; THEN auto-serve (o toque en v1) sirve desde cualquiera de las dos. [R13.1, R15.2]
+- `T12.5` — **cada criatura pide solo su color:** GIVEN roster de 3 criaturas; THEN los pedidos generados tienen color ∈ {1,2,3}, uno por criatura. [R13.2]
+- `T12.6` — **arranque de run:** GIVEN `openRun`; THEN `rosterIndex===1` (solo Gato), pool genera solo color 1, y solo el núcleo 2-3-2 (7 celdas) es jugable. [R13.3, R14.2]
+
+### T13. Tablero dual 5x6 [v2]
+- `T13.1` — **tablero fijo 30 celdas:** GIVEN `generateBoard`; THEN 30 celdas en panal rectangular 5/6 alternado, todas presentes en `board` (no jugables con flag lock). [R14.1]
+- `T13.2` — **activables ≤ permTiles:** GIVEN `permTiles=2` (m); WHEN intentar activar una 3ª baldosa apagada esta partida; THEN `{error}` y nada cambia. [R14.2]
+- `T13.3` — **precio exponencial n:** GIVEN `runTilesActivated=3`; THEN `runTilePrice = RUN_TILE_BASE × 1.6^3`; colocar la 4ª usa `1.6^4`. [R14.3]
+- `T13.4` — **precio exponencial m:** GIVEN `permTiles=2`; THEN `permTilePrice = PERM_TILE_BASE × 1.35^2`. [R14.4]
+- `T13.5` — **permanente habilita techo, activación es temporal:** GIVEN compra permanente de baldosa B; THEN `permTiles += 1` y B sigue apagada al abrir la siguiente run (solo activable temporalmente). [R14.4]
+- `T13.6` — **calamidades sobre jugables:** GIVEN tablero 30 con 23 jugables; THEN el rango de calamidades se calcula sobre 23 (jugables), no sobre 30. [R14.5, R8.2]
+
+### T14. Auto-servir [v2]
+- `T14.1` — **consume qty exacta, excedente queda:** GIVEN pedido {color:2, qty:3} y tope [2,2,2,2]; WHEN auto-servir; THEN se consumen 3 fichas, el tope queda [2], `pay(order)` cobrado. [R15.2]
+- `T14.2` — **elección de tope más cercano a qty sin exceder:** GIVEN pedidos {qty:3} y topes de color 2 con counts 3, 5, 2 en distintas celdas; THEN elige count=3 (más cercano sin exceder); si solo hubiera 2 y 5, elige 2 (el menor disponible). [R15.2]
+- `T14.3` — **varios pedidos en orden de id ascendente:** GIVEN 2 pedidos pendientes servibles en el mismo eslabón (ids ord-0 < ord-5); THEN se sirven ord-0 primero. [R15.2, R12.2]
+- `T14.4` — **destrucción umbral en cascada tras auto-servir:** GIVEN eslabón donde auto-serve fusiona un grupo a ≥10; THEN la destrucción umbral se evalúa después de servir, en el mismo eslabón. [R12.2, R12.3]
+
+### T15. Skills v2 catálogo [v2]
+- `T15.1` — **serveManual toggle:** GIVEN serveManual owned; WHEN toggle; THEN `autoServe` alterna y en `off` el pedido brilla `--highlight` y solo se sirve tocando (modo v1, R4.2/R4.3). [R15.2]
+- `T15.2` — **serveManual sin usos:** GIVEN serveManual owned con `uses` indefinido; WHEN toggle; THEN NO consulta ni decrementa `uses` (a diferencia de R7.4). [R15.1, R7.4 ⚠]
+- `T15.3` — **preview levels 0-3:** GIVEN `previewPool.level = k`; THEN el render muestra las próximas k tandas del pool; k=0 no muestra nada. [R15.1]
+- `T15.4` — **preview se sube recomprando:** GIVEN `previewPool.level=1`; WHEN recomprar; THEN `level=2` y coins bajan el precio; no interfiere con `uses`. [R15.1]
+- `T15.5` — **preview unlock cafeLevel 2:** GIVEN cafeLevel<2; THEN comprar previewPool → `{error:'locked'}`. [R15.1]
+- `T15.6` — **nombres de catálogo v2:** GIVEN estado inicial; THEN skills expone destroyPile/swapPiles/refreshPool + serveManual + previewPool (5 nodos). [R15.1, §1]
+
 ---
 
 ## 4. TRAZABILIDAD RESUMIDA (R → US/G)
@@ -320,5 +393,9 @@ const pay = (q, m=0) => Math.round(5 * q ** (1.25 + 0.05*m));
 | R9.1–R9.5 | 30-36 | — |
 | R10.1–R10.3 | 16,37,38 | — |
 | R11.1–R11.3 | 42,43 | G5,G7 |
+| R12.1–R12.4 | 44,45,46 (US-nuevos v2) | G1 |
+| R13.1–R13.7 | 44,47,48,49,50 (US-nuevos v2) | G1 |
+| R14.1–R14.5 | 51,52,53 (US-nuevos v2) | — |
+| R15.1–R15.3 | 54,55,56 (US-nuevos v2) | — |
 
 > Nota de mantenimiento: cambiar mecánica actualiza PRIMERO `DESIGN_DECISIONS.md`, luego `SPEC.md`, y reflejar aquí (R1.x son los puntos más estables). Números de balance (R5/R6/R7/R9) son constantes `CONFIG` sustituibles sin romper el contrato.
