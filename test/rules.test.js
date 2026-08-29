@@ -11,7 +11,7 @@ import {
   buyExpansion, buyIdleUpgrade, tickIdle, applyOffline, buyColor,
   colorsUnlocked, generateBoard, orderReadyOn, topGroup, pay,
   serializeState, deserializeState, importSave, mulberry32,
-  expandTile, freeSlots,
+  expandTile, freeSlots, activateTile, applyCalamities,
 } from '../js/game.js';
 
 const rng = (n) => mulberry32(n);
@@ -394,19 +394,90 @@ test('T6.8 usos se reponen al reabrir', () => {
 });
 
 // ---------------------------------------------------------------------------
-// T7 — calamidades (R8 v1 → R14.5 v2)
+// T7 — calamidades (R8 v2 → R14.5: sobre celdas JUGABLES, umbral > 15)
 // ---------------------------------------------------------------------------
-// v2-reconcile: R14.5 reemplaza R8.1-R8.4 (calamidades sobre celdas JUGABLES,
-// umbral jugables>15, lo/hi calculados sobre jugables). VERIFICADO en
-// js/game.js v2: NO existe lógica de GENERACIÓN de calamidades —
-// generateBoard/openRun nacen con calamity:false / calamities:0 y solo
-// sobrevive bonusCalamity (R8.5, cubierto por T4.4). Mientras R14.5 no se
-// implemente, los T7.x quedan skip (no se inventa comportamiento).
-const PENDIENTE_V2 = '// PENDIENTE v2: calamidades se re-introducen con R14.5 en el renderer/implementación pendiente';
-test('T7.1 solo si >15', { skip: PENDIENTE_V2 }, () => {});
-test('T7.2 count en [lo,hi] y variable', { skip: PENDIENTE_V2 }, () => {});
-test('T7.3 conteo brutal bloqueadas o pre-pila', { skip: PENDIENTE_V2 }, () => {});
-test('T7.4 pila pre-colocada placeable (no bloqueada)', { skip: PENDIENTE_V2 }, () => {});
+// v2: R14.5 reemplaza R8.1-R8.4 — el rango se calcula sobre celdas JUGABLES
+// (núcleo 7 + activadas vía activateTile). Las calamidades NO entran al abrir
+// (7 jugables < 15); entran UNA vez por partida cuando activateTile cruza el
+// umbral (flag run.calamitiesApplied, implementado en applyCalamities).
+const T7 = () => {
+  // activar `k` baldosas dormant con rng determinista por (seed, paso)
+  const act = (st, k, seed) => {
+    for (let j = 0; j < k; j++) {
+      const d = st.run.board.map((c, i) => ({ c, i })).filter((x) => x.c.dormant && !x.c.blocked);
+      if (!d.length) break;
+      st = activateTile(st, d[j % d.length].i, mulberry32(seed * 100 + j));
+      if (st.error) break;
+    }
+    return st;
+  };
+  const open = (seed) => openRun(createGame({ progress: { coins: 1000000, permTiles: 30 } }), rng(seed));
+  return { act, open };
+};
+// T7.1 — solo si jugables > 15: con 15 (7+8) NO entran; con 16 (7+9) sí
+test('T7.1 solo si >15 (v2: sobre JUGABLES tras activar)', () => {
+  const { act, open } = T7();
+  const s15 = act(open(1), 8, 1);
+  assert.equal(s15.run.calamities, 0, 'con 15 jugables NO hay calamidades');
+  assert.equal(s15.run.board.filter(c => c.blocked).length, 0, 'sin calamidades no hay blocked');
+  const s16 = act(s15, 1, 1);                    // una activación más cruza a 16
+  assert.ok(s16.run.calamities > 0, 'con 16 jugables entran calamidades');
+  assert.equal(s16.run.calamitiesApplied, true, 'flag una-sola-vez marcado al cruzar');
+});
+// T7.2 — count en [lo,hi] y variable: lo=ceil(n/5), hi=floor(n/3) sobre
+// JUGABLES n (16 => [4,5], 18 => [4,6], 21 => [5,7]); ≥2 valores distintos
+test('T7.2 count en [lo,hi] y variable (v2: rango sobre jugables)', () => {
+  const { act, open } = T7();
+  const seen = new Set();
+  for (let seed = 1; seed <= 60; seed++) {
+    const k = [9, 10, 11, 14][seed % 4];           // jugables 16/17/18/21
+    const s = act(open(seed), k, seed);
+    if (!s.run.calamitiesApplied) continue;
+    const n = 16;                                  // jugables AL CRUZAR el umbral (7+9)
+    const lo = Math.ceil(n / 5), hi = Math.floor(n / 3);
+    assert.ok(s.run.calamities >= lo && s.run.calamities <= hi,
+      `calamities=${s.run.calamities} fuera de [${lo},${hi}] (jugables ${n})`);
+    assert.equal(s.run.board.filter(c => c.calamity).length, s.run.calamities);
+    seen.add(s.run.calamities);
+  }
+  assert.ok(seen.size >= 2, `debe observarse variabilidad, hubo ${[...seen].join(',')}`);
+});
+// T7.3 — ≈50% blocked / ≈50% pre-pila; cada calamidad es blocked XOR calamityStack
+test('T7.3 conteo brutal: blocked XOR pre-pila, mezcla ~50/50 entre semillas', () => {
+  const { act, open } = T7();
+  let blocked = 0, pre = 0;
+  for (let seed = 1; seed <= 40; seed++) {
+    const s = act(open(seed), 9, seed);
+    if (!s.run.calamitiesApplied) continue;
+    for (const c of s.run.board) {
+      if (!c.calamity) continue;
+      if (c.blocked) { assert.equal(c.calamityStack, false, 'blocked XOR pre-pila'); blocked++; }
+      else { assert.ok(c.stack.length >= 1, 'pre-pila => stack>=1'); assert.equal(c.blocked, false); pre++; }
+    }
+  }
+  assert.ok(blocked > 0 && pre > 0, 'ambos tipos deben aparecer');
+  const frac = blocked / (blocked + pre);
+  assert.ok(frac >= 0.3 && frac <= 0.7, `fracción blocked=${frac.toFixed(2)} fuera de [0.3,0.7]`);
+});
+// T7.4 — celda de calamidad con pila pre-colocada: NO bloqueada y placeStack encima
+test('T7.4 pila pre-colocada placeable (no bloqueada) — v2 sobre jugables', () => {
+  const { act, open } = T7();
+  let done = false;
+  for (let seed = 1; seed <= 20 && !done; seed++) {
+    const s = act(open(seed), 9, seed);
+    if (!s.run.calamitiesApplied) continue;
+    const i = s.run.board.findIndex(c => c.calamityStack && !c.blocked);
+    if (i < 0) continue;
+    assert.ok(s.run.board[i].stack.length >= 1, 'pre-pila => stack>=1');
+    const before = s.run.board[i].stack.length;
+    const res = placeStack(s, i);                 // pila del pool encima
+    assert.ok(!res.error, `placeStack sobre pre-pila debe funcionar, dio ${JSON.stringify(res.error)}`);
+    assert.ok(res.run.board[i].stack.length > before, 'la pila crece al colocar encima');
+    done = true;
+  }
+  assert.ok(done, 'ninguna semilla produjo pre-pila colocable');
+});
+
 
 // ---------------------------------------------------------------------------
 // T8 — idle / offline
