@@ -49,10 +49,10 @@ const dormantCell = (s) =>
 // ---------------------------------------------------------------------------
 // T14a — Tablero dual 30 celdas [R14.1]
 // AMBIGUA: orientación libre (flat/pointy). Se agrupa por `r` axial y solo se
-// exige que las 6 filas tengan tamaños {5,6} alternados (multiconjunto
-// [5,5,5,6,6,6]); cualquier rotación/reflejo del panal pasa.
+// exige 6 filas axiales (panal 5×6 = 30; el multiconjunto original
+// [5,5,5,6,6,6] sumaba 33 ≠ 30 — corregido abajo). Cualquier orientación pasa.
 // ---------------------------------------------------------------------------
-test('T14a [R14.1] generateBoard(30): 30 celdas, 6 filas axiales de tamaños 5/6 alternados', () => {
+test('T14a [R14.1] generateBoard(30): 30 celdas, 6 filas axiales (panal 5x6 = 30)', () => {
   need('generateBoard');
   // FIRMA elegida: (size, rng) — 30 celdas, rng determinista.
   let board = null;
@@ -73,8 +73,11 @@ test('T14a [R14.1] generateBoard(30): 30 celdas, 6 filas axiales de tamaños 5/6
   }
   assert.equal(rows.size, 6, `RED: panal rectangular 5/6 = 6 filas axiales, hay ${rows.size}`);
   const sizes = [...rows.values()].sort((a, b) => a - b);
-  assert.deepEqual(sizes, [5, 5, 5, 6, 6, 6],
-    `RED: filas alternadas 5/6 (cualquier orden), hay ${JSON.stringify(sizes)}`);
+  // FIX aritmético (parte a): el multiconjunto [5,5,5,6,6,6] suma 33 ≠ 30;
+  // con 30 celdas / 6 filas axiales el panal 5×6 son 6 filas de 5 celdas
+  // (contorno rectangular escalonado), ver DESIGN_DECISIONS.md "5×6 = 30".
+  assert.deepEqual(sizes, [5, 5, 5, 5, 5, 5],
+    `RED: panal 5×6 = 6 filas de 5 celdas (30), hay ${JSON.stringify(sizes)}`);
 });
 
 // ---------------------------------------------------------------------------

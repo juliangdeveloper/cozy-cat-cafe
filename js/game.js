@@ -20,8 +20,7 @@ export const CONFIG = {
   CALAMITY_THRESHOLD: 15,           // R8.1 only if boardCells > 15
   BLOCK_PROB: 0.5,                  // R8.3 ~50% blocked / ~50% prestockated
   USES_PER_RUN: { destroyPile: 3, swapPiles: 3, refreshPool: 2 }, // R7 USES_PER_RUN
-  PRODUCTS_PER_COLOR: 3,            // R10.1
-  MAX_COLORS: 6,                    // R10.1
+  PRODUCTS_PER_COLOR: 3,            // R10.1 [OBSOLETO v2 — reemplazado por R13.7]
   IDLE_RATE: { workers: 0.5, fame: 0.3, machines: 0.8 }, // R9.1
   IDLE_CAP:  { workers: 60,  fame: 100,  machines: 40 },  // R9.3 caps
   IDLE_PRICE: 50,                   // R9.4 price = 50 * level^2
@@ -30,7 +29,27 @@ export const CONFIG = {
     board:    { per: 3, price: (s) => 60 * (s.progress.boardCells / 3) },     // R6.2
     products: { per: 1, price: (s) => 50 * (s.progress.productsBought + 1) }, // R6.3
   },
+  // v2 — mecánica v2 (R13 clientes-criaturas / R14 tablero dual) ⚖BALANCE
+  UNLOCK_PLACED_PILES: 3,           // R13.4 pilas colocadas por cada desbloqueo de criatura
+  COLOR_PRICE_BASE: 150,            // R13.7 precio color = BASE * (n-3), n = colorsOwned tras comprar
+  RUN_TILE_BASE: 40,                // R14.3 runTilePrice   = BASE * 1.6^runTilesActivated
+  PERM_TILE_BASE: 200,              // R14.4 permTilePrice  = BASE * 1.35^permTiles
+  MAX_COLORS: 10,                   // R13.7 10 colores / criaturas en orden de desbloqueo (R13.2)
+  DEBRIS_THRESHOLD: 10,             // v2 escombros: umbral para entrar en tablero
+  DEBRIS_BONUS_PER: 25,             // v2 escombros: bonus por escombro limpiado
+  CASCADE_STEP_MS: 1600,            // v2 cascada: ms entre pasos (merge en cadena)
 };
+
+// ---------------------------------------------------------------------------
+// v2 — R13.2 Roster de criaturas en orden de desbloqueo 1→10. Cada criatura
+// pide SOLO su color (índice = posición + 1). Por ahora solo nombres: el
+// render/sprites llega después.
+// ---------------------------------------------------------------------------
+export const ROSTER = [
+  'Gato anfitrión', 'Zorrito', 'Rana', 'Dragoncito',
+  'Robot Barredor', 'Robot Barista', 'Robot Repartidor', 'Robot DJ',
+  'Humano gemelo A', 'Humano gemelo B',
+];
 
 // ---------------------------------------------------------------------------
 // deterministic seeding / sampling helpers (rng injected; never Math.random here)
@@ -108,6 +127,8 @@ export function createGame(init = {}) {
     progress: {
       coins: 0, totalGames: 0, cafeLevel: 1, productsBought: 0,
       clients: 3, boardCells: 7, colorsUnlocked: 1, // board starts as 7-cell hex 2-3-2
+      colorsOwned: 4,                               // v2 R13.7: 4 colores de inicio
+      permTiles: 0,                                 // v2 R14.2: techo permanente de activables
       econ: { multLevel: 0 },
     },
     economy: { multLevel: 0 },
@@ -204,53 +225,67 @@ function expandTileCheck(s, q, r) {
 }
 
 // ---------------------------------------------------------------------------
-// Board / order / pool generation (R2 board redesign, R8, R10.2)
+// Board / pool generation — v2 (R14.1/R14.2; reemplaza el board v1 de 7).
+// Firma elegida: generateBoard(n, rng) -> array de `n` celdas axiales
+// { id, q, r, stack, blocked, calamity, dormant }. En el juego n SIEMPRE es 30
+// (panal rectangular: 6 filas axiales alternadas 5/6). Las celdas nacen
+// dormant:true (visibles pero apagadas) salvo el núcleo 2-3-2 (7 celdas,
+// mismas coords que initialHexCells) que queda jugable (dormant:false).
 // ---------------------------------------------------------------------------
-export function generateBoard(state, rng) {
-  const p = state.progress;
-  // every run opens on the fixed 7-cell hex (2-3-2); growth happens via expandTile
-  const board = initialHexCells();
-
-  // orders are NOT anchored to any cell: {id,color,qty,served} (R4 redesign)
-  const orders = Array.from({ length: p.clients }, (_, i) => ({
-    id: `ord-${i}`, color: rngInt(rng, 1, p.colorsUnlocked),
-    qty: rngInt(rng, 2, 4), served: false,
-  }));
-
-  // calamities (R8): only when progress.boardCells > threshold; count variable
-  let calamities = 0;
-  if (p.boardCells > CONFIG.CALAMITY_THRESHOLD) {
-    const lo = Math.ceil(p.boardCells / 5);
-    const hi = Math.floor(p.boardCells / 3);
-    calamities = lo <= hi ? rngInt(rng, lo, hi) : 0;
-    const free = board.filter((c) => !c.calamity);
-    const chosen = pickDistinct(rng, free.length, Math.min(calamities, free.length));
-    for (const ci of chosen) {
-      const c = free[ci];
-      c.calamity = true;
-      if (rng() < CONFIG.BLOCK_PROB) {
-        c.blocked = true;
-      } else {
-        const size = rngInt(rng, 1, 3);
-        const col = rngInt(rng, 1, p.colorsUnlocked);
-        c.stack = Array.from({ length: size }, () => col);
-        c.calamityStack = true;
-      }
+export function generateBoard(n, rng) {
+  const size = n || 30;
+  const core = new Set(initialHexCells().map((c) => `${c.q},${c.r}`));
+  const board = [];
+  let id = 0;
+  // panal rectangular 5×6 = 30: 6 filas axiales (r fijo) de 5 celdas, con el
+  // inicio q desfasado por fila (qStart + r/2 constante) para que el contorno
+  // sea un rectángulo escalonado. NOTA: el multiconjunto [5,5,5,6,6,6] suma 33
+  // ≠ 30; con 30 celdas / 6 filas las únicas filas consistentes son 5×6.
+  for (let r = -2; r <= 3; r++) {
+    const qStart = -Math.floor(r / 2) - 1;
+    for (let q = qStart; q < qStart + 5; q++) {
+      board.push({
+        id: `c${id++}`, q, r,
+        stack: [], blocked: false, calamity: false,
+        dormant: !core.has(`${q},${r}`),          // R14.2 núcleo 2-3-2 jugable
+      });
     }
   }
-
-  // pool: 3 piles, single color each, unlocked range (R3.1, R10.2)
-  const pool = Array.from({ length: 3 }, () => pile(rng, p.colorsUnlocked));
-
-  return { board, orders, pool, poolPlaced: 0, calamities };
+  return board;
 }
 
 // ---------------------------------------------------------------------------
-// openRun / openShop (R2.1). Also `newRun` alias. Refills skill uses (R7.4).
+// openRun / openShop — v2 (R13.3 arranque de run; reemplaza openRun v1).
+// run = { board (30 celdas), orders, pool, poolPlaced, calamities,
+//         rosterIndex, placedCounter, runTilesActivated }.
+// Arranque: rosterIndex=1 (solo el Gato anfitrión, pedido {color:1, qty 2-4}),
+// pool = 3 pilas monocromas SOLO de color 1 (tamaños rng 1-4), placedCounter=0,
+// runTilesActivated=0. Los demás colores no existen hasta desbloqueo (R13.4).
 // ---------------------------------------------------------------------------
+// v2 helper: color máximo que genera el pool = min(rosterIndex, colorsOwned).
+// El pedido de una criatura recién llegada POR ENCIMA del techo (colorsOwned+1)
+// NO se genera en pool — eso es la presión de compra (R13.5/R13.7).
+function poolMaxColor(rosterIndex, colorsOwned) {
+  return Math.min(rosterIndex || 1, colorsOwned || 1);
+}
+// v2 helper: pila monocroma de tamaño rng 1-4 en [1, cu] (R13.3/R13.4)
+function v2Pile(rng, cu) {
+  return Array.from({ length: rngInt(rng, 1, 4) }, () => rngInt(rng, 1, cu));
+}
+
 export function openRun(state, rng) {
   const s = clone(state);
-  s.run = { phase: 'open', ...generateBoard(s, rng) };
+  if (s.progress.permTiles == null) s.progress.permTiles = 0;      // v2 default (saves v1)
+  const board = generateBoard(30, rng);                            // R14.1 board dual 30
+  const orders = [{ id: 'ord-0', color: 1, qty: rngInt(rng, 2, 4), served: false }]; // R13.3 Gato
+  s.run = {
+    phase: 'open', board, orders,
+    pool: Array.from({ length: 3 }, () => v2Pile(rng, poolMaxColor(1, s.progress.colorsOwned))),
+    poolPlaced: 0, calamities: 0,
+    rosterIndex: 1,                                                // R13.3 solo Gato
+    placedCounter: 0,                                              // R13.4
+    runTilesActivated: 0,                                          // R14.3
+  };
   for (const key of Object.keys(CONFIG.USES_PER_RUN)) {
     if (s.skills[key] && s.skills[key].owned) {
       s.skills[key].uses = CONFIG.USES_PER_RUN[key];          // R7.4 replenish per run
@@ -540,7 +575,14 @@ export function serializeState(state) {
 export function deserializeState(json) {
   try {
     const s = JSON.parse(json);
-    if (s && s.version === 1) return s;
+    if (s && s.version === 1) {
+      // v2 defaults: saves v1 viejos no tienen los campos nuevos — no romper
+      if (s.progress) {
+        if (s.progress.permTiles == null) s.progress.permTiles = 0;      // R14.2
+        if (s.progress.colorsOwned == null) s.progress.colorsOwned = 4;  // R13.7
+      }
+      return s;
+    }
     return createGame();
   } catch (e) {
     return createGame();
