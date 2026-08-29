@@ -128,7 +128,9 @@ export function createGame(init = {}) {
       coins: 0, totalGames: 0, cafeLevel: 1, productsBought: 0,
       clients: 3, boardCells: 7, colorsUnlocked: 1, // board starts as 7-cell hex 2-3-2
       colorsOwned: 4,                               // v2 R13.7: 4 colores de inicio
-      permTiles: 0,                                 // v2 R14.2: techo permanente de activables
+      permTiles: 1,                                 // v2 R14.2: techo inicial 1 (T14c/T14d:
+                                                    // la 1ª activación por partida es posible
+                                                    // sin comprar permanente)
       econ: { multLevel: 0 },
     },
     economy: { multLevel: 0 },
@@ -275,7 +277,7 @@ function v2Pile(rng, cu) {
 
 export function openRun(state, rng) {
   const s = clone(state);
-  if (s.progress.permTiles == null) s.progress.permTiles = 0;      // v2 default (saves v1)
+  if (s.progress.permTiles == null) s.progress.permTiles = 1;      // v2 default (saves v1)
   const board = generateBoard(30, rng);                            // R14.1 board dual 30
   const orders = [{ id: 'ord-0', color: 1, qty: rngInt(rng, 2, 4), served: false }]; // R13.3 Gato
   s.run = {
@@ -333,6 +335,7 @@ export function placeStack(state, cellId, slot, rng) {
   if (!b || cellId < 0 || cellId >= b.length) return { error: 'noCell' }; // R3.5
   const cell = b[cellId];
   if (cell.blocked) return { error: 'blocked' };                            // R3.5/R8.4
+  if (cell.dormant) return { error: 'dormant' };        // v2 R14.2 no colocable
   if (s.run.poolPlaced >= 3 && s.run.pool.every((x) => x.length === 0)) {
     return { error: 'emptyPool' };
   }
@@ -343,9 +346,33 @@ export function placeStack(state, cellId, slot, rng) {
   cell.stack = cell.stack.concat(pile);      // R3.4 / R4.2 stack on top
   s.run.pool[idx] = [];
   s.run.poolPlaced += 1;
+  if (s.run.rosterIndex != null) {
+    // v2 R13.4: cada pila colocada cuenta; cada UNLOCK_PLACED_PILES llega la
+    // siguiente criatura (pedido {color: rosterIndex, qty 2-4}) — techo
+    // R13.5: rosterIndex+1 <= colorsOwned+1 y < MAX_COLORS. El color de una
+    // criatura por ENCIMA del techo NO se genera en pool (presión de compra).
+    s.run.placedCounter = (s.run.placedCounter || 0) + 1;
+    if (s.run.placedCounter >= CONFIG.UNLOCK_PLACED_PILES) {
+      s.run.placedCounter = 0;
+      const next = s.run.rosterIndex + 1;
+      const owned = s.progress.colorsOwned || 0;
+      if (next <= owned + 1 && next < CONFIG.MAX_COLORS) {
+        s.run.rosterIndex = next;
+        const r = rng || Math.random;
+        s.run.orders.push({ id: `ord-${next}`, color: next, qty: rngInt(r, 2, 4), served: false });
+      }
+    }
+  }
   if (s.run.poolPlaced === 3) {
     // refill all 3 at once (R3.3); injected rng keeps it deterministic
-    s.run.pool = buildPick(rng, 3, s.progress.colorsUnlocked);
+    if (s.run.rosterIndex != null) {
+      // v2 R13.4: pool UNIFORME entre desbloqueados 1..min(rosterIndex, colorsOwned)
+      const r = rng || Math.random;
+      const cu = poolMaxColor(s.run.rosterIndex, s.progress.colorsOwned);
+      s.run.pool = Array.from({ length: 3 }, () => v2Pile(r, cu));
+    } else {
+      s.run.pool = buildPick(rng, 3, s.progress.colorsUnlocked);
+    }
     s.run.poolPlaced = 0;
   }
   return s;
@@ -353,6 +380,78 @@ export function placeStack(state, cellId, slot, rng) {
 
 function buildPick(rng, n, cu) {
   return Array.from({ length: n }, () => pile(rng || Math.random, cu));
+}
+
+// ---------------------------------------------------------------------------
+// v2 — Progresión permanente de colores (R13.7): buyColor desbloquea el
+// siguiente color del roster. Precio COLOR_PRICE(n) = COLOR_PRICE_BASE*(n-3)
+// con n = colorsOwned tras comprar. Máx MAX_COLORS (R13.7).
+// ---------------------------------------------------------------------------
+export function buyColor(state) {
+  const s = clone(state);
+  if (s.progress.colorsOwned == null) s.progress.colorsOwned = 4; // v2 default
+  if (s.progress.colorsOwned >= CONFIG.MAX_COLORS) return { error: 'maxed', state: s };
+  const n = s.progress.colorsOwned + 1;
+  const price = CONFIG.COLOR_PRICE_BASE * (n - 3);
+  if (s.progress.coins < price) return { error: 'noFunds', state: s }; // sin mutar
+  s.progress.colorsOwned = n;
+  s.progress.coins -= price;
+  return s;
+}
+
+// ---------------------------------------------------------------------------
+// v2 — Economía de baldosas (R14.2/R14.3/R14.4). Tablero dual 30: las celdas
+// dormant se activan TEMPORALMENTE por partida (activateTile, techo
+// runTilesActivated <= progress.permTiles) o se compran PERMANENTES en tienda
+// (buyPermTile sube el techo; NO activa la celda — la activación es siempre
+// temporal). Precios exponenciales ⚖BALANCE:
+//   runTilePrice   = RUN_TILE_BASE  * 1.6^runTilesActivated   (R14.3)
+//   permTilePrice  = PERM_TILE_BASE * 1.35^permTiles          (R14.4)
+// (sin redondeo: la fórmula es la spec exacta)
+// ---------------------------------------------------------------------------
+export function runTilePrice(state) {
+  const n = (state.run && state.run.runTilesActivated) || 0;
+  return CONFIG.RUN_TILE_BASE * 1.6 ** n;
+}
+
+export function permTilePrice(state) {
+  const m = (state.progress && state.progress.permTiles) || 0;
+  return CONFIG.PERM_TILE_BASE * 1.35 ** m;
+}
+
+function v2CellOf(s, cellId) {
+  if (typeof cellId === 'number') return s.run.board[cellId];
+  return s.run.board.find((c) => c.id === cellId);
+}
+
+// NOTE: los retornos {error} llevan `state` (clone SIN mutar) — el contrato
+// v2 de la suite hace unwind({error,state}) para verificar "sin mutar".
+export function activateTile(state, cellId) {
+  const s = clone(state);
+  if (!s.run || !Array.isArray(s.run.board)) return { error: 'noRun', state: s };
+  const cell = v2CellOf(s, cellId);
+  if (!cell) return { error: 'noCell', state: s };
+  if (!cell.dormant) return { error: 'notDormant', state: s };   // solo baldosas apagadas
+  const perm = s.progress.permTiles || 0;
+  if ((s.run.runTilesActivated || 0) >= perm) return { error: 'cap', state: s }; // R14.2 techo
+  const price = runTilePrice(s);
+  if (s.progress.coins < price) return { error: 'noFunds', state: s };
+  cell.dormant = false;                                // activa ESTA partida
+  s.run.runTilesActivated = (s.run.runTilesActivated || 0) + 1;
+  s.progress.coins -= price;
+  return s;
+}
+
+export function buyPermTile(state, cellId) {
+  const s = clone(state);
+  if (s.progress.permTiles == null) s.progress.permTiles = 1;
+  const price = permTilePrice(s);
+  if (s.progress.coins < price) return { error: 'noFunds', state: s };
+  // sube el techo permanente; la celda elegida NO se activa aquí (R14.4):
+  // sigue dormant hasta un activateTile posterior (temporal por partida).
+  s.progress.permTiles += 1;
+  s.progress.coins -= price;
+  return s;
 }
 
 // ---------------------------------------------------------------------------
@@ -578,7 +677,7 @@ export function deserializeState(json) {
     if (s && s.version === 1) {
       // v2 defaults: saves v1 viejos no tienen los campos nuevos — no romper
       if (s.progress) {
-        if (s.progress.permTiles == null) s.progress.permTiles = 0;      // R14.2
+        if (s.progress.permTiles == null) s.progress.permTiles = 1;      // R14.2 (techo inicial, ver createGame)
         if (s.progress.colorsOwned == null) s.progress.colorsOwned = 4;  // R13.7
       }
       return s;
