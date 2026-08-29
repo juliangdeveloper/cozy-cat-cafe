@@ -3,6 +3,7 @@
 Concepto: incremental + sorting de hex. "Abrir la tienda" = una partida.
 Proyecto nuevo HTML/JS desplegable (pipeline BMAD + gate). Idioma: **inglés**.
 Estética: a definir en fase de implementación (foco jugabilidad primero).
+## v2 (2026-08-29): mecánica HexaSort merge — grill completo con Julian.
 
 ## Bucle de partida
 - Partida = **abrir el café**. Sirves gatos-clientes con pedidos: juntar en una celda un
@@ -13,16 +14,26 @@ Estética: a definir en fase de implementación (foco jugabilidad primero).
 - **La partida se cierra por 2 condiciones:** ① tablero lleno sin poder colocar más pilas,
   ② atendiste a **todos** los gatos. También se puede **cerrar cuando quieras** y conservar
   el dinero ganado hasta ese punto; reabrir reinicia.
+- Pool de 3 pilas monocromas; refill de golpe al colocar las 3 (sin cambio v1).
+- Colocar una pila FUSIONA los topes de vecinos del mismo color con el tope de la celda destino (estilo HexaSort). Grupo = fichas contiguas, sin superpiezas.
+- AUTO-SERVIR por defecto: cuando un tope alcanza la cantidad pedida, el pedido se sirve solo (paga, consume exactamente la cantidad, excedente queda). Pedidos FLOTAN: no anclados a celda.
+- Cascada lenta encadenada (1600ms/eslabón) tras toda mutación de topes, hasta estabilizar. Grupos ≥10 se destruyen con bonus de monedas.
+- Serve manual = skill comprable ("Modo mesero", toggle auto-serve off → brillar y tocar, comportamiento v1).
 
 ## Dinero / economía (incremental)
 - **Pago base por pedido** + **multiplicador mejorable que premia pedidos grandes**
   (apilar 4 de una vez > 2 pedidos de 2; más difícil → más pago) + **bonus por calamidades** al cerrar.
 - El dinero **expande el café**: más clientes (N), más celdas de tablero, más catálogo/colores.
+- Dos economías de baldosas: compra TEMPORAL por partida (precio exponencial ×1.6 por baldosa activada en la run, se resetea) y PERMANENTE desde la tienda (×1.35 por permanente total; habilita el techo de activables, la activación siempre se paga por partida).
+- Compra de COLORES en la tienda: 4 de inicio → 10 máx. El roster de la partida avanza 1 color por encima del techo comprado: completar la partida exige comprar colores.
+- Umbral de destrucción ≥10: bonus fijo (25×qty, CONFIG).
 
-## Poderes comprables (3, en el café) — orden de precio
-1. **Destruir una pila** (el más caro)
-2. **Intercambiar 2 pilas de lugar** (medio)
-3. **Descartar el pool actual y sacar otras 3** (el barato)
+## Poderes comprables (5, en el café) — orden de precio
+1. **Saltar a la barra** (destruir pila)
+2. **Mesero ágil** (intercambiar pilas)
+3. **Envío de la cocina** (refresh pool)
+4. **Modo mesero** (serve manual toggle) — precio ⚖BALANCE
+5. **Pizarra de tiza** (preview 1-3 tandas siguientes; niveles 1-3 recomprando) — precio ⚖BALANCE
 
 Se compran como **mejoras en un árbol de habilidades del café**, muy simple y fácil de entender,
 desbloqueadas por **nivel del café** (sube con el número de partidas jugadas). El nivel
@@ -41,10 +52,14 @@ desbloqueadas por **nivel del café** (sube con el número de partidas jugadas).
 - **Cada sistema tiene su mejora gráfica visible en el café** (no solo un número que sube).
 
 ## Progresión de colores
-- **+1 color por cada N productos del catálogo**; el tablero crece con la expansión
-  (amortigua la dificultad). Cozy, sin timer.
+- 10 colores, 4 de inicio. Cada 3 pilas colocadas se desbloquea el siguiente color: llega su criatura-cliente y el pool empieza a generarlo (uniforme).
+- Clientes = 10 criaturas, UNA por color, cada una solo pide SU color. Roster: 1 Gato anfitrión; zorrito, rana, dragoncito (fantásticas); 4 robots (barredor, barista, repartidor, DJ); 2 humanos andróginos gemelos. Llegada = orden 1→10.
+- Arranque de run: 1 criatura + pool de 1 color + núcleo 2-3-2 del tablero. Victoria = servir a todas las criaturas que llegaron.
 
 ## Alcance
 - Juego nuevo HTML/JS desplegable (como los otros juegos del perfil).
+- Tablero SIEMPRE dibujado completo (panal 5×6 = 30 baldosas); jugable = núcleo 2-3-2 + activables ≤ permanentes comprados; no jugable se ve apagada.
+- Calamidades se recalculan sobre celdas jugables.
+- Diferido a implementación: assets (criaturas, ítems de pedido, fichas ×10 colores). El render final definirá la lista de assets necesarios y luego se reorganiza la UI. Números ⚖BALANCE: precios de skills nuevos, bases de precio de baldosas, bonus destrucción, COLOR_PRICE.
 - **Diferido a implementación:** números finos de balance (tasas idle/hora, costos de mejoras,
   precio/multiplicador exacto), orden exacto del árbol de habilidades, detalles de estética.
