@@ -60,6 +60,14 @@ desbloqueadas por **nivel del café** (sube con el número de partidas jugadas).
 - Juego nuevo HTML/JS desplegable (como los otros juegos del perfil).
 - Tablero SIEMPRE dibujado completo (panal con picos filas [7,9,9,7] = 32 baldosas, v2-shape; antes panal 5×6 = 30); jugable = núcleo 2-3-2 + activables ≤ permanentes comprados; no jugable se ve apagada.
 - Calamidades se recalculan sobre celdas jugables.
+
+## v2.1 — Cola de clientes (2026-08-30)
+- **Por partida: 20 clientes** (+1 por nivel del skill Capacidad, tope 100). Tipos = las 10 criaturas (1/color), activos = `colorsOwned+1` (con 10 comprados, 10).
+- **Llegada perezosa**: se ven 3 clientes a la vez; al servir uno entra el siguiente. La cola no se pre-genera.
+- **Presión de compra**: el pool solo genera colores comprados; los clientes piden colores del roster activo (siempre ≥ comprados+1 mientras queden colores por comprar) → sin comprar colores NO puedes servir a todos → cierre manual.
+- **Skills**: "Enviar a la cola" (queueSkip: los 3 visibles vuelven al fondo, entran 3 nuevos), "Capacidad" (+1 cliente por nivel), y **mejora de usos** por skill (+1 uso/partida, precio exponencial).
+- Victoria = servir TODOS los clientes de la partida.
+
 - Diferido a implementación: assets (criaturas, ítems de pedido, fichas ×10 colores). El render final definirá la lista de assets necesarios y luego se reorganiza la UI. Números ⚖BALANCE: precios de skills nuevos, bases de precio de baldosas, bonus destrucción, COLOR_PRICE.
 - **Diferido a implementación:** números finos de balance (tasas idle/hora, costos de mejoras,
   precio/multiplicador exacto), orden exacto del árbol de habilidades, detalles de estética.
