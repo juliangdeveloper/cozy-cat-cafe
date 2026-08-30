@@ -240,12 +240,12 @@ export { createGame, CONFIG,
 - `R13.6` — Victoria = servir a TODAS las criaturas llegadas. R2.2/R2.4 sin cambio.
 - `R13.7` — Colores: 10 máx, 4 de inicio. Compra DIRECTA en tienda: `buyColor` desbloquea el siguiente color del roster; precio `COLOR_PRICE(n) = COLOR_PRICE_BASE * (n-3)` CONFIG ⚖BALANCE. R10 queda REPLANTEADA: `productsBought`/catálogo se ELIMINA del state (§1); `colorsUnlocked`/`colorsOwned` pasa a derivarse de compras directas. R10.2 (solo colores desbloqueados se generan) se mantiene como principio. R10.1/R10.3 y R6.3 quedan marcadas OBSOLETAS-v2 (reemplazadas por R13.7).
 
-### R14. Tablero dual 5x6 [v2] (modifica R6.2, R8)
-- `R14.1` — Tablero SIEMPRE dibujado completo: panal rectangular filas alternadas 5/6 (axial), 30 celdas. No jugable = visible apagada (estilo lock).
+### R14. Tablero dual peaked-hex 32 [v2] (modifica R6.2, R8)
+- `R14.1` — Tablero SIEMPRE dibujado completo: panal con picos filas [7,9,9,7] = 32 celdas (estilo hexágono Catan pequeño; axial, 4 filas consecutivas offset medio). No jugable = visible apagada (estilo lock).
 - `R14.2` — Jugable al inicio = núcleo 2-3-2 (7). Activables por partida ≤ `permTiles` (techo permanente). [v2] R6.2 (`boardCells += 3`) queda OBSOLETA: su rol lo cumplen las baldosas permanentes (R14.4). El campo `progress.boardCells` se ELIMINA del JSON §1. → US-52.
 - `R14.3` — Compra temporal: tocar baldosa apagada → activa esa celda esta partida; `runTilePrice = RUN_TILE_BASE × 1.6^runTilesActivated` (CONFIG ⚖BALANCE).
 - `R14.4` — Compra permanente (tienda): eliges baldosa concreta; `permTilePrice = PERM_TILE_BASE × 1.35^permTiles` (CONFIG ⚖BALANCE). Habilita el techo, la activación es siempre temporal.
-- `R14.5` — Calamidades (R8): rango se calcula sobre celdas JUGABLES, no sobre 30. [v2] R8.1 se reinterpreta: calamidades entran cuando las celdas JUGABLES (núcleo 7 + activadas) > 15. El rango lo/hi se calcula sobre jugables, no sobre 30. → US-53.
+- `R14.5` — Calamidades (R8): rango se calcula sobre celdas JUGABLES, no sobre 32. [v2] R8.1 se reinterpreta: calamidades entran cuando las celdas JUGABLES (núcleo 7 + activadas) > 15. El rango lo/hi se calcula sobre jugables, no sobre 32. → US-53.
 
 ### R15. Skills v2 [v2] (amplía R7)
 - `R15.1` — Catálogo: destroyPile="Saltar a la barra", swapPiles="Mesero ágil", refreshPool="Envío de la cocina", serveManual="Modo mesero" (toggle autoServe, sin usos), previewPool="Pizarra de tiza" (levels 0-3: muestra próximas 1/2/3 tandas del pool; se sube recomprando; unlock cafeLevel 2 ⚖BALANCE). [v2] R7.4 se reescribe: cada skill declara su MODELO — 'uses' (destroyPile/swapPiles/refreshPool: se reponen al reabrir, R7.4 original aplica solo a ellos), 'toggle' (serveManual: owned bool + autoServe bool, sin usos), 'levels' (previewPool: level 0..3, subir = recomprar, sin usos).
@@ -352,13 +352,13 @@ const pay = (q, m=0) => Math.round(5 * q ** (1.25 + 0.05*m));
 - `T12.5` — **cada criatura pide solo su color:** GIVEN roster de 3 criaturas; THEN los pedidos generados tienen color ∈ {1,2,3}, uno por criatura. [R13.2]
 - `T12.6` — **arranque de run:** GIVEN `openRun`; THEN `rosterIndex===1` (solo Gato), pool genera solo color 1, y solo el núcleo 2-3-2 (7 celdas) es jugable. [R13.3, R14.2]
 
-### T13. Tablero dual 5x6 [v2]
-- `T13.1` — **tablero fijo 30 celdas:** GIVEN `generateBoard`; THEN 30 celdas en panal rectangular 5/6 alternado, todas presentes en `board` (no jugables con flag lock). [R14.1]
+### T13. Tablero dual peaked-hex 32 [v2]
+- `T13.1` — **tablero fijo 32 celdas:** GIVEN `generateBoard`; THEN 32 celdas en panal con picos filas [7,9,9,7] (axial, consecutivas offset medio), todas presentes en `board` (no jugables con flag lock). [R14.1]
 - `T13.2` — **activables ≤ permTiles:** GIVEN `permTiles=2` (m); WHEN intentar activar una 3ª baldosa apagada esta partida; THEN `{error}` y nada cambia. [R14.2]
 - `T13.3` — **precio exponencial n:** GIVEN `runTilesActivated=3`; THEN `runTilePrice = RUN_TILE_BASE × 1.6^3`; colocar la 4ª usa `1.6^4`. [R14.3]
 - `T13.4` — **precio exponencial m:** GIVEN `permTiles=2`; THEN `permTilePrice = PERM_TILE_BASE × 1.35^2`. [R14.4]
 - `T13.5` — **permanente habilita techo, activación es temporal:** GIVEN compra permanente de baldosa B; THEN `permTiles += 1` y B sigue apagada al abrir la siguiente run (solo activable temporalmente). [R14.4]
-- `T13.6` — **calamidades sobre jugables:** GIVEN tablero 30 con 23 jugables; THEN el rango de calamidades se calcula sobre 23 (jugables), no sobre 30. [R14.5, R8.2]
+- `T13.6` — **calamidades sobre jugables:** GIVEN tablero 32 con 23 jugables; THEN el rango de calamidades se calcula sobre 23 (jugables), no sobre 32. [R14.5, R8.2]
 
 ### T14. Auto-servir [v2]
 - `T14.1` — **consume qty exacta, excedente queda:** GIVEN pedido {color:2, qty:3} y tope [2,2,2,2]; WHEN auto-servir; THEN se consumen 3 fichas, el tope queda [2], `pay(order)` cobrado. [R15.2]
