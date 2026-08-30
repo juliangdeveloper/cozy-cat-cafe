@@ -838,10 +838,10 @@ async function placeFlow(cell,slot){
   state=res; ui.slot=false;
   const fin=resolveCascade(state);               // autoritativo (puro)
   if(fin.steps===0){                             // estable: render directo, sin delays
-    state=fin.state; renderAll(); checkFull(); return;
+    state=fin.state; renderAll(); checkFull(); checkServedAll(); return;
   }
   await playCascade(res,fin.state);              // anima eslabones (1600ms c/u)
-  renderAll(); checkFull();
+  renderAll(); checkFull(); checkServedAll();
 }
 // 2-step serve: a client was already chosen (ui.servingOrder); tapping any pile
 // (cellId) tries to serve that order to it — the target cell is NOT bound to the order.
@@ -876,6 +876,11 @@ function checkFull(){ const r=state.run; if(!r) return;
   const free=r.board.filter(b=>!b.blocked && b.stack.length===0);
   const any=r.orders.some(o=>!o.served);
   if(free.length===0 && any) doClose('full'); }
+// v2 R13.6 fix (audit): la victoria debe alcanzar también por AUTO-SERVE —
+// si la cascada sirvió el último pedido, cerrar con 'allServed' igual que
+// serveOrderFlow. Sin esto, con autoServe ON el final de victoria es inalcanzable.
+function checkServedAll(){ const r=state.run; if(!r) return;
+  if(r.orders.length && r.orders.every(x=>x.served)) doClose('allServed'); }
 function openTheCafe(){
   state=openRun(state, Math.random);
   ui.slot=false; ui.mode=null; ui.servingOrder=null; ui.placeTile=false;
@@ -925,10 +930,9 @@ function showShop(){
   $('#shopBox').innerHTML = `
     <div class="rowcard"><div class="rowinfo"><b>Extra table</b><span>${p.clients} → ${p.clients+1} cats</span></div>
       <button class="btn btn-sm" data-exp="clients">${fmt(price('clients'))}🪙</button></div>
-    <div class="rowcard"><div class="rowinfo"><b>Bigger floor</b><span>Elige un hueco adyacente y coloca una mesa</span></div>
-      <button class="btn btn-sm" data-exp="board">${fmt(price('board'))}🪙</button></div>
-    <div class="rowcard"><div class="rowinfo"><b>Menu variety</b><span>${p.productsBought} → ${p.productsBought+1} product</span></div>
-      <button class="btn btn-sm" data-exp="products">${fmt(price('products'))}🪙</button></div>
+    <!-- v2 fix (audit): filas "Bigger floor" (R6.2 OBSOLETA-v2, flujo muerto en
+         tablero dual 30 fijo) y "Menu variety" (R6.3 OBSOLETA-v2, gastaba monedas
+         en productsBought sin efecto — colores ahora son buyColor R13.7) ELIMINADAS -->
     <div class="rowcard"><div class="rowinfo"><b>Big-tip bonus</b><span>mult ${p.econ.multLevel} (superlinear)</span></div>
       ${multC?`<button class="btn btn-sm" data-exp="mult">${fmt(multC)}🪙</button>`:'<span style="color:var(--ink-soft);font-weight:700">max</span>'}</div>
     ${idleRow('workers')}${idleRow('fame')}${idleRow('machines')}`;
