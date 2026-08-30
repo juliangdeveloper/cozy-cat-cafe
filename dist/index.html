@@ -221,14 +221,72 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 @keyframes conf{0%{opacity:1;transform:translate(0,0) rotate(0)}60%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(720deg)}}
 
 @media(min-width:720px){#app{max-width:680px}.powerbar{flex-wrap:nowrap}}
-/* v2-shape: board 7,9,9,7 (32) — la fila más ancha mide span8*3hx+cw = 26hx.
-   Para que el panal SIEMPRE quepa entero (sin overflow-x), --hx se escala al
-   ancho disponible: desktop 680px app → hx 24 (26*24=624 ✓); móvil reduce más. */
-:root{ --hx:15px; }   /* v2-shape: 26*15=390 base; media min-widths escalan arriba*/
-@media(min-width:760px){:root{--hx:26px}}          /* 26*26=676 <= 680 */
-@media(max-width:560px){:root{--hx:15px}}          /* 15*26=390 */
-@media(max-width:414px){:root{--hx:15px}}          /* 15*26=390 */
-@media(max-width:360px){:root{--hx:13px}}          /* 13*26=338 */
+/* v2-shape: board 7,9,9,7 (32) — EXTENSIÓN REAL del panal = 27.5*hx (las filas
+   impares arrancan a +1.5*hx; fila de 9 mide 26hx y arranca a 1.5hx). El criterio
+   es "máximo hx que quepa": hx = floor((vw-20)/27.5), donde 20 = 6px padding
+   #app (x2, móvil) + 4px padding .board-wrap (x2).
+   ESCALERA FINAL (mobile-first 2026-08, verificada por DOM):
+     vw >= 760  -> 23   (23*27.5=632.5 <= 652 wrap desktop)
+     vw >= 561  -> 15   (15*27.5=412.5 <= 541+)
+     vw >= 433  -> 15   (430: 385 <= 410 ✓; 16 => 440 > 410 NO cabe)
+     vw >= 405  -> 14   (14*27.5=385;   en 414: 385 <= 394 ✓)
+     vw >= 378  -> 13   (13*27.5=357.5; en 390: 357.5 <= 370 ✓)
+     vw >= 350  -> 12   (12*27.5=330;   en 360: 330 <= 340 ✓)
+     vw <  350  -> 11   (11*27.5=302.5)
+   (hx fraccional imposible: el pitch del panal exige enteros) */
+:root{ --hx:15px; }   /* v2-shape: base <=560/759 */
+@media(min-width:760px){:root{--hx:23px}}          /* 23*27.5=632.5 <= 652 */
+@media(max-width:432px){:root{--hx:14px}}          /* 14*27.5=385 <= vw-20 (vw>=405) */
+@media(max-width:404px){:root{--hx:13px}}          /* 13*27.5=357.5 <= vw-20 (vw>=378) */
+@media(max-width:377px){:root{--hx:12px}}          /* 12*27.5=330 <= vw-20 (vw>=350) */
+@media(max-width:349px){:root{--hx:11px}}          /* 11*27.5=302.5 */
+
+/* ============================================================
+   MOBILE-FIRST (<=560px): board-first, powerbar sticky inferior,
+   pedidos compactos, densidad -20%, font-ui 14px. El tablero es
+   lo primero: idle queda plegado (<details>) por defecto.
+   ============================================================ */
+@media(max-width:560px){
+  #app{padding:0 6px calc(8px + env(safe-area-inset-bottom))}
+  body{font-size:14px}
+  /* título/topbar compactos: menos margen vertical; wrap evita overflow-x en 360 */
+  .topbar{padding:6px 2px;flex-wrap:wrap}
+  .chip{font-size:15px;padding:4px 9px}
+  .chip.sm{font-size:11px;padding:3px 7px}
+  .logo{font-size:26px}
+  .menu{min-height:88vh;gap:10px;padding:12px 0}
+  .btn-primary{min-height:56px;font-size:19px}
+  /* secciones no críticas: sin márgenes verticales extra */
+  .idledecor{margin:4px 0;padding:4px}
+  /* BOARD PRIORITARIO: wrap sin padding extra, centrado (board margin:0 auto) */
+  .board-wrap{padding:4px}
+  /* pedidos COMPACTOS: 3 tarjetas fijas (~64px alto), sprite 40px, qty badge;
+     >3 pedidos => scroll horizontal (flex-basis fijo + overflow-x ya en base) */
+  .orders{gap:6px;padding:4px 0}
+  .order-card{flex:0 0 calc((100% - 12px)/3);width:auto;min-height:64px;padding:4px 2px;position:relative}
+  .order-card .o,.order-card .catimg{width:40px!important;height:40px!important;margin:0 auto}
+  .order-card .bubble{position:absolute;top:1px;right:3px;margin:0;padding:0 5px;gap:3px;font-size:12px}
+  .order-card .bubble .minitile{width:11px;height:11px;border-width:1px}
+  .order-card .oname{font-size:9px}
+  .seltag{font-size:11px}
+  /* pool / preview / hint: densidad -20% */
+  .pool{gap:6px;padding:8px;margin-top:6px}
+  .poolslot{height:72px}
+  .preview{gap:8px;padding:6px 8px;margin-top:6px}
+  .hint{margin:2px 0}
+  /* POWERBAR STICKY inferior: acceso constante sin robar espacio al tablero */
+  .powerbar{position:sticky;bottom:0;z-index:15;margin:8px -6px 0;
+    padding:8px 6px calc(8px + env(safe-area-inset-bottom));
+    background:var(--bg-primary);border-top:2px solid var(--wood)}
+  .pow{min-height:44px}   /* touch target >=44px */
+  /* colapsables compactos (idle/decor) */
+  .collap{margin:4px 0}
+  .collap summary{cursor:pointer;font-size:12px;font-weight:800;color:var(--ink-soft);
+    padding:4px 2px;list-style:none}
+  .collap summary::-webkit-details-marker{display:none}
+  .collap summary::before{content:'▸ '}
+  .collap[open] summary::before{content:'▾ '}
+}
 @media(hover:none){.btn:hover{transform:none;filter:none}}
 @media(prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01s!important;transition:none!important}}
 </style>
@@ -1410,7 +1468,7 @@ function renderRun(){
         <button class="iconbtn" id="btnShop">🛒</button>
         <button class="iconbtn" id="btnSave">💾</button>
       </div>
-      <div class="idledecor" id="idleDecor"></div>
+      <details class="collap" id="idleWrap"><summary>🏠 Decoración &amp; idle</summary><div class="idledecor" id="idleDecor"></div></details>
       <div class="orders" id="orders"></div>
       <div class="board-wrap"><div class="board" id="board"></div></div>
       <div class="pool" id="pool"></div>
@@ -1424,6 +1482,8 @@ function renderRun(){
   renderIdle(); renderOrders(); renderBoard(); renderPool(); renderPreview(); renderPowers();
 }
 function renderIdle(){
+  // colapsable mobile-first: plegado por defecto <=560px (el tablero es lo primero)
+  const wrap=document.getElementById('idleWrap'); if(wrap) wrap.open = window.innerWidth>560;
   const box=$('#idleDecor'); if(!box) return;
   const w=Math.min(state.idle.workers.level,3), f=Math.min(state.idle.fame.level,2), m=Math.min(state.idle.machines.level,2);
   let h='';
@@ -1560,26 +1620,32 @@ function renderBoard(){
   const minQ=Math.min(...[...occ.values()].map(v=>v.p.q+Math.floor(v.p.r/2))); // v2-shape: columna plegada q+floor(r/2)
   const hxN=hx(), chN=hxN*1.732;          // live --hx/--ch (media queries resize hexes)
   const rowStepX=hxN*3, altOffX=hxN*1.5, rowPitch=chN*0.47;
-  let html=""; // v2-shape: maxW por span real de columnas plegadas (left+items infla con offset paridad)
-  let maxCol=Number.NEGATIVE_INFINITY, minCol=Number.POSITIVE_INFINITY;
-  const maxH=rows.length*rowPitch-rowPitch+chN;
-  for(const rf of rows){
+  let html=""; // v2.2 mobile-first: extensión REAL por fila (fix: las filas impares
+               // arrancan a +1.5*hx, así que la extensión del panal es
+               // max(left+rowW)-min(left) ≈ 27.5hx para 7-9-9-7 — NO 26hx; con el
+               // maxW viejo (26hx) el wrap tenía scroll-x interno y se recortaban
+               // baldosas. Se mide fila a fila y se SHIFTEA todo por minLeft.)
+  const rowMetas=rows.map(rf=>{
     const k=rf-minR, odd=((rf%2)+2)%2;    // true axial parity (robust to sparse r)
     const items=byRow.get(rf).sort((a,b)=>a.p.q-b.p.q);
     const rowMinQ=items[0].p.q+Math.floor(rf/2); // v2-shape: columna plegada q+floor(r/2)
     const left=(rowMinQ-minQ)*rowStepX+(odd?altOffX:0), top=k*rowPitch;
-    for(const v of items){ const cc=v.p.q+Math.floor(rf/2); if(cc<minCol)minCol=cc; if(cc>maxCol)maxCol=cc; } // v2-shape
-
-    html+=`<div class="boardrow${odd?' alt':''}" data-row="${rf}" style="left:${left}px;top:${top}px">`;
-    for(const v of items){
+    const rowW=(items.length-1)*rowStepX+hxN*2;  // borde izq. 1ª celda → borde der. última
+    return {rf,odd,items,left,top,rowW};
+  });
+  const shift=rowMetas.length?Math.min(...rowMetas.map(m=>m.left)):0;
+  const boxW=rowMetas.length?Math.max(...rowMetas.map(m=>m.left+m.rowW))-shift:0;
+  const maxH=rows.length*rowPitch-rowPitch+chN;
+  for(const m of rowMetas){
+    html+=`<div class="boardrow${m.odd?' alt':''}" data-row="${m.rf}" style="left:${m.left-shift}px;top:${m.top}px">`;
+    for(const v of m.items){
       if(v.slot) html+=`<div class="cell expand-slot" data-pos="${v.p.q},${v.p.r}" title="Colocar mesa aquí"><div class="hexbg"></div><div class="exicon">＋</div></div>`;
       else html+=cellHTML(v.cell, v.idx);
     }
     html+='</div>';
   }
   box.classList.toggle('actmode', ui.mode==='activate'); // 🪧 habilita pointer-events en dormant
-  const maxW=(maxCol-minCol-1)*rowStepX+hxN*2; // v2-shape: pasos entre extremos + ancho celda
-  box.style.width=maxW+'px';
+  box.style.width=boxW+'px';
   box.style.height=maxH+'px';
   box.innerHTML=html;
   $$('#board .cell').forEach(c=>c.addEventListener('click',()=>{
