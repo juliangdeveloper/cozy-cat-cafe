@@ -1,6 +1,6 @@
 // ============================================================================
 // Cozy Cat Café × HexaSort — TDD suite v2 (node:test, no deps).
-// Block T14 (board dual 5x6 / baldosas) — [R14.1..R14.4].
+// Block T14 (board dual peaked-hex 32 / baldosas) — [R14.1..R14.4].
 // TDD ROJO: ../js/game.js aún NO implementa los exports v2; cada test falla
 // con mensaje `RED:` claro. Dynamic import en before() para que el archivo
 // cargue aunque falten exports. NO se modifica js/game.js.
@@ -24,9 +24,9 @@ const rng = n => mulberry32(n);
 // ---------------------------------------------------------------------------
 // Convenciones v2 asumidas (documentadas aquí; la implementación decide):
 //  * generateBoard(size, rng) -> array de `size` celdas axiales
-//    { id, q, r, dormant, blocked, ... }. `size` SIEMPRE 30 en el juego
-//    (R14.1: panal rectangular 5/6 alternado). Se pasa 30 explícito para
-//    que el test no dependa de un default interno.
+//    { id, q, r, dormant, blocked, ... }. `size` SIEMPRE 32 en el juego
+//    (R14.1 v2-shape: panal con picos filas [7,9,9,7]). Se pasa 32 explícito
+//    para que el test no dependa de un default interno.
 //  * openRun(state, rng) -> state con state.run = { board, runTilesActivated, ... }
 //  * activateTile(state, cellId) / buyPermTile(state, cellId) -> mutan state
 //    y retornan state (o {state} / {error}) — unwind() cubre ambos estilos.
@@ -47,52 +47,50 @@ const dormantCell = (s) =>
   s.run.board.find(c => c.dormant || c.blocked);
 
 // ---------------------------------------------------------------------------
-// T14a — Tablero dual 30 celdas [R14.1]
-// AMBIGUA: orientación libre (flat/pointy). Se agrupa por `r` axial y solo se
-// exige 6 filas axiales (panal 5×6 = 30; el multiconjunto original
-// [5,5,5,6,6,6] sumaba 33 ≠ 30 — corregido abajo). Cualquier orientación pasa.
+// T14a — Tablero dual 32 celdas [R14.1]
+// v2-shape: orientación axial (agrupa por `r`); 4 filas consecutivas con picos
+// [7,9,9,7] = 32 (estilo hexágono Catan pequeño, simetría de 180°). Cualquier
+// orientación global pasa (se exige el multiconjunto/orden por fila r).
 // ---------------------------------------------------------------------------
-test('T14a [R14.1] generateBoard(30): 30 celdas, 6 filas axiales (panal 5x6 = 30)', () => {
+test('T14a [R14.1] generateBoard(32): 32 celdas, 4 filas axiales con picos [7,9,9,7]', () => {
   need('generateBoard');
-  // FIRMA elegida: (size, rng) — 30 celdas, rng determinista.
+  // FIRMA elegida: (size, rng) — 32 celdas, rng determinista.
   let board = null;
   try {
-    board = boardOf(G.generateBoard(30, mulberry32(1)));
+    board = boardOf(G.generateBoard(32, mulberry32(1)));
   } catch {
     // la v1 es generateBoard(state, rng): si la firma v2 (size, rng) aún no
     // existe, fallar con mensaje RED claro en vez de un TypeError opaco.
-    assert.ok(false, 'RED: generateBoard(30, rng) firma v2 no implementada (debe retornar 30 celdas)');
+    assert.ok(false, 'RED: generateBoard(32, rng) firma v2 no implementada (debe retornar 32 celdas)');
   }
-  assert.ok(Array.isArray(board), 'RED: generateBoard(30, rng) debe retornar el board (array de celdas)');
-  assert.equal(board.length, 30, 'RED: el tablero dual v2 tiene SIEMPRE 30 celdas');
+  assert.ok(Array.isArray(board), 'RED: generateBoard(32, rng) debe retornar el board (array de celdas)');
+  assert.equal(board.length, 32, 'RED: el tablero dual v2 tiene SIEMPRE 32 celdas'); // v2-shape: 30 → 32
   // agrupar por fila axial r -> tamaños
   const rows = new Map();
   for (const c of board) {
     assert.ok(Number.isFinite(c.r), `RED: celda sin coordenada axial r: ${JSON.stringify(c)}`);
     rows.set(c.r, (rows.get(c.r) || 0) + 1);
   }
-  assert.equal(rows.size, 6, `RED: panal rectangular 5/6 = 6 filas axiales, hay ${rows.size}`);
-  const sizes = [...rows.values()].sort((a, b) => a - b);
-  // FIX aritmético (parte a): el multiconjunto [5,5,5,6,6,6] suma 33 ≠ 30;
-  // con 30 celdas / 6 filas axiales el panal 5×6 son 6 filas de 5 celdas
-  // (contorno rectangular escalonado), ver DESIGN_DECISIONS.md "5×6 = 30".
-  assert.deepEqual(sizes, [5, 5, 5, 5, 5, 5],
-    `RED: panal 5×6 = 6 filas de 5 celdas (30), hay ${JSON.stringify(sizes)}`);
+  assert.equal(rows.size, 4, `RED: panal con picos v2-shape = 4 filas axiales, hay ${rows.size}`);
+  // v2-shape: filas ordenadas por r → picos [7,9,9,7] (antes panal 5×6 = 6 filas de 5)
+  const ordered = [...rows.keys()].sort((a, b) => a - b).map((r) => rows.get(r));
+  assert.deepEqual(ordered, [7, 9, 9, 7],
+    `RED: panal con picos filas [7,9,9,7] = 32, hay ${JSON.stringify(ordered)}`);
 });
 
 // ---------------------------------------------------------------------------
 // T14b — Jugables = núcleo 2-3-2 (7); resto apagadas/bloqueadas [R14.2]
 // ---------------------------------------------------------------------------
-test('T14b [R14.2] tras openRun: 7 jugables y 23 dormant/blocked', () => {
+test('T14b [R14.2] tras openRun: 7 jugables y 25 dormant/blocked', () => {
   need('createGame'); need('openRun');
   const s = mkGame(1);
   const board = s.run && s.run.board;
   assert.ok(Array.isArray(board), 'RED: openRun debe dejar state.run.board');
-  assert.equal(board.length, 30, 'RED: el board de run debe exponer las 30 celdas [R14.1]');
+  assert.equal(board.length, 32, 'RED: el board de run debe exponer las 32 celdas [R14.1]'); // v2-shape: 30 → 32
   const playable = board.filter(c => !c.dormant && !c.blocked).length;
   const off = board.length - playable;
   assert.equal(playable, 7, 'RED: jugables al inicio = núcleo 2-3-2 (7) [R14.2]');
-  assert.equal(off, 23, 'RED: las otras 23 celdas deben estar dormant/blocked [R14.1,R14.2]');
+  assert.equal(off, 25, 'RED: las otras 25 celdas deben estar dormant/blocked [R14.1,R14.2]'); // v2-shape: 23 → 25
 });
 
 // ---------------------------------------------------------------------------
