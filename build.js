@@ -96,7 +96,7 @@ app = app.replace(
     '// Cozy Cat Café × HexaSort — BUNDLE AUTOCONTENIDO (generado por build.js).\n',
     '// Inlina la lógica pura (js/game.js) y embebe cada sprite como datos.\n',
     '// Sin carga de módulos externa ni solicitudes de red: se abre por doble clic\n',
-    '// bajo file://. Se conserva el fallback G7 (placeholder) para arte faltante.\n',
+    '// protocolo local (doble clic). Se conserva el fallback G7 (placeholder) para arte faltante.\n',
     '// ===========================================================================\n',
   ].join('')
 );

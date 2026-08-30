@@ -221,8 +221,14 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 @keyframes conf{0%{opacity:1;transform:translate(0,0) rotate(0)}60%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(720deg)}}
 
 @media(min-width:720px){#app{max-width:680px}.powerbar{flex-wrap:nowrap}}
-@media(max-width:520px){:root{--hx:29px}}
-@media(max-width:360px){:root{--hx:24px}}
+/* v2-shape: board 7,9,9,7 (32) — la fila más ancha mide span8*3hx+cw = 26hx.
+   Para que el panal SIEMPRE quepa entero (sin overflow-x), --hx se escala al
+   ancho disponible: desktop 680px app → hx 24 (26*24=624 ✓); móvil reduce más. */
+:root{ --hx:15px; }   /* v2-shape: 26*15=390 base; media min-widths escalan arriba*/
+@media(min-width:760px){:root{--hx:26px}}          /* 26*26=676 <= 680 */
+@media(max-width:560px){:root{--hx:15px}}          /* 15*26=390 */
+@media(max-width:414px){:root{--hx:15px}}          /* 15*26=390 */
+@media(max-width:360px){:root{--hx:13px}}          /* 13*26=338 */
 @media(hover:none){.btn:hover{transform:none;filter:none}}
 @media(prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01s!important;transition:none!important}}
 </style>
@@ -1286,10 +1292,10 @@ function brandExportId(state, ms) {
 // ---- APP (DOM + browser lifecycle) -------------------------------
 
 // ===========================================================================
-// Cozy Cat Café × HexaSort — APP (DOM + browser lifecycle only).
-// Pure GAME LOGIC is IMPORTED from ./js/game.js (headless-testable).
-// Sprites come from the sprite map; any MISSING sprite is generated as a code
-// placeholder (solid palette tile) so the game runs 100% without art (G7).
+// Cozy Cat Café × HexaSort — BUNDLE AUTOCONTENIDO (generado por build.js).
+// Inlina la lógica pura (js/game.js) y embebe cada sprite como datos.
+// Sin carga de módulos externa ni solicitudes de red: se abre por doble clic
+// protocolo local (doble clic). Se conserva el fallback G7 (placeholder) para arte faltante.
 // ===========================================================================
 let state = null;
 const KEY = 'cozy-cat-cafe.save.v1';
@@ -1554,14 +1560,16 @@ function renderBoard(){
   const minQ=Math.min(...[...occ.values()].map(v=>v.p.q+Math.floor(v.p.r/2))); // v2-shape: columna plegada q+floor(r/2)
   const hxN=hx(), chN=hxN*1.732;          // live --hx/--ch (media queries resize hexes)
   const rowStepX=hxN*3, altOffX=hxN*1.5, rowPitch=chN*0.47;
-  let html='', maxW=0;
+  let html=""; // v2-shape: maxW por span real de columnas plegadas (left+items infla con offset paridad)
+  let maxCol=Number.NEGATIVE_INFINITY, minCol=Number.POSITIVE_INFINITY;
   const maxH=rows.length*rowPitch-rowPitch+chN;
   for(const rf of rows){
     const k=rf-minR, odd=((rf%2)+2)%2;    // true axial parity (robust to sparse r)
     const items=byRow.get(rf).sort((a,b)=>a.p.q-b.p.q);
     const rowMinQ=items[0].p.q+Math.floor(rf/2); // v2-shape: columna plegada q+floor(r/2)
     const left=(rowMinQ-minQ)*rowStepX+(odd?altOffX:0), top=k*rowPitch;
-    maxW=Math.max(maxW, left+items.length*rowStepX-rowStepX+hxN*2);
+    for(const v of items){ const cc=v.p.q+Math.floor(rf/2); if(cc<minCol)minCol=cc; if(cc>maxCol)maxCol=cc; } // v2-shape
+
     html+=`<div class="boardrow${odd?' alt':''}" data-row="${rf}" style="left:${left}px;top:${top}px">`;
     for(const v of items){
       if(v.slot) html+=`<div class="cell expand-slot" data-pos="${v.p.q},${v.p.r}" title="Colocar mesa aquí"><div class="hexbg"></div><div class="exicon">＋</div></div>`;
@@ -1570,6 +1578,7 @@ function renderBoard(){
     html+='</div>';
   }
   box.classList.toggle('actmode', ui.mode==='activate'); // 🪧 habilita pointer-events en dormant
+  const maxW=(maxCol-minCol-1)*rowStepX+hxN*2; // v2-shape: pasos entre extremos + ancho celda
   box.style.width=maxW+'px';
   box.style.height=maxH+'px';
   box.innerHTML=html;
