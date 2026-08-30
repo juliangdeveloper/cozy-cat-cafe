@@ -232,25 +232,35 @@ function expandTileCheck(s, q, r) {
 }
 
 // ---------------------------------------------------------------------------
-// Board / pool generation — v2 (R14.1/R14.2; reemplaza el board v1 de 7).
+// Board / pool generation — v2.1 (R14.1/R14.2; reemplaza el board v1 de 7).
 // Firma elegida: generateBoard(n, rng) -> array de `n` celdas axiales
-// { id, q, r, stack, blocked, calamity, dormant }. En el juego n SIEMPRE es 30
-// (panal rectangular: 6 filas axiales alternadas 5/6). Las celdas nacen
-// dormant:true (visibles pero apagadas) salvo el núcleo 2-3-2 (7 celdas,
-// mismas coords que initialHexCells) que queda jugable (dormant:false).
+// { id, q, r, stack, blocked, calamity, dormant }. En el juego n SIEMPRE es 32
+// (panal con picos: 4 filas axiales [7,9,9,7] — estilo hexágono Catan pequeño).
+// Las celdas nacen dormant:true (visibles pero apagadas) salvo el núcleo 2-3-2
+// (7 celdas, mismas coords que initialHexCells) que queda jugable (dormant:false).
 // ---------------------------------------------------------------------------
 export function generateBoard(n, rng) {
-  const size = n || 30;
+  const size = n || 32;
   const core = new Set(initialHexCells().map((c) => `${c.q},${c.r}`));
   const board = [];
   let id = 0;
-  // panal rectangular 5×6 = 30: 6 filas axiales (r fijo) de 5 celdas, con el
-  // inicio q desfasado por fila (qStart + r/2 constante) para que el contorno
-  // sea un rectángulo escalonado. NOTA: el multiconjunto [5,5,5,6,6,6] suma 33
-  // ≠ 30; con 30 celdas / 6 filas las únicas filas consistentes son 5×6.
-  for (let r = -2; r <= 3; r++) {
-    const qStart = -Math.floor(r / 2) - 1;
-    for (let q = qStart; q < qStart + 5; q++) {
+  // v2-shape: panal con picos filas [7,9,9,7] = 32 celdas (estilo hexágono
+  // Catan pequeño). 4 filas axiales consecutivas (r fijo) con el inicio q
+  // desfasado por fila para que el contorno sea un hexágono con picos arriba/
+  // abajo y simetría de 180° (mapa q→−q, r→−1−r; filas anchas 9 en el centro):
+  //   r=-2: q -3..3  (7)      r=-1: q -4..4  (9)
+  //   r= 0: q -4..4  (9)      r= 1: q -3..3  (7)
+  // Filas consecutivas offset medio (paridad de r en el renderer) → panal
+  // regular: cada celda interior tiene sus 6 vecinos axiales dentro del shape.
+  // (v2.0 usaba panal rectangular 6 filas de 5 = 30; reemplazado por este.)
+  const ROWS = [ // [r, qStart, width]
+    [-2, -3, 7],
+    [-1, -4, 9],
+    [0, -4, 9],
+    [1, -3, 7],
+  ];
+  for (const [r, qStart, w] of ROWS) {
+    for (let q = qStart; q < qStart + w; q++) {
       board.push({
         id: `c${id++}`, q, r,
         stack: [], blocked: false, calamity: false,
@@ -263,7 +273,7 @@ export function generateBoard(n, rng) {
 
 // ---------------------------------------------------------------------------
 // openRun / openShop — v2 (R13.3 arranque de run; reemplaza openRun v1).
-// run = { board (30 celdas), orders, pool, poolPlaced, calamities,
+// run = { board (32 celdas v2-shape [7,9,9,7]), orders, pool, poolPlaced, calamities,
 //         rosterIndex, placedCounter, runTilesActivated }.
 // Arranque: rosterIndex=1 (solo el Gato anfitrión, pedido {color:1, qty 2-4}),
 // pool = 3 pilas monocromas SOLO de color 1 (tamaños rng 1-4), placedCounter=0,
@@ -282,7 +292,7 @@ function v2Pile(rng, cu) {
 
 // ---------------------------------------------------------------------------
 // applyCalamities(state, rng) — R8 v2 + R14.5 (calamidades sobre JUGABLES).
-// DECISIÓN DE DISEÑO (R14.5): con el board dual 30 el umbral R8.1 ya NO se
+// DECISIÓN DE DISEÑO (R14.5): con el board dual 32 el umbral R8.1 ya NO se
 // evalúa al abrir la partida (núcleo jugable = 7, nunca > 15 al abrir); entra
 // EN JUEGO cuando el jugador activa baldosas (activateTile) y el conteo de
 // celdas JUGABLES (no dormant, no blocked) cruza 15. Para que las calamidades
@@ -333,7 +343,7 @@ export function applyCalamities(state, rng) {
 export function openRun(state, rng) {
   let s = clone(state);
   if (s.progress.permTiles == null) s.progress.permTiles = 1;      // v2 default (saves v1)
-  const board = generateBoard(30, rng);                            // R14.1 board dual 30
+  const board = generateBoard(32, rng);                            // R14.1 board dual 32 (v2-shape [7,9,9,7])
   const orders = [{ id: 'ord-0', color: 1, qty: rngInt(rng, 2, 4), served: false }]; // R13.3 Gato
   s.run = {
     phase: 'open', board, orders,
@@ -499,7 +509,8 @@ export function buyColor(state) {
 }
 
 // ---------------------------------------------------------------------------
-// v2 — Economía de baldosas (R14.2/R14.3/R14.4). Tablero dual 30: las celdas
+// v2 — Economía de baldosas (R14.2/R14.3/R14.4). Tablero dual 32 (v2-shape
+// [7,9,9,7]): las celdas
 // dormant se activan TEMPORALMENTE por partida (activateTile, techo
 // runTilesActivated <= progress.permTiles) o se compran PERMANENTES en tienda
 // (buyPermTile sube el techo; NO activa la celda — la activación es siempre

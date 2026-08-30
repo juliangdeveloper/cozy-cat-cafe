@@ -177,22 +177,23 @@ test('REDESIGN (b) pila insuficiente o color distinto => error sin consumir ni s
   assert.equal(b.run.orders[0].served, false);
 });
 
-test('REDESIGN (c) tablero v2 = 30 celdas: núcleo 2-3-2 jugable + 23 dormant', () => {
-  // v2-reconcile: R14.1/R14.2 reemplazan el tablero v1 de 7 celdas: el board es
-  // SIEMPRE 30 (panal 5×6); el núcleo 2-3-2 (7 celdas) nace jugable
-  // (dormant:false) y las otras 23 quedan dormant (visibles apagadas).
+test('REDESIGN (c) tablero v2 = 32 celdas: núcleo 2-3-2 jugable + 25 dormant', () => {
+  // v2-shape: R14.1/R14.2 reemplazan el tablero v1 de 7 celdas: el board es
+  // SIEMPRE 32 (panal con picos filas [7,9,9,7], antes 30 = panal 5×6); el
+  // núcleo 2-3-2 (7 celdas, coords de initialHexCells centradas) nace jugable
+  // (dormant:false) y las otras 25 quedan dormant (visibles apagadas).
   const s = openRun(createGame(), rng(1));
-  assert.equal(s.run.board.length, 30);
+  assert.equal(s.run.board.length, 32); // v2-shape: 30 → 32
   const playable = s.run.board.filter((c) => !c.dormant);
   const dormant = s.run.board.filter((c) => c.dormant);
   assert.equal(playable.length, 7);
-  assert.equal(dormant.length, 23);
+  assert.equal(dormant.length, 25); // v2-shape: 23 → 25
   const byCol = {};
   for (const c of playable) byCol[c.q] = (byCol[c.q] || 0) + 1;
   assert.deepEqual({ '-1': 2, '0': 3, '1': 2 }, { '-1': byCol[-1], '0': byCol[0], '1': byCol[1] });
-  // coordenadas axiales únicas en TODO el tablero (30)
+  // coordenadas axiales únicas en TODO el tablero (32) // v2-shape: 30 → 32
   const keys = new Set(s.run.board.map((c) => `${c.q},${c.r}`));
-  assert.equal(keys.size, 30);
+  assert.equal(keys.size, 32);
   // orders NO llevan `cell` (v2: pedidos flotantes)
   for (const o of s.run.orders) assert.equal(o.cell, undefined);
 });
@@ -549,8 +550,9 @@ test('T9.3 tope 10 colores (MAX_COLORS v2)', () => {
 test('R3.1 pool de openRun v2: cada pila es de UNICO color', () => {
   // v2-reconcile: la firma v2 de generateBoard es (n, rng) y retorna el BOARD
   // (R14.1, sin pool); el pool monocromo nace en openRun (R13.3). Se testea el
-  // pool de openRun sobre 30 semillas (v2Pile: tamaños 1..4, un solo color).
-  for (let g = 1; g <= 30; g++) {
+  // pool de openRun sobre 32 semillas (v2Pile: tamaños 1..4, un solo color).
+  // v2-shape: 30 → 32 semillas (count alineado con el nuevo board de 32 celdas).
+  for (let g = 1; g <= 32; g++) {
     const s = openRun(createGame({ progress: { coins: 1000 } }), rng(g));
     assert.equal(s.run.pool.length, 3);
     for (const pile of s.run.pool) {

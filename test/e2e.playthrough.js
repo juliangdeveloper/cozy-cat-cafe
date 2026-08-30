@@ -1,6 +1,6 @@
 // e2e PLAYTHROUGH v2 — drives the real game.js (the module the app imports).
 // Simulates a SKILLED player on the v2 rules (RULES.md 2.0-draft):
-//   openRun v2 (R13.3: 1 criatura/Gato, pool monocromo color 1, board 30 con
+//   openRun v2 (R13.3: 1 criatura/Gato, pool monocromo color 1, board 32 con
 //   núcleo 2-3-2 jugable) → placeStack (firma v2 state,cellId,slot,rng en
 //   celdas NO dormant) → resolveCascade (R12.2 merge + R12.3 escombros +
 //   R15.2 auto-serve de pedidos flotantes) → desbloqueos cada 3 pilas

@@ -71,9 +71,10 @@ const placePiles = (s, n, seed = 7) => {
 
 // ---------------------------------------------------------------------------
 // T13a — Arranque de run [R13.3]: rosterIndex===1 (solo el Gato), pool solo
-// color 1, tablero 30 celdas (dual v2, R14.1) con núcleo 2-3-2 jugable (7).
+// color 1, tablero 32 celdas (dual v2-shape [7,9,9,7], R14.1) con núcleo
+// 2-3-2 jugable (7).
 // ---------------------------------------------------------------------------
-test('T13a [R13.3] openRun: rosterIndex 1, pool solo color 1, board 30, 7 jugables', () => {
+test('T13a [R13.3] openRun: rosterIndex 1, pool solo color 1, board 32, 7 jugables', () => {
   need('createGame'); need('openRun');
   const state = G.createGame({ progress: { coins: 10000 } });
   if (!state.progress.colorsOwned) state.progress.colorsOwned = 4; // R13.7
@@ -92,9 +93,9 @@ test('T13a [R13.3] openRun: rosterIndex 1, pool solo color 1, board 30, 7 jugabl
   assert.ok(tiles.length > 0, 'RED: run.pool debe tener fichas al abrir la run');
   assert.ok(tiles.every(t => t === 1),
     `RED: pool de arranque solo color 1 [R13.3], hay ${JSON.stringify([...new Set(tiles)])}`);
-  // tablero dual 30 celdas (R14.1) — núcleo 2-3-2 jugable (R14.2)
+  // tablero dual 32 celdas (R14.1) — núcleo 2-3-2 jugable (R14.2)
   assert.ok(Array.isArray(run.board), 'RED: run.board debe ser array');
-  assert.equal(run.board.length, 30, 'RED: el board de run v2 tiene 30 celdas [R14.1]');
+  assert.equal(run.board.length, 32, 'RED: el board de run v2 tiene 32 celdas [R14.1]'); // v2-shape: 30 → 32 (filas [7,9,9,7])
   const playable = run.board.filter(c => !c.blocked && !c.dormant).length;
   assert.equal(playable, 7, `RED: jugables al arranque = núcleo 2-3-2 (7), hay ${playable} [R13.3,R14.2]`);
 });
