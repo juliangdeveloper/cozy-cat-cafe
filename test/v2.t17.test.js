@@ -145,7 +145,10 @@ test('T17d [R17.3] buySkill(capacidad): TOTAL 21, precio exponencial creciente, 
     cur = unwind(G.buySkill(cur, 'capacidad'), cur);
     const delta = before - cur.progress.coins;
     const expected = G.CONFIG.CAP_PRICE_BASE * G.CONFIG.CAP_RATIO ** lvl;
-    assert.ok(Math.abs(delta - expected) < 1e-6,
+    // v2.1-clients: tolerancia 1e-2 — convención "sin redondeo" (igual que
+    // permTilePrice): con coins grandes el delta float difiere ~1e-4 del precio
+    // exponencial (error de punto flotante, no de fórmula).
+    assert.ok(Math.abs(delta - expected) < 1e-2,
       `RED: precio compra ${i + 2} = CAP_PRICE_BASE*CAP_RATIO^${lvl}=${expected}, pagó ${delta} [R17.3]`);
   }
   assert.ok(cur.skills.capacidad.level === 4, 'RED: 4 compras → level 4');
@@ -226,7 +229,9 @@ test('T17f [R17.2] buyUsesUp: usesBought+1, openRun uses=USES_PER_RUN+usesBought
   const c1 = st.progress.coins;
   const st2 = unwind(G.buyUsesUp(st, 'destroyPile'), st);
   assert.equal(st2.skills.destroyPile.usesBought, 2, 'RED: 2a mejora → usesBought 2');
-  assert.ok(Math.abs((c1 - st2.progress.coins) - G.CONFIG.USES_UP_BASE * G.CONFIG.USES_UP_RATIO) < 1e-6,
+  // v2.1-clients: tolerancia 1e-2 — convención "sin redondeo" (igual que
+  // permTilePrice): delta float vs precio exponencial difiere ~1e-4 con coins grandes.
+  assert.ok(Math.abs((c1 - st2.progress.coins) - G.CONFIG.USES_UP_BASE * G.CONFIG.USES_UP_RATIO) < 1e-2,
     'RED: precio exponencial creciente: 60*1.6=96 en la 2a compra [R17.2]');
   // tras openRun: uses = USES_PER_RUN + usesBought
   const st3 = unwind(G.openRun(st2, rng(5)), st2);
@@ -261,8 +266,11 @@ test('T17g [R16.4] victoria: clientsServed===TOTAL → closeRun(allServed); refi
     served++;
     assert.ok(served <= TOTAL, 'RED: el bucle debe terminar en TOTAL servicios');
     if (s.run.clientsServed < TOTAL) {
-      assert.equal(s.run.activeClients.length, 3,
-        'RED: refill inmediato — activeClients se mantiene en 3 [R16.4]');
+      // v2.1-clients: refill inmediato — visibles = min(3, restantes de cola).
+      // Al final de la cola (clientsDrawn===TOTAL) los visibles se agotan de a
+      // 1: 3 → 2 → 1 → 0 (la cola perezosa no sobre-dibuja más allá de TOTAL).
+      assert.equal(s.run.activeClients.length, Math.min(3, TOTAL - s.run.clientsServed),
+        'RED: refill inmediato — visibles = min(3, cola restante) [R16.4]');
       assert.equal(G.runVictory(s), false,
         'RED: con cola pendiente NO hay victoria aunque se acabe de servir [R16.4]');
     }

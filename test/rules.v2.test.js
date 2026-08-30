@@ -79,6 +79,7 @@ test('T11c [R15.2 + R12.2] orden eslabon: auto-servir ANTES de evaluar umbral', 
   // pedido pendiente flotante {color:2, qty:3}
   s.run.orders.length = 0;
   s.run.orders.push({ id: 'o11c', color: 2, qty: 3, cell: null, served: false });
+  s.run.activeClients = [s.run.orders[0]]; // v2.1-clients: solo visibles se sirven [R16.4]
   const A = s.run.board[0], D = s.run.board[1];
   A.stack = [2, 2];
   D.stack = [1];
@@ -134,6 +135,7 @@ test('T12a [R13.1] pedido sin order.cell es servible desde CUALQUIER celda', () 
   // pedido flotante (sin cell / cell null)
   s.run.orders.length = 0;
   s.run.orders.push({ id: 'o12a', color: 2, qty: 3, cell: null, served: false });
+  s.run.activeClients = [s.run.orders[0]]; // v2.1-clients: solo visibles se sirven [R16.4]
   // tope color 2 count 3 en la celda 3
   s.run.board[3].stack = [1, 2, 2, 2];
   assert.equal(G.orderReadyOn(s, 'o12a', 3), true, 'RED: pedido flotante debe ser servible desde cualquier celda (c3)');
@@ -149,6 +151,7 @@ test('T12b [R15.2] match determinista: elige tope count mas cercano SIN exceder 
   const s = mkGame();
   s.run.orders.length = 0;
   s.run.orders.push({ id: 'o12b', color: 2, qty: 3, cell: null, served: false });
+  s.run.activeClients = [s.run.orders[0]]; // v2.1-clients: solo visibles se sirven [R16.4]
   s.run.board[0].stack = [2, 2, 2];
   s.run.board[1].stack = [2, 2, 2, 2];
   const res = G.resolveCascade(s);
@@ -160,6 +163,7 @@ test('T12b [R15.2] match determinista: elige tope count mas cercano SIN exceder 
   const s2 = mkGame();
   s2.run.orders.length = 0;
   s2.run.orders.push({ id: 'o12b2', color: 2, qty: 3, cell: null, served: false });
+  s2.run.activeClients = [s2.run.orders[0]]; // v2.1-clients: solo visibles se sirven [R16.4]
   s2.run.board[0].stack = [2, 2, 2, 2, 2];
   s2.run.board[1].stack = [2, 2, 2, 2, 2, 2];
   const res2 = G.resolveCascade(s2);
@@ -174,6 +178,7 @@ test('T12c [R4.3 v2] servir consume EXACTAMENTE qty del tope (excedente queda)',
   const s = mkGame();
   s.run.orders.length = 0;
   s.run.orders.push({ id: 'o12c', color: 2, qty: 3, cell: null, served: false });
+  s.run.activeClients = [s.run.orders[0]]; // v2.1-clients: solo visibles se sirven [R16.4]
   s.run.board[0].stack = [2, 2, 2, 2, 2]; // tope count 5
   const ret = G.serveOrder(s, 'o12c', 0);
   assert.ok(!(ret && ret.error), 'RED: serveOrder debe servir el pedido');
@@ -188,6 +193,7 @@ test('T12d [R5.1] paga pay(order) exacto: Math.round(5*qty**1.25)', () => {
   const qty = 3;
   s.run.orders.length = 0;
   s.run.orders.push({ id: 'o12d', color: 2, qty, cell: null, served: false });
+  s.run.activeClients = [s.run.orders[0]]; // v2.1-clients: solo visibles se sirven [R16.4]
   s.run.board[0].stack = [2, 2, 2, 2, 2];
   const coinsBefore = s.progress.coins;
   const ret = G.serveOrder(s, 'o12d', 0);
@@ -203,6 +209,7 @@ test('T12e [R15.2] autoServe=false => resolveCascade NO sirve; celda marcada ser
   s.skills.serveManual = { autoServe: false };
   s.run.orders.length = 0;
   s.run.orders.push({ id: 'o12e', color: 2, qty: 3, cell: null, served: false });
+  s.run.activeClients = [s.run.orders[0]]; // v2.1-clients: solo visibles se sirven [R16.4]
   s.run.board[0].stack = [2, 2, 2];
   const res = G.resolveCascade(s);
   const st = unwind(res, s);
@@ -217,6 +224,7 @@ test('T12f [R15.2] autoServe=false: serveOrder(state, orderId) manual sirve igua
   s.skills.serveManual = { autoServe: false };
   s.run.orders.length = 0;
   s.run.orders.push({ id: 'o12f', color: 2, qty: 3, cell: null, served: false });
+  s.run.activeClients = [s.run.orders[0]]; // v2.1-clients: solo visibles se sirven [R16.4]
   s.run.board[0].stack = [2, 2, 2, 2, 2]; // tope count 5
   const coinsBefore = s.progress.coins;
   let ret;

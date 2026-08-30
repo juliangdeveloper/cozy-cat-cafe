@@ -58,16 +58,21 @@ test('R1.1 export id embebido y no vacio', () => {
 // T1 — pool y colocacion
 // ---------------------------------------------------------------------------
 test('T1.1 pool 3 pilas al abrir', () => {
-  // v2-reconcile: R13.3/R13.3+R13.4 (equivalente v2 de R3.1) reemplazan el pool
-  // v1 (orders === progress.clients): openRun v2 da 3 pilas MONOCROMAS solo de
-  // color 1, rosterIndex=1 (solo el Gato anfitrión) y 1 único pedido.
+  // v2.1-clients: openRun v2.1 da 3 pilas MONOCROMAS de 1..colorsOwned (R13.3
+  // v2.1: rosterIndex arranca en 5 = rosterMax(4)+...; presión R13.5: pool <
+  // roster) y la cola perezosa dibuja los 3 clientes VISIBLES (R16.3/R16.4).
   const s = openRun(createGame(), rng(1));
   assert.equal(s.run.pool.length, 3);
   assert.equal(s.run.poolPlaced, 0);
-  assert.equal(s.run.rosterIndex, 1);            // R13.3: solo Gato
-  assert.equal(s.run.orders.length, 1);          // 1 criatura llegada
-  assert.equal(s.run.orders[0].color, 1);        // su pedido es solo color 1
-  for (const p of s.run.pool) for (const c of p) assert.equal(c, 1); // monocromo color 1
+  assert.equal(s.run.rosterIndex, 5);            // R13.3 v2.1: arranque en 5
+  assert.equal(s.run.activeClients.length, 3);   // R16.4: 3 visibles
+  assert.equal(s.run.clientsDrawn, 3);           // R16.3: llegada perezosa
+  const owned = s.progress.colorsOwned;          // 4 de inicio (R13.7)
+  for (const p of s.run.pool) {
+    for (const c of p) assert.ok(c >= 1 && c <= owned); // pool 1..colorsOwned
+    for (const c of p) assert.equal(c, p[0]);           // monocromo (R3.1)
+  }
+  for (const o of s.run.orders) assert.ok(o.color >= 1 && o.color <= s.run.rosterIndex); // clientes piden 1..roster
 });
 
 test('T1.2 colocar vacia slot y NO rellena', () => {
@@ -523,11 +528,14 @@ test('T9.1 +1 color cada 3 productos', () => {
   assert.equal(colorsUnlocked(15), 6);
 });
 test('T9.2 solo colores desbloqueados', () => {
-  let s = createGame({ progress: { boardCells: 16, productsBought: 0 } });
+  // v2.1-clients: el pool genera 1..colorsOwned (presión R13.5: por DEBAJO del
+  // roster); los clientes pueden pedir 1..rosterIndex (rosterMax=colorsOwned+1).
+  let s = createGame({ progress: { boardCells: 16, productsBought: 0, colorsOwned: 2 } });
   s.progress.colorsUnlocked = 2;
   s = openRun(s, rng(4));
+  assert.equal(s.run.rosterIndex, 3);            // rosterMax = colorsOwned+1 = 3
   for (const pile of s.run.pool) for (const c of pile) assert.ok(c >= 1 && c <= 2);
-  for (const o of s.run.orders) assert.ok(o.color >= 1 && o.color <= 2);
+  for (const o of s.run.activeClients) assert.ok(o.color >= 1 && o.color <= 3);
 });
 test('T9.3 tope 10 colores (MAX_COLORS v2)', () => {
   // v2-reconcile: R13.7 (MAX_COLORS=10) reemplaza el tope v1 de 6 en
