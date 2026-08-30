@@ -69,7 +69,9 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .dit .dl{font-size:10px;font-weight:700;color:var(--ink-soft)}
 .dit img,.dit .o{width:44px;height:44px;object-fit:contain}
 
-.orders{display:flex;gap:8px;overflow-x:auto;padding:8px 0;scrollbar-width:none}
+.queuebar{display:flex;align-items:center;gap:8px}
+.queuecount{font-weight:800;font-size:12px;background:var(--highlight);border:2px solid var(--ink);border-radius:999px;padding:2px 8px;white-space:nowrap}
+.orders{display:flex;gap:8px;overflow-x:auto;padding:8px 0;scrollbar-width:none;flex:1}
 .orders::-webkit-scrollbar{display:none}
 .order-card{flex:0 0 auto;width:112px;background:var(--panel);border:3px solid var(--wood);border-radius:12px;
   padding:6px;box-shadow:0 3px 0 var(--shadow);text-align:center;cursor:pointer}
@@ -721,9 +723,12 @@ function rosterMax(colorsOwned) {
 function poolMaxColor(rosterIndex, colorsOwned) {
   return Math.min(rosterIndex || 1, colorsOwned || 1);
 }
-// v2 helper: pila monocroma de tamaño rng 1-4 en [1, cu] (R13.3/R13.4)
+// v2 helper: pila monocroma de tamaño rng 1-4 en [1, cu] (R13.3/R13.4).
+// v2.1-clients: FIX — un solo color sorteado por pila (la versión previa
+// sorteaba color POR FICHA y con cu>1 generaba pilas multicolor, violando R3.1).
 function v2Pile(rng, cu) {
-  return Array.from({ length: rngInt(rng, 1, 4) }, () => rngInt(rng, 1, cu));
+  const color = rngInt(rng, 1, cu);
+  return Array.from({ length: rngInt(rng, 1, 4) }, () => color);
 }
 
 // ---------------------------------------------------------------------------
@@ -1136,7 +1141,10 @@ function resolveCascade(state) {
       }
       if (Array.isArray(s.run.activeClients)) {
         s.run.activeClients = s.run.activeClients.filter((o) => !o.served);
-        refillClients(s, rngFallback());                               // R16.4 refill inmediato
+        // v2.1 FIX: el refill se hace UNA vez al final de la cascada (ver
+        // cierre del bucle). Dentro del bucle, los clientes recién dibujados
+        // (Math.random) podían auto-servirse en el siguiente eslabón y
+        // consumir del board de forma NO determinista.
       }
     }
     // (iii) umbral de escombros: todo grupo contiguo >= DEBRIS_THRESHOLD se
@@ -1163,6 +1171,10 @@ function resolveCascade(state) {
     if (!acted) break;
     steps += 1;
   }
+  // v2.1 R16.4: refill inmediato — UNA vez al FINAL de la cascada. Los clientes
+  // recién llegados quedan visibles para la SIGUIENTE cascada / serveOrder;
+  // así la cascada es determinista (el Math.random del draw no re-entra aquí).
+  if (Array.isArray(s.run.activeClients)) refillClients(s, rngFallback());
   return { state: s, steps };
 }
 
@@ -1280,6 +1292,8 @@ function buySkill(state, power) {
   if (s.progress.coins < sk.price) return { error: 'noFunds' };          // R7.3
   s.progress.coins -= sk.price;
   s.skills[power].owned = true;
+  // v2.1 R17.2: usesBought nace 0 (acumulado de mejoras de usos)
+  s.skills[power].usesBought = s.skills[power].usesBought || 0;      // R17.2
   // v2.1 R17.2: usos iniciales incluyen las mejoras de usos ya compradas
   s.skills[power].uses = CONFIG.USES_PER_RUN[power] + (s.skills[power].usesBought || 0); // R7.3/R17.2
   return s;
@@ -1297,7 +1311,9 @@ function useQueueSkip(state) {
   const s = clone(state);
   const old = s.run.activeClients.splice(0, s.run.activeClients.length);
   s.run.queueBack.push(...old);                 // R17.1: al fondo, orden FIFO
-  for (let i = 0; i < 3; i++) drawClient(s, Math.random);   // 3 nuevos (R16.3)
+  // v2.1 FIX (T17e): drawClientInto MUTA `s` (el caller ya clonó); drawClient
+  // es el export PURO (clona y descarta) — no dibujaba nada.
+  for (let i = 0; i < 3; i++) drawClientInto(s, Math.random);  // 3 nuevos (R16.3)
   refillClients(s, Math.random);                // edge: cola agotada → re-entran
   s.skills.queueSkip.uses -= 1;
   return s;
@@ -1685,7 +1701,7 @@ function renderRun(){
         <button class="iconbtn" id="btnSave">💾</button>
       </div>
       <details class="collap" id="idleWrap"><summary>🏠 Decoración &amp; idle</summary><div class="idledecor" id="idleDecor"></div></details>
-      <div class="orders" id="orders"></div>
+      <div class="queuebar"><span id="queueCount" class="queuecount">0/20</span><div class="orders" id="orders"></div></div>
       <div class="board-wrap"><div class="board" id="board"></div></div>
       <div class="pool" id="pool"></div>
       <div class="preview" id="preview" style="display:none"></div>
@@ -1712,7 +1728,11 @@ function renderIdle(){
 function renderOrders(){
   const box=$('#orders'); if(!box) return;
   const r=state.run;
-  box.innerHTML = r.orders.map((o,i)=>{
+  // v2.1 R16.4: solo los 3 clientes VISIBLES (activeClients); contador de cola X/TOTAL
+  const vis = Array.isArray(r.activeClients) ? r.activeClients : r.orders;
+  const cnt = $('#queueCount');
+  if(cnt) cnt.textContent = `${r.clientsServed||0}/${totalClients(state)}`;
+  box.innerHTML = vis.map((o,i)=>{
     const cat = 'cat_client_'+( (i%3)+1 );
     // v2 R13.2: nombre del ROSTER — el pedido de una criatura usa SOLO su color
     const name = ROSTER[(o.color||1)-1] || 'Criatura';
@@ -1726,7 +1746,7 @@ function renderOrders(){
   }).join('');
   $$('#orders .order-card').forEach(c=>c.addEventListener('click',()=>{
     if(ui.anim) return;                        // cascada en curso: input bloqueado
-    const o=r.orders.find(x=>String(x.id)===c.dataset.oid); if(!o||o.served) return;
+    const o=(r.activeClients||r.orders).find(x=>String(x.id)===c.dataset.oid); if(!o||o.served) return;
     if(ui.mode){ ui.mode=null; ui.swapFirst=null; renderPowers(); }
     if(ui.placeTile) ui.placeTile=false;
     ui.slot=false;
@@ -2174,7 +2194,8 @@ function checkFull(){ const r=state.run; if(!r) return;
 // si la cascada sirvió el último pedido, cerrar con 'allServed' igual que
 // serveOrderFlow. Sin esto, con autoServe ON el final de victoria es inalcanzable.
 function checkServedAll(){ const r=state.run; if(!r) return;
-  if(r.orders.length && r.orders.every(x=>x.served)) doClose('allServed'); }
+  // v2.1 R16.4: victoria = TODA la cola servida (clientsServed === totalClients)
+  if(runVictory(state)) doClose('allServed'); }
 function openTheCafe(){
   state=openRun(state, Math.random);
   ui.slot=false; ui.mode=null; ui.servingOrder=null; ui.placeTile=false;
