@@ -136,7 +136,7 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 
 /* v2 board dual (R14): dormant = visible pero apagada (se activa/compra en
    partida o tienda); el modo 🪧 Activar re-habilita su pointer-events */
-.cell.dormant{opacity:.35;pointer-events:none}
+.cell.dormant{opacity:.55;pointer-events:none}
 .board.actmode .cell.dormant{pointer-events:auto;cursor:pointer}
 .board.actmode .cell.dormant .hexbg{box-shadow:inset 0 0 0 3px var(--tile-mint);filter:drop-shadow(0 0 4px var(--tile-mint))}
 /* v2 cascada animada (R12.2): anillo + pop en celdas afectadas por eslabón */
@@ -159,7 +159,7 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 
 /* pool */
 .pool{display:flex;gap:8px;padding:10px;background:var(--wood);border:3px solid var(--ink);border-radius:14px;margin-top:10px}
-.poolslot{flex:1;height:84px;display:flex;align-items:flex-end;justify-content:center;background:rgba(248,241,213,.5);
+.poolslot{flex:1;height:64px;display:flex;align-items:flex-end;justify-content:center;background:rgba(248,241,213,.5);
   border:2px solid transparent;border-radius:10px;cursor:pointer}
 .poolslot.selected{background:var(--highlight);border:2px solid var(--accent)}
 .poolslot.drop{border:2px dashed var(--wood-dark)}
@@ -271,7 +271,7 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   .seltag{font-size:11px}
   /* pool / preview / hint: densidad -20% */
   .pool{gap:6px;padding:8px;margin-top:6px}
-  .poolslot{height:72px}
+  .poolslot{height:56px}
   .preview{gap:8px;padding:6px 8px;margin-top:6px}
   .hint{margin:2px 0}
   /* POWERBAR STICKY inferior: acceso constante sin robar espacio al tablero */
