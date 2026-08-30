@@ -356,6 +356,7 @@ import {
   createGame, CONFIG, placeStack, serveOrder, closeRun, openRun, buySkill,
   buyMultiplier, useDestroyPile, useSwapPiles, useRefreshPool, buyExpansion,
   buyIdleUpgrade, tickIdle, applyOffline, colorsUnlocked,
+  buyColor, buyUsesUp, usesUpPrice,   // v2.1 UI: colores R13.7 + mejora de usos R17.2
   serializeState, deserializeState, importSave, mulberry32,
   // v2 — R13/R14/R15: roster, cascada, baldosas, toggle auto-serve, preview
   ROSTER, resolveCascade, activateTile, runTilePrice, toggleServe, previewPool, pay,
@@ -708,6 +709,9 @@ function renderPowers(){
   if(state.skills.serveManual && state.skills.serveManual.owned)
     arr.push({skill:'serveManual',icon:'power_autoserve',
       label:'Auto: '+(state.skills.serveManual.autoServe?'ON':'OFF'),mode:'autoserve'});
+  // v2.1 R17.1: "Enviar a la cola" solo si queueSkip.owned (contador de usos auto)
+  if(state.skills.queueSkip && state.skills.queueSkip.owned)
+    arr.push({skill:'queueSkip',icon:'📨',label:'Cola',mode:'queueskip'});
   box.innerHTML = arr.map(d=>{
     const s=state.skills[d.skill]||{owned:true};
     const uses = (typeof s.uses==='number') ? `<span class="uses">${s.uses}</span>` : '';
@@ -728,6 +732,11 @@ function renderPowers(){
       const r=toggleServe(state);
       if(r.error){ err(r); } else { state=r; toast('Auto-servir '+(state.skills.serveManual.autoServe?'ON':'OFF')); }
       renderPowers(); return;
+    }
+    if(mode==='queueskip'){                   // v2.1 R17.1: los 3 visibles al fondo
+      const r=useQueueSkip(state);
+      if(r.error){ err(r); } else { state=r; toast('Clientes enviados al fondo de la cola 📨'); renderAll(); }
+      return;
     }
     if(!state.skills[skill].owned){ showSkills(); toast('Buy this power first (🌿)'); return; }
     if(mode==='refresh'){ refreshFlow(); return; }
@@ -991,20 +1000,55 @@ function doClose(reason){ const res=closeRun(state, reason); state=res; persist(
 // ============================================================================
 function showSkills(){
   $('#curLv').textContent = state.progress.cafeLevel;
-  const defs=[['refreshPool','power_refresh','Refresh pool','Draw 3 new stacks'],
-              ['swapPiles','power_swap','Swap piles','Exchange two stacks'],
-              ['destroyPile','power_destroy','Destroy pile','Clear one stack']];
-  $('#skillsBox').innerHTML = defs.map(d=>{
-    const s=state.skills[d[0]]; const locked = state.progress.cafeLevel < s.unlockLevel && !s.owned;
-    return `<div class="skillrow">
-      ${spr(d[1],38)}
-      <div style="flex:1"><div class="sname">${d[2]}</div><div class="sprop">LV ${s.unlockLevel}+ · ${s.price} coins</div></div>
-      ${s.owned ? `<span class="ownedbadge">owned</span>`
-                 : `<button class="btn btn-sm ${locked?'locked':''}" data-buy="${d[0]}" ${locked?'disabled':''}>${fmt(s.price)}🪙</button>`}
-    </div>`;
+  const lvl = state.progress.cafeLevel;
+  // icono: sprite del registry o placeholder (emoji para los nuevos v2.1)
+  const ico = id => SPR.byId[id] ? spr(id,38)
+    : `<div style="width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:24px">${id}</div>`;
+  // v2.1 R17.1/R17.2: skills de USES (usos/partida + mejora "+1 uso")
+  const defs=[
+    ['refreshPool','power_refresh','Refresh pool','Draw 3 new stacks'],
+    ['swapPiles','power_swap','Swap piles','Exchange two stacks'],
+    ['destroyPile','power_destroy','Destroy pile','Clear one stack'],
+    ['queueSkip','📨','Enviar a la cola',`los 3 visibles al fondo · ${CONFIG.USES_PER_RUN.queueSkip}+usesBought usos`],
+  ];
+  let h = defs.map(d=>{
+    const s=state.skills[d[0]]; const usesModel = !!CONFIG.USES_PER_RUN[d[0]];
+    const locked = lvl < s.unlockLevel && !s.owned;
+    const main = s.owned
+      ? `<span class="ownedbadge">owned${usesModel?` · ${s.uses} usos/partida`:''}</span>`
+      : `<button class="btn btn-sm ${locked?'locked':''}" data-buy="${d[0]}" ${locked?'disabled':''}>${fmt(s.price)}🪙</button>`;
+    // R17.2: fila secundaria "+1 uso esta partida" (solo modelo USES ya owned)
+    let up='';
+    if(usesModel && s.owned){
+      const p = usesUpPrice(state,d[0]);
+      up = `<div class="skillrow" style="border-top:1px dashed var(--wood);margin-top:-2px">
+        <div style="width:38px"></div>
+        <div style="flex:1"><div class="sprop">+1 uso esta partida (${s.uses} → ${s.uses+1})</div></div>
+        <button class="btn btn-sm" data-up="${d[0]}">${fmt(Math.round(p))}🪙</button></div>`;
+    }
+    return `<div class="skillrow">${ico(d[1])}
+      <div style="flex:1"><div class="sname">${d[2]}</div><div class="sprop">LV ${s.unlockLevel}+ · ${d[3]}</div></div>
+      ${main}</div>${up}`;
   }).join('');
+  // v2.1 R17.3 — capacidad: modelo LEVELS (level 0..80; cola = MIN_CLIENTS+level)
+  const cap=state.skills.capacidad, capLv=cap.level||0,
+        capMax=CONFIG.MAX_CLIENTS-CONFIG.MIN_CLIENTS,
+        capPrice=Math.round(CONFIG.CAP_PRICE_BASE*Math.pow(CONFIG.CAP_RATIO,capLv)),
+        capLocked=lvl<cap.unlockLevel;
+  h += `<div class="skillrow">${ico('🧑‍🍽️')}
+    <div style="flex:1"><div class="sname">Capacidad +1 cliente</div>
+      <div class="sprop">LV ${cap.unlockLevel}+ · nivel ${capLv}/${capMax} · cola = ${totalClients(state)} clientes</div></div>
+    ${capLv>=capMax ? `<span class="ownedbadge">MAX ${capLv}/${capMax}</span>`
+      : `<button class="btn btn-sm ${capLocked?'locked':''}" data-buy="capacidad" ${capLocked?'disabled':''}>${fmt(capPrice)}🪙</button>`}
+  </div>`;
+  $('#skillsBox').innerHTML = h;
   $$('#skillsBox [data-buy]').forEach(b=>b.addEventListener('click',()=>{
     const res=buySkill(state,b.dataset.buy);
+    if(res.error){ err(res); } else { state=res; persist(); showSkills(); renderAll(); }
+  }));
+  // v2.1 R17.2: "+1 uso esta partida" → buyUsesUp (acumulado usesBought)
+  $$('#skillsBox [data-up]').forEach(b=>b.addEventListener('click',()=>{
+    const res=buyUsesUp(state,b.dataset.up);
     if(res.error){ err(res); } else { state=res; persist(); showSkills(); renderAll(); }
   }));
   $('#skillsModal').classList.add('show');
@@ -1017,7 +1061,24 @@ function showShop(){
   const idleRow = k => `<div class="rowcard"><div class="rowinfo"><b>${({workers:'Barista team',fame:'Fame & tips',machines:'Auto machines'})[k]}</b>
       <span>Lv ${state.idle[k].level} · ${state.idle[k].ratePerSec.toFixed(1)} coins/s</span></div>
       <button class="btn btn-sm" data-idle="${k}">${fmt(idlePrice(k))}🪙</button></div>`;
+  // v2.1 R13.7 — compra del siguiente color: COLOR_PRICE_BASE*(n-3), n=colorsOwned+1.
+  // rosterMax = min(colorsOwned+1, MAX_COLORS): comprar sube el techo → los nuevos
+  // clientes de ese color SÍ se generan en el pool (poolMaxColor).
+  const co = state.progress.colorsOwned || 4;
+  let colorRow;
+  if(co >= CONFIG.MAX_COLORS){
+    colorRow = `<div class="rowcard"><div class="rowinfo"><b>Colores del roster</b>
+      <span>${co}/${CONFIG.MAX_COLORS} desbloqueados · roster completo</span></div>
+      <span style="color:var(--ink-soft);font-weight:700">MAX</span></div>`;
+  } else {
+    const n = co + 1, cPrice = CONFIG.COLOR_PRICE_BASE * (n - 3), can = state.progress.coins >= cPrice;
+    colorRow = `<div class="rowcard"><div class="rowinfo">
+      <b>Comprar color ${n} <span class="minitile" style="background:var(${tileVar(n)})"></span></b>
+      <span>${co}/${CONFIG.MAX_COLORS} colores · roster hasta ${Math.min(n + 1, CONFIG.MAX_COLORS)} criaturas</span></div>
+      <button class="btn btn-sm" data-color="1" ${can ? '' : 'disabled'}>${fmt(cPrice)}🪙</button></div>`;
+  }
   $('#shopBox').innerHTML = `
+    ${colorRow}
     <div class="rowcard"><div class="rowinfo"><b>Extra table</b><span>${p.clients} → ${p.clients+1} cats</span></div>
       <button class="btn btn-sm" data-exp="clients">${fmt(price('clients'))}🪙</button></div>
     <!-- v2 fix (audit): filas "Bigger floor" (R6.2 OBSOLETA-v2, flujo muerto en
@@ -1041,6 +1102,11 @@ function showShop(){
   $$('#shopBox [data-idle]').forEach(b=>b.addEventListener('click',()=>{
     const res=buyIdleUpgrade(state,b.dataset.idle);
     if(res.error){ err(res); } else { state=res; persist(); renderAll(); showShop(); }
+  }));
+  // v2.1 R13.7: comprar el siguiente color → sube rosterMax (pool genera el color nuevo)
+  $$('#shopBox [data-color]').forEach(b=>b.addEventListener('click',()=>{
+    const res=buyColor(state);
+    if(res.error){ err(res); } else { state=res; persist(); renderAll(); showShop(); confetti(); }
   }));
   $('#shopModal').classList.add('show');
 }
