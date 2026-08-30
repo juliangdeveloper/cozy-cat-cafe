@@ -234,10 +234,10 @@ export { createGame, CONFIG,
 ### R13. Clientes-criaturas y progresión de run [v2] (modifica R4.1, R6.1)
 - `R13.1` — Pedidos FLOTAN: `{color, qty}` sin celda anclada. Servible desde cualquier celda cuyo tope cumpla. Subsumidos en auto-servir R15.2; R4.2/R4.3 reescritos en v2.
 - `R13.2` — 10 criaturas, una por color, cada una solo pide SU color. Roster: 1 Gato anfitrión, 2-4 fantásticas (zorrito, rana, dragoncito), 5-8 robots (barredor, barista, repartidor, DJ), 9-10 humanos andróginos (gemelos). Llegada = orden de desbloqueo 1→10.
-- `R13.3` — Arranque de run: 1 criatura + pool solo color 1 + núcleo 2-3-2 jugable.
+- `R13.3` — Arranque de run [v2.1]: 5 tipos activos (rosterIndex=5) + pool solo genera `1..colorsOwned` + núcleo 2-3-2 jugable. Los 3 primeros clientes son los VISIBLES (R16.4).
 - `R13.4` — Desbloqueo: cada `UNLOCK_PLACED_PILES=3` pilas colocadas (CONFIG) → siguiente color: llega su criatura y el pool lo genera con probabilidad UNIFORME entre desbloqueados.
-- `R13.5` — Presión de compra: el roster avanza 1 color POR ENCIMA de `colorsOwned` (techo permanente), hasta 10 → completar la partida exige comprar colores.
-- `R13.6` — Victoria = servir a TODAS las criaturas llegadas. R2.2/R2.4 sin cambio.
+- `R13.5` — Presión de compra [v2.1]: el roster avanza 1 color cada UNLOCK_PLACED_PILES pilas hasta `rosterMax = colorsOwned < 10 ? colorsOwned+1 : 10`. El pool SOLO genera `1..colorsOwned` → el color sobre el techo NUNCA se genera en pool: para servir a esos clientes hay que comprar colores. Con 10 comprados, rosterMax=10 (sin +1).
+- `R13.6` — Victoria [v2.1 → R16.4]: servir a TODOS los clientes de la cola (`clientsServed === totalClients`). R2.2/R2.4 sin cambio.
 - `R13.7` — Colores: 10 máx, 4 de inicio. Compra DIRECTA en tienda: `buyColor` desbloquea el siguiente color del roster; precio `COLOR_PRICE(n) = COLOR_PRICE_BASE * (n-3)` CONFIG ⚖BALANCE. R10 queda REPLANTEADA: `productsBought`/catálogo se ELIMINA del state (§1); `colorsUnlocked`/`colorsOwned` pasa a derivarse de compras directas. R10.2 (solo colores desbloqueados se generan) se mantiene como principio. R10.1/R10.3 y R6.3 quedan marcadas OBSOLETAS-v2 (reemplazadas por R13.7).
 
 ### R14. Tablero dual peaked-hex 32 [v2] (modifica R6.2, R8)
@@ -249,8 +249,20 @@ export { createGame, CONFIG,
 
 ### R15. Skills v2 [v2] (amplía R7)
 - `R15.1` — Catálogo: destroyPile="Saltar a la barra", swapPiles="Mesero ágil", refreshPool="Envío de la cocina", serveManual="Modo mesero" (toggle autoServe, sin usos), previewPool="Pizarra de tiza" (levels 0-3: muestra próximas 1/2/3 tandas del pool; se sube recomprando; unlock cafeLevel 2 ⚖BALANCE). [v2] R7.4 se reescribe: cada skill declara su MODELO — 'uses' (destroyPile/swapPiles/refreshPool: se reponen al reabrir, R7.4 original aplica solo a ellos), 'toggle' (serveManual: owned bool + autoServe bool, sin usos), 'levels' (previewPool: level 0..3, subir = recomprar, sin usos).
-- `R15.2` — R4 redefinido: AUTO-SERVIR por defecto; al estabilizar cada eslabón, para cada pedido pendiente elegir tope válido (si varios: count más cercano a qty sin exceder; si no hay, el menor disponible) → paga `pay(order)`, consume exactamente qty del tope, excedente queda. serveManual.off = modo v1 (brilla `--highlight`, servir tocando).
+- `R15.2` — R4 redefinido [v2.1: solo clientes VISIBLES (activeClients, máx 3) son servibles — auto o manual]: AUTO-SERVIR por defecto; al estabilizar cada eslabón, para cada pedido pendiente elegir tope válido (si varios: count más cercano a qty sin exceder; si no hay, el menor disponible) → paga `pay(order)`, consume exactamente qty del tope, excedente queda. serveManual.off = modo v1 (brilla `--highlight`, servir tocando).
 - `R15.3` — Pedido render: ítem dibujado (taza/pastel) construido con fichas del color; mecánicamente fichas del color.
+
+### R16. Cola de clientes [v2.1]
+- `R16.1` — TOTAL_CLIENTS = 20 + skills.capacidad.level (CONFIG MIN_CLIENTS=20, MAX_CLIENTS=100; capacidad max level 80). ⚖BALANCE
+- `R16.2` — Los clientes son pedidos flotantes `{id, color, qty 2-4, served}`. El roster define tipos disponibles: `rosterMax = colorsOwned < 10 ? colorsOwned+1 : 10` (R13.5).
+- `R16.3` — Llegada PEREZOSA: la cola NO se pre-genera; al servir un visible se dibuja el siguiente (`drawClient`, uniforme 1..rosterIndex). Contadores `clientsDrawn` / `clientsServed`; `queueBack` FIFO se consume antes de dibujar nuevos.
+- `R16.4` — VISIBLES = 3 (`activeClients`): solo ellos son servibles (auto o manual). Al servir uno entra el siguiente si `clientsDrawn < TOTAL_CLIENTS`. Victoria ⇔ `clientsServed === TOTAL_CLIENTS` (`runVictory`). Al final de la cola los visibles se agotan 3→2→1→0 (no sobre-dibujar).
+- `R16.5` — Sin timer de paciencia (cozy).
+
+### R17. Skills de cola y mejoras de usos [v2.1]
+- `R17.1` — **queueSkip "Enviar a la cola"** (modelo uses, USES_PER_RUN.queueSkip=2, unlock cafeLevel 1): los 3 visibles vuelven al fondo de la cola (queueBack) y entran 3 nuevos. `{error}` si !owned o uses===0.
+- `R17.2` — **Mejora de usos**: cada skill modelo uses puede subir +1 uso por partida: `buyUsesUp`, precio `USES_UP_BASE × USES_UP_RATIO^usesBought` (CONFIG 60, 1.6 ⚖BALANCE). openRun: `uses = USES_PER_RUN + usesBought`. Sin tope.
+- `R17.3` — **capacidad** (modelo levels): `CAP_PRICE_BASE × CAP_RATIO^level` (CONFIG 120, 1.35 ⚖BALANCE), max 80. TOTAL efectivo = 20 + level.
 
 ---
 
