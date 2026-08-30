@@ -95,7 +95,7 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
    (zero gaps, zero overlap). Rows are ABSOLUTELY positioned from the axial row
    index (r - minR); they must NOT be flex-centered per row — independent
    per-row centering breaks the half-hex offset between rows. */
-.board-wrap{overflow-x:auto;padding:10px 4px} /* v2: 30 baldosas SIEMPRE visibles (sin max-height) */
+.board-wrap{overflow-x:auto;padding:10px 4px} /* v2: 32 baldosas SIEMPRE visibles (sin max-height) */
 :root{ --hx:36px; --cw:calc(var(--hx)*2); --ch:calc(var(--hx)*1.732); }
 .board{position:relative;margin:0 auto}
 .boardrow{position:absolute;display:flex;gap:calc(var(--cw)*0.5)} /* gap 1*--hx -> centers 3*--hx apart */
@@ -490,7 +490,7 @@ function assignHoneycomb(n){
 function cellHTML(cell, idx){
   let cls='cell';
   if(cell.blocked) cls+=' blocked';
-  if(cell.dormant) cls+=' dormant';          // v2 R14.2: apagada (30-baldosa dual board)
+  if(cell.dormant) cls+=' dormant';          // v2 R14.2: apagada (32-baldosa dual board, v2-shape)
   if(cell.calamity) cls+=' calm';
   if(ui.mode==='destroy') cls+=' targetmode';
   if(ui.mode==='swap') cls+=' swapmode';
@@ -539,16 +539,22 @@ function renderBoard(){
   // group by axial row (r); rows are ABSOLUTELY positioned with the exact
   // honeycomb offsets (CSS comment above): same-row centers 3*hx apart
   // (cell 2*hx + gap 1*hx), alternate rows offset 1.5*hx, row pitch 0.47*ch.
-  // v2 (R14.1): panal rectangular 6 filas de 5 con qStart desfasado por fila
-  // (qStart = -floor(r/2)-1) — cada par de filas se desplaza UNA celda, así
-  // que el left de cada fila usa su q mínimo REAL (rowMinQ), no solo la
+  // v2.1 (R14.1): el posicionamiento es GENÉRICO sobre las coords axiales de
+  // cada celda — left de cada fila usa su q mínimo REAL (rowMinQ), no solo la
   // paridad de r: left = (rowMinQ-minQ)*3*hx + (r impar ? 1.5*hx : 0).
-  // Esto produce un panal REGULAR escalonado (no el 2-3-2 del fix anterior).
+  // v2-shape: la columna visual se PLEGA como q+floor(r/2) — con el offset
+  // fijo por paridad, esa es la única transformación que conserva la
+  // adyacencia axial en TODAS las transiciones de fila (los vecinos axiales
+  // (q,r±1) y (q∓1,r±1) caen exactamente a ±1.5*hx; sin el pliegue, las
+  // diagonales de filas impares quedan espejadas a 4.5*hx). Verificado
+  // exhaustivamente: 6 deltas × coords [-8..8]×[-4..5] → 0 discrepancias.
+  // Funciona igual para el panal rectangular v2.0 (6 filas de 5) y para el
+  // v2-shape peaked-hex (4 filas [7,9,9,7]=32, qStart [-3,-4,-4,-3]).
   const byRow=new Map();
   occ.forEach((v,kMinusR)=>{ const rr=v.p.r; if(!byRow.has(rr)) byRow.set(rr,[]); byRow.get(rr).push(v); });
   const rows=[...byRow.keys()].sort((a,b)=>a-b);
   const minR=rows.length?rows[0]:0;
-  const minQ=Math.min(...[...occ.values()].map(v=>v.p.q));
+  const minQ=Math.min(...[...occ.values()].map(v=>v.p.q+Math.floor(v.p.r/2))); // v2-shape: columna plegada q+floor(r/2)
   const hxN=hx(), chN=hxN*1.732;          // live --hx/--ch (media queries resize hexes)
   const rowStepX=hxN*3, altOffX=hxN*1.5, rowPitch=chN*0.47;
   let html='', maxW=0;
@@ -556,7 +562,7 @@ function renderBoard(){
   for(const rf of rows){
     const k=rf-minR, odd=((rf%2)+2)%2;    // true axial parity (robust to sparse r)
     const items=byRow.get(rf).sort((a,b)=>a.p.q-b.p.q);
-    const rowMinQ=items[0].p.q;
+    const rowMinQ=items[0].p.q+Math.floor(rf/2); // v2-shape: columna plegada q+floor(r/2)
     const left=(rowMinQ-minQ)*rowStepX+(odd?altOffX:0), top=k*rowPitch;
     maxW=Math.max(maxW, left+items.length*rowStepX-rowStepX+hxN*2);
     html+=`<div class="boardrow${odd?' alt':''}" data-row="${rf}" style="left:${left}px;top:${top}px">`;
@@ -931,7 +937,7 @@ function showShop(){
     <div class="rowcard"><div class="rowinfo"><b>Extra table</b><span>${p.clients} → ${p.clients+1} cats</span></div>
       <button class="btn btn-sm" data-exp="clients">${fmt(price('clients'))}🪙</button></div>
     <!-- v2 fix (audit): filas "Bigger floor" (R6.2 OBSOLETA-v2, flujo muerto en
-         tablero dual 30 fijo) y "Menu variety" (R6.3 OBSOLETA-v2, gastaba monedas
+         tablero dual 32 fijo, v2-shape) y "Menu variety" (R6.3 OBSOLETA-v2, gastaba monedas
          en productsBought sin efecto — colores ahora son buyColor R13.7) ELIMINADAS -->
     <div class="rowcard"><div class="rowinfo"><b>Big-tip bonus</b><span>mult ${p.econ.multLevel} (superlinear)</span></div>
       ${multC?`<button class="btn btn-sm" data-exp="mult">${fmt(multC)}🪙</button>`:'<span style="color:var(--ink-soft);font-weight:700">max</span>'}</div>
