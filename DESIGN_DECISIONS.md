@@ -58,7 +58,7 @@ desbloqueadas por **nivel del café** (sube con el número de partidas jugadas).
 
 ## Alcance
 - Juego nuevo HTML/JS desplegable (como los otros juegos del perfil).
-- Tablero SIEMPRE dibujado completo (panal 5×6 = 30 baldosas); jugable = núcleo 2-3-2 + activables ≤ permanentes comprados; no jugable se ve apagada.
+- Tablero SIEMPRE dibujado completo (panal con picos filas [7,9,9,7] = 32 baldosas, v2-shape; antes panal 5×6 = 30); jugable = núcleo 2-3-2 + activables ≤ permanentes comprados; no jugable se ve apagada.
 - Calamidades se recalculan sobre celdas jugables.
 - Diferido a implementación: assets (criaturas, ítems de pedido, fichas ×10 colores). El render final definirá la lista de assets necesarios y luego se reorganiza la UI. Números ⚖BALANCE: precios de skills nuevos, bases de precio de baldosas, bonus destrucción, COLOR_PRICE.
 - **Diferido a implementación:** números finos de balance (tasas idle/hora, costos de mejoras,
