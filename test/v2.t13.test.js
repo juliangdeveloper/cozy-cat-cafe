@@ -70,11 +70,11 @@ const placePiles = (s, n, seed = 7) => {
 };
 
 // ---------------------------------------------------------------------------
-// T13a — Arranque de run [R13.3]: rosterIndex===1 (solo el Gato), pool solo
-// color 1, tablero 32 celdas (dual v2-shape [7,9,9,7], R14.1) con núcleo
-// 2-3-2 jugable (7).
+// T13a — Arranque de run [R13.3 v2.1]: rosterIndex===5 (techo rosterMax(4)=5),
+// pool monocromo 1..colorsOwned (presión R13.5: pool < roster), tablero 32
+// celdas (dual v2-shape [7,9,9,7], R14.1) con núcleo 2-3-2 jugable (7).
 // ---------------------------------------------------------------------------
-test('T13a [R13.3] openRun: rosterIndex 1, pool solo color 1, board 32, 7 jugables', () => {
+test('T13a [R13.3] openRun: rosterIndex 5, pool 1..colorsOwned, board 32, 7 jugables', () => {
   need('createGame'); need('openRun');
   const state = G.createGame({ progress: { coins: 10000 } });
   if (!state.progress.colorsOwned) state.progress.colorsOwned = 4; // R13.7
@@ -86,60 +86,69 @@ test('T13a [R13.3] openRun: rosterIndex 1, pool solo color 1, board 32, 7 jugabl
   }
   const run = s2.run;
   assert.ok(run, 'RED: openRun debe dejar state.run');
-  assert.equal(run.rosterIndex, 1,
-    `RED: al abrir la run solo llegó el Gato (rosterIndex===1), hay ${JSON.stringify(run.rosterIndex)}`);
-  // pool solo fichas color 1 (R13.3 / R10.2 principio)
+  // v2.1-clients: roster ARRANCA en 5 (R13.3 v2.1), ya en el techo rosterMax(4)=5
+  assert.equal(run.rosterIndex, 5,
+    `RED: al abrir la run el roster arranca en 5 (R13.3 v2.1), hay ${JSON.stringify(run.rosterIndex)}`);
+  // pool monocromo 1..colorsOwned=4 (presión R13.5: pool < roster)
   const tiles = (run.pool || []).flat();
   assert.ok(tiles.length > 0, 'RED: run.pool debe tener fichas al abrir la run');
-  assert.ok(tiles.every(t => t === 1),
-    `RED: pool de arranque solo color 1 [R13.3], hay ${JSON.stringify([...new Set(tiles)])}`);
+  assert.ok(tiles.every(t => t >= 1 && t <= state.progress.colorsOwned),
+    `RED: pool de arranque solo 1..colorsOwned [R13.5], hay ${JSON.stringify([...new Set(tiles)])}`);
   // tablero dual 32 celdas (R14.1) — núcleo 2-3-2 jugable (R14.2)
   assert.ok(Array.isArray(run.board), 'RED: run.board debe ser array');
   assert.equal(run.board.length, 32, 'RED: el board de run v2 tiene 32 celdas [R14.1]'); // v2-shape: 30 → 32 (filas [7,9,9,7])
   const playable = run.board.filter(c => !c.blocked && !c.dormant).length;
   assert.equal(playable, 7, `RED: jugables al arranque = núcleo 2-3-2 (7), hay ${playable} [R13.3,R14.2]`);
+  // v2.1: 3 clientes visibles por cola perezosa (no orders pre-generadas)
+  assert.equal(run.activeClients.length, 3, 'RED: 3 visibles al abrir [R16.4]');
 });
 
 // ---------------------------------------------------------------------------
-// T13b — Desbloqueo cada UNLOCK_PLACED_PILES=3 pilas [R13.4]: colocar 3 pilas
-// → rosterIndex===2 y run.orders incluye un pedido del color 2.
+// T13b — Desbloqueo cada UNLOCK_PLACED_PILES=3 pilas [R13.4 v2.1]: con
+// colorsOwned=4 el roster ARRANCA en 5 (= rosterMax, techo) y NO avanza; el
+// unlock NO empuja orders (v2.1-clients: cola perezosa R16.3).
 // ---------------------------------------------------------------------------
-test('T13b [R13.4] 3 pilas colocadas → rosterIndex 2 y pedido de color 2', () => {
+test('T13b [R13.4] 3 pilas colocadas → roster se mantiene en techo 5; unlock sin push de orders', () => {
   needCfg('UNLOCK_PLACED_PILES');
   assert.equal(G.CONFIG.UNLOCK_PLACED_PILES, 3,
     `RED: CONFIG.UNLOCK_PLACED_PILES===3, hay ${JSON.stringify(G.CONFIG.UNLOCK_PLACED_PILES)}`);
   need('createGame'); need('openRun');
   const s = mkGame(1);
-  assert.equal(s.run.rosterIndex, 1, 'RED: partida recién abierta, rosterIndex===1 [R13.3]');
+  // v2.1-clients: rosterIndex===5 al abrir (R13.3 v2.1)
+  assert.equal(s.run.rosterIndex, 5, 'RED: partida recién abierta, rosterIndex===5 [R13.3 v2.1]');
+  const ordersBefore = s.run.orders.length;
   const { state: s2, usedFallback } = placePiles(s, 3, 7);
   if (usedFallback) {
     // NOTA: placeStack v1 complica (board/errors) → se mutó state directamente
     // (placedCounter/rosterIndex) replicando la mecánica R13.4 en placePiles().
     assert.ok(false, 'RED: placeStack v1 no soportó el flujo; roster advance vía placeStack no implementado');
   }
-  assert.equal(s2.run.rosterIndex, 2,
-    `RED: tras UNLOCK_PLACED_PILES=3 pilas llega la criatura del color 2 (rosterIndex===2), hay ${JSON.stringify(s2.run.rosterIndex)} [R13.4]`);
-  assert.ok((s2.run.orders || []).some(o => o.color === 2),
-    `RED: run.orders debe incluir un pedido del color 2 tras el desbloqueo [R13.2,R13.4], orders=${JSON.stringify(s2.run.orders)}`);
+  // v2.1: techo rosterMax = colorsOwned+1 = 5 → 3 pilas NO avanzan el roster
+  assert.equal(s2.run.rosterIndex, 5,
+    `RED: con colorsOwned=4 el roster está en su techo 5 y NO avanza [R16.2/R13.5], hay ${JSON.stringify(s2.run.rosterIndex)}`);
+  // v2.1-clients: unlock NO empuja orders — la cola es perezosa (R16.3)
+  assert.equal(s2.run.orders.length, ordersBefore,
+    `RED: unlock NO debe empujar orders (cola perezosa R16.3), antes ${ordersBefore} ahora ${s2.run.orders.length}`);
 });
 
 // ---------------------------------------------------------------------------
-// T13c — Uniformidad del pool [R13.4 / T12.3]: con colores desbloqueados
-// {1,2}, las NUEVAS tandas del pool (tras cada 3 pilas) deben mostrar >1
-// color distinto entre semillas (test de uniformidad, NO distribución exacta).
+// T13c — Uniformidad del pool [R13.4 v2.1 / T12.3]: con colorsOwned=4 el roster
+// queda en su techo 5 y el pool genera 1..min(roster,owned)=1..4; las NUEVAS
+// tandas (tras cada 3 pilas) deben mostrar >1 color distinto entre semillas
+// (uniformidad entre desbloqueados, NO distribución exacta).
 // ---------------------------------------------------------------------------
 test('T13c [R13.4] pool uniforme entre desbloqueados: 5 semillas → >1 color en nuevas tandas', () => {
   need('createGame'); need('openRun'); need('placeStack');
   const colorsSeen = new Set();
   for (let seed = 1; seed <= 5; seed++) {
     const s = mkGame(seed);
-    // 3 pilas → desbloquea color 2 (rosterIndex 2); 3 más → nuevas tandas del pool
+    // v2.1-clients: el roster ya está en su techo 5 (rosterMax(4)=5) y no avanza
     const r1 = placePiles(s, 3, seed * 10);
     if (r1.usedFallback) {
       assert.ok(false, 'RED: placeStack no soportó el flujo R13.4 (fallback de mutación activo)');
     }
-    assert.equal(r1.state.run.rosterIndex, 2,
-      `RED: seed ${seed}: tras 3 pilas rosterIndex===2 (colores {1,2} desbloqueados) [R13.4]`);
+    assert.equal(r1.state.run.rosterIndex, 5,
+      `RED: seed ${seed}: el roster se mantiene en su techo 5 (rosterMax=colorsOwned+1) [R13.4 v2.1]`);
     const r2 = placePiles(r1.state, 3, seed * 10 + 1);
     if (r2.usedFallback) {
       assert.ok(false, 'RED: placeStack no soportó el flujo R13.4 (fallback de mutación activo)');
@@ -151,10 +160,9 @@ test('T13c [R13.4] pool uniforme entre desbloqueados: 5 semillas → >1 color en
 });
 
 // ---------------------------------------------------------------------------
-// T13d — Techo de roster [R13.5 / T12.2]: con colorsOwned=4, el roster avanza
-// hasta 5 (colorsOwned+1) y se ESTANCA ahí; completar la partida exige comprar
-// colores. AMBIGUA: se asume rosterMax = colorsOwned + 1 (una unidad por
-// encima del permanente), tal como lee RULES.md T12.2.
+// T13d — Techo de roster [R13.5 v2.1 / T12.2]: con colorsOwned=4, el roster
+// arranca en 5 (rosterMax = colorsOwned<10 ? colorsOwned+1 : 10) y se ESTANCA
+// ahí; completar la partida exige comprar colores.
 // ---------------------------------------------------------------------------
 test('T13d [R13.5] con colorsOwned=4, muchas pilas → rosterIndex se estanca en 5', () => {
   need('createGame'); need('openRun'); need('placeStack');

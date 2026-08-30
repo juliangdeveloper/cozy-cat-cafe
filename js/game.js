@@ -19,7 +19,7 @@ export const CONFIG = {
   CALAMITY_MAX_FRAC: 1 / 3,         // R8.2 hi
   CALAMITY_THRESHOLD: 15,           // R8.1 only if boardCells > 15
   BLOCK_PROB: 0.5,                  // R8.3 ~50% blocked / ~50% prestockated
-  USES_PER_RUN: { destroyPile: 3, swapPiles: 3, refreshPool: 2 }, // R7 USES_PER_RUN
+  USES_PER_RUN: { destroyPile: 3, swapPiles: 3, refreshPool: 2, queueSkip: 2 }, // R7 USES_PER_RUN (+ R17.1 queueSkip)
   PRODUCTS_PER_COLOR: 3,            // R10.1 [OBSOLETO v2 — reemplazado por R13.7]
   IDLE_RATE: { workers: 0.5, fame: 0.3, machines: 0.8 }, // R9.1
   IDLE_CAP:  { workers: 60,  fame: 100,  machines: 40 },  // R9.3 caps
@@ -39,6 +39,13 @@ export const CONFIG = {
   DEBRIS_BONUS_PER: 25,             // v2 escombros: bonus por escombro limpiado
   CASCADE_STEP_MS: 1600,            // v2 cascada: ms entre pasos (merge en cadena)
   PREVIEW_PRICE: 80,                // v2 R15.1 precio previewPool = PREVIEW_PRICE * level
+  // v2.1 — R16 cola de clientes / R17 skills de cola ⚖BALANCE
+  MIN_CLIENTS: 20,                  // R16.1 TOTAL_CLIENTS base = 20 + capacidad.level
+  MAX_CLIENTS: 100,                 // R16.1 tope (capacidad max level = 80)
+  USES_UP_BASE: 60,                 // R17.2 mejora de usos: precio = BASE * RATIO^compras
+  USES_UP_RATIO: 1.6,               // R17.2 (exponencial auto-limita, sin tope)
+  CAP_PRICE_BASE: 120,              // R17.3 capacidad: precio = BASE * RATIO^level
+  CAP_RATIO: 1.35,                  // R17.3
 };
 
 // ---------------------------------------------------------------------------
@@ -143,6 +150,13 @@ export function createGame(init = {}) {
       // previewPool: modelo LEVELS (owned + level 0..3, SIN uses).
       serveManual: { owned: false, autoServe: true, price: 150, unlockLevel: 1 },
       previewPool: { owned: false, level: 0, price: 80, unlockLevel: 1 },
+      // v2.1 R17.1 — queueSkip: modelo USES (R7.4) — los 3 visibles van al
+      // fondo de la cola y entran 3 nuevos. R17.2: usesBought (mejora de usos).
+      queueSkip: { owned: false, uses: 0, usesBought: 0, price: 100, unlockLevel: 1 },
+      // v2.1 R17.3 — capacidad: modelo LEVELS (level 0..80); TOTAL_CLIENTS =
+      // MIN_CLIENTS + level (R16.1). Precio por fórmula CAP_PRICE (sk.price
+      // no se usa; precio = CAP_PRICE_BASE * CAP_RATIO^level).
+      capacidad: { owned: false, level: 0, price: 120, unlockLevel: 1 },
     },
     idle: {
       workers:  { level: 1, ratePerSec: CONFIG.IDLE_RATE.workers,  cap: CONFIG.IDLE_CAP.workers },
@@ -272,25 +286,6 @@ export function generateBoard(n, rng) {
 }
 
 // ---------------------------------------------------------------------------
-// openRun / openShop — v2 (R13.3 arranque de run; reemplaza openRun v1).
-// run = { board (32 celdas v2-shape [7,9,9,7]), orders, pool, poolPlaced, calamities,
-//         rosterIndex, placedCounter, runTilesActivated }.
-// Arranque: rosterIndex=1 (solo el Gato anfitrión, pedido {color:1, qty 2-4}),
-// pool = 3 pilas monocromas SOLO de color 1 (tamaños rng 1-4), placedCounter=0,
-// runTilesActivated=0. Los demás colores no existen hasta desbloqueo (R13.4).
-// ---------------------------------------------------------------------------
-// v2 helper: color máximo que genera el pool = min(rosterIndex, colorsOwned).
-// El pedido de una criatura recién llegada POR ENCIMA del techo (colorsOwned+1)
-// NO se genera en pool — eso es la presión de compra (R13.5/R13.7).
-function poolMaxColor(rosterIndex, colorsOwned) {
-  return Math.min(rosterIndex || 1, colorsOwned || 1);
-}
-// v2 helper: pila monocroma de tamaño rng 1-4 en [1, cu] (R13.3/R13.4)
-function v2Pile(rng, cu) {
-  return Array.from({ length: rngInt(rng, 1, 4) }, () => rngInt(rng, 1, cu));
-}
-
-// ---------------------------------------------------------------------------
 // applyCalamities(state, rng) — R8 v2 + R14.5 (calamidades sobre JUGABLES).
 // DECISIÓN DE DISEÑO (R14.5): con el board dual 32 el umbral R8.1 ya NO se
 // evalúa al abrir la partida (núcleo jugable = 7, nunca > 15 al abrir); entra
@@ -340,23 +335,128 @@ export function applyCalamities(state, rng) {
   return s;
 }
 
+// ---------------------------------------------------------------------------
+// openRun / openShop — v2.1 (R13.3 v2.1 + R16 cola de clientes; reemplaza openRun v2.0).
+// run = { board (32 celdas v2-shape [7,9,9,7]), orders, activeClients, pool,
+//         poolPlaced, calamities, rosterIndex, placedCounter, runTilesActivated,
+//         clientsDrawn, clientsServed, queueBack, orderSeq }.
+// Arranque v2.1 (R16.2/R13.3 v2.1): rosterIndex=5 (5 tipos activos al abrir,
+// NO 1), pool monocromo SOLO de colorsOwned (presión: pool < roster, R13.5).
+// Cola PEREZOSA (R16.3): NO se pre-generan los TOTAL_CLIENTS; se dibujan los
+// 3 VISIBLES (R16.4) y el resto se dibuja al servir (contadores clientsDrawn
+// / clientsServed). TOTAL efectivo = MIN_CLIENTS + capacidad.level (R16.1).
+// ---------------------------------------------------------------------------
+
+// v2.1 — TOTAL_CLIENTS efectivo de la partida en curso [R16.1]:
+// totalClients(state) = min(MAX_CLIENTS, MIN_CLIENTS + skills.capacidad.level).
+export function totalClients(state) {
+  const lvl = (state && state.skills && state.skills.capacidad && state.skills.capacidad.level) || 0;
+  return Math.min(CONFIG.MAX_CLIENTS, CONFIG.MIN_CLIENTS + (lvl || 0));
+}
+
+// v2.1 — victoria de la partida en curso [R16.4]: clientsServed >= TOTAL.
+// Helper para el renderer (checkServedAll) — expone el gate v2.1.
+export function runVictory(state) {
+  if (!state || !state.run) return false;
+  return (state.run.clientsServed || 0) >= totalClients(state);
+}
+
+// v2.1 helper (R16.2 corrección): tope de roster de la partida =
+// colorsOwned < MAX_COLORS ? colorsOwned + 1 : MAX_COLORS. Con colorsOwned=4
+// el roster arranca (y se estanca) en 5; comprar colores sube el tope; con
+// colorsOwned=10 el tope es 10 (no 11).
+function rosterMax(colorsOwned) {
+  return Math.min((colorsOwned || 0) + 1, CONFIG.MAX_COLORS);
+}
+
+// v2 helper: color máximo que genera el pool = min(rosterIndex, colorsOwned).
+// El pedido de una criatura POR ENCIMA del techo (colorsOwned) NO se genera en
+// pool — eso es la presión de compra (R13.5/R13.7). v2.1: pool < roster.
+function poolMaxColor(rosterIndex, colorsOwned) {
+  return Math.min(rosterIndex || 1, colorsOwned || 1);
+}
+// v2 helper: pila monocroma de tamaño rng 1-4 en [1, cu] (R13.3/R13.4).
+// v2.1-clients: FIX — un solo color sorteado por pila (la versión previa
+// sorteaba color POR FICHA y con cu>1 generaba pilas multicolor, violando R3.1).
+function v2Pile(rng, cu) {
+  const color = rngInt(rng, 1, cu);
+  return Array.from({ length: rngInt(rng, 1, 4) }, () => color);
+}
+
+// ---------------------------------------------------------------------------
+// v2.1 R16.2/R16.3 — cola de clientes LAZY. El cliente ES un pedido flotante
+// {id, color, qty 2-4, served:false} SIN celda; se DIBUJA al servir (llegada
+// perezosa): drawClient saca el siguiente del pool de tipos 1..rosterIndex
+// (uniforme rng) — puede pedir un color por encima de colorsOwned (presión
+// R13.5: ese color no se genera en pool). NO se pre-generan los 20: se llevan
+// contadores run.clientsDrawn / run.clientsServed.
+// helper interno (muta s — el caller ya clonó): dibuja 1 cliente si la cola
+// tiene pendientes (clientsDrawn < TOTAL). Retorna true si dibujó.
+function drawClientInto(s, r) {
+  const total = totalClients(s);
+  if ((s.run.clientsDrawn || 0) >= total) return false;    // cola agotada
+  const roster = s.run.rosterIndex || 1;
+  const order = {
+    id: `ord-${s.run.orderSeq != null ? s.run.orderSeq++ : (s.run.clientsDrawn || 0)}`,
+    color: rngInt(r, 1, Math.max(1, roster)),              // uniforme 1..rosterIndex
+    qty: rngInt(r, 2, 4),                                  // R16.2 qty 2-4
+    served: false,
+  };
+  s.run.orders.push(order);
+  s.run.activeClients.push(order);
+  s.run.clientsDrawn += 1;
+  return true;
+}
+
+// Firma pública: drawClient(state, rng) -> newState (dibuja 1 cliente; sin
+// cambios si la cola está agotada o no hay run). rng default Math.random.
+export function drawClient(state, rng) {
+  const s = clone(state);
+  if (!s.run) return s;
+  drawClientInto(s, rng || Math.random);
+  return s;
+}
+
+// v2.1 helper interno: rellena activeClients hasta VISIBLES=3 consumiendo
+// PRIMERO run.queueBack (devueltos por queueSkip, FIFO) y después dibujando
+// nuevos de la cola (si clientsDrawn < TOTAL). Muta `s` (el caller ya clonó).
+function refillClients(s, rng) {
+  if (!s.run || !Array.isArray(s.run.activeClients)) return;
+  const r = rng || Math.random;
+  while (s.run.activeClients.length < 3) {
+    if (s.run.queueBack && s.run.queueBack.length) {
+      s.run.activeClients.push(s.run.queueBack.shift());   // R17.1: devueltos primero
+    } else if (!drawClientInto(s, r)) {
+      break;                                               // llegada perezosa agotada
+    }
+  }
+}
+
 export function openRun(state, rng) {
   let s = clone(state);
   if (s.progress.permTiles == null) s.progress.permTiles = 1;      // v2 default (saves v1)
   const board = generateBoard(32, rng);                            // R14.1 board dual 32 (v2-shape [7,9,9,7])
-  const orders = [{ id: 'ord-0', color: 1, qty: rngInt(rng, 2, 4), served: false }]; // R13.3 Gato
   s.run = {
-    phase: 'open', board, orders,
-    pool: Array.from({ length: 3 }, () => v2Pile(rng, poolMaxColor(1, s.progress.colorsOwned))),
+    phase: 'open', board,
+    orders: [], activeClients: [],                                 // v2.1 R16.2 clientes = pedidos flotantes
+    pool: Array.from({ length: 3 }, () => v2Pile(rng, poolMaxColor(5, s.progress.colorsOwned))),
     poolPlaced: 0, calamities: 0,
     calamitiesApplied: false,                                      // R14.5 una vez por partida
-    rosterIndex: 1,                                                // R13.3 solo Gato
+    rosterIndex: Math.min(5, rosterMax(s.progress.colorsOwned)),   // R13.3 v2.1: 5 tipos activos
     placedCounter: 0,                                              // R13.4
     runTilesActivated: 0,                                          // R14.3
+    // v2.1 R16 — cola de clientes perezosa: 3 visibles, contadores, devueltos
+    clientsDrawn: 0,                                               // R16.3 dibujados hasta ahora
+    clientsServed: 0,                                              // R16.4 victoria = === TOTAL
+    queueBack: [],                                                 // R17.1 FIFO de devueltos
+    orderSeq: 0,                                                   // id ord-N estable
   };
+  // R16.4: dibujar los 3 VISIBLES iniciales (llegada perezosa, no pre-genera)
+  refillClients(s, rng || Math.random);
   for (const key of Object.keys(CONFIG.USES_PER_RUN)) {
     if (s.skills[key] && s.skills[key].owned) {
-      s.skills[key].uses = CONFIG.USES_PER_RUN[key];          // R7.4 replenish per run
+      // v2.1 R17.2: usos por partida = USES_PER_RUN + usos mejorados comprados
+      s.skills[key].uses = CONFIG.USES_PER_RUN[key] + (s.skills[key].usesBought || 0); // R7.4/R17.2
     }
   }
   // R8/R14.5: generación única de calamidades (con el núcleo 7 jugable es
@@ -455,20 +555,18 @@ export function placeStack(state, cellId, slot, rngOrStack) {
   s.run.pool[idx] = [];
   s.run.poolPlaced += 1;
   if (s.run.rosterIndex != null) {
-    // v2 R13.4: cada pila colocada cuenta; cada UNLOCK_PLACED_PILES llega la
-    // siguiente criatura (pedido {color: rosterIndex, qty 2-4}) — techo
-    // R13.5: rosterIndex+1 <= colorsOwned+1 y < MAX_COLORS. El color de una
-    // criatura por ENCIMA del techo NO se genera en pool (presión de compra).
+    // v2.1 R16.2 (corregido): cada pila colocada cuenta; cada
+    // UNLOCK_PLACED_PILES=3 el roster avanza +1 tipo HASTA el tope
+    // rosterMax = colorsOwned < MAX_COLORS ? colorsOwned+1 : MAX_COLORS
+    // (sin techo por colorsOwned en el AVANCE, pero con techo por la fórmula).
+    // El color del tipo superior (colorsOwned+1) NO se genera en pool —
+    // presión de compra R13.5 (pool < roster). Los clientes NO se empujan
+    // aquí: son cola perezosa (drawClient al servir, R16.3).
     s.run.placedCounter = (s.run.placedCounter || 0) + 1;
     if (s.run.placedCounter >= CONFIG.UNLOCK_PLACED_PILES) {
       s.run.placedCounter = 0;
-      const next = s.run.rosterIndex + 1;
-      const owned = s.progress.colorsOwned || 0;
-      if (next <= owned + 1 && next < CONFIG.MAX_COLORS) {
-        s.run.rosterIndex = next;
-        const r = rng || Math.random;
-        s.run.orders.push({ id: `ord-${next}`, color: next, qty: rngInt(r, 2, 4), served: false });
-      }
+      const cap = rosterMax(s.progress.colorsOwned);
+      if (s.run.rosterIndex < cap) s.run.rosterIndex = s.run.rosterIndex + 1;
     }
   }
   if (s.run.poolPlaced === 3) {
@@ -590,16 +688,23 @@ function bestServeCell(board, order) {
 
 export function serveOrder(state, orderId, cellId) {
   const s = clone(state);
-  const order = s.run && s.run.orders.find((o) => String(o.id) === String(orderId));
+  const run = s.run;
+  const order = run && run.orders && run.orders.find((o) => String(o.id) === String(orderId));
   if (!order) return { error: 'noOrder' };
   if (order.served) return { error: 'alreadyServed' };                    // R4.4
+  // v2.1 R16.4: SOLO los clientes VISIBLES (activeClients) pueden servirse
+  // (auto o manual). En runs viejas sin activeClients (shape v1) se permite
+  // servir cualquier order (compat v1, ver deserializeState).
+  if (Array.isArray(run.activeClients) && !run.activeClients.includes(order)) {
+    return { error: 'notVisible' };                                       // R16.4
+  }
   // v2 R4.3: cellId opcional — sin celda, match determinista (R15.2)
   let idx = cellId;
   if (idx === undefined) {
-    idx = bestServeCell(s.run.board, order);
+    idx = bestServeCell(run.board, order);
     if (idx < 0) return { error: 'notEnough' };
   }
-  const cell = s.run.board[idx];
+  const cell = run.board[idx];
   if (!cell) return { error: 'noCell' };
   const tg = topGroup(cell.stack);
   // wrong color, or not enough pieces: error, consume nothing
@@ -611,8 +716,20 @@ export function serveOrder(state, orderId, cellId) {
   order.served = true;
   const amount = pay(order, s.economy.multLevel);                          // R5.1
   s.progress.coins += amount;
+  // v2.1 R16.3/R16.4: al servir un VISIBLE → clientsServed+1 y entra el
+  // siguiente de la cola (queueBack primero, luego draw si clientsDrawn<TOTAL).
+  if (run.clientsServed != null && Array.isArray(run.activeClients)) {
+    run.clientsServed += 1;
+    run.activeClients = run.activeClients.filter((o) => o !== order);
+    refillClients(s, rngFallback());
+  }
   return s;
 }
+
+// v2.1: rng de refill — serveOrder no recibe rng (firma v1/v2 estable); el
+// sorteo de clientes es el único uso no inyectado y SOLO afecta al color/qty
+// del siguiente cliente (nunca a pagos ni merges). Documentado en R11.2 ⚠.
+function rngFallback() { return Math.random; }
 
 // ---------------------------------------------------------------------------
 // resolveCascade(state) [R12.2] — PURA: clona, itera eslabones hasta estabilizar
@@ -654,19 +771,32 @@ export function resolveCascade(state) {
       }
       if (didMerge) acted = true;
     }
-    // (ii) auto-servir: pedidos flotantes (cell === null), match determinista
+    // (ii) auto-servir: SOLO los clientes VISIBLES (v2.1 R16.4: activeClients,
+    // máx 3 — los pedidos NO visibles de run.orders se IGNORAN aunque tengan
+    // tope válido). En runs viejas sin activeClients (shape v1) se itera
+    // orders (compat). Match determinista R15.2.
     const auto = !(s.skills && s.skills.serveManual
       && s.skills.serveManual.autoServe === false);
-    if (auto && Array.isArray(s.run.orders)) {
-      for (const order of s.run.orders) {
-        if (!order || order.served || order.cell !== null) continue;   // R15.2
+    const visible = Array.isArray(s.run.activeClients) ? s.run.activeClients : s.run.orders;
+    if (auto && Array.isArray(visible)) {
+      for (const order of visible) {
+        if (!order || order.served) continue;                           // R15.2
+        if (order.cell !== null && order.cell !== undefined) continue;  // flotantes (cell null/absent)
         const idx = bestServeCell(s.run.board, order);
         if (idx < 0) continue;
         const cell = s.run.board[idx];
         cell.stack.splice(cell.stack.length - order.qty, order.qty);   // exacto
         order.served = true;
         s.progress.coins += pay(order, s.economy.multLevel);           // R5.1
+        if (s.run.clientsServed != null) s.run.clientsServed += 1;      // v2.1 R16.3
         acted = true;
+      }
+      if (Array.isArray(s.run.activeClients)) {
+        s.run.activeClients = s.run.activeClients.filter((o) => !o.served);
+        // v2.1 FIX: el refill se hace UNA vez al final de la cascada (ver
+        // cierre del bucle). Dentro del bucle, los clientes recién dibujados
+        // (Math.random) podían auto-servirse en el siguiente eslabón y
+        // consumir del board de forma NO determinista.
       }
     }
     // (iii) umbral de escombros: todo grupo contiguo >= DEBRIS_THRESHOLD se
@@ -693,6 +823,10 @@ export function resolveCascade(state) {
     if (!acted) break;
     steps += 1;
   }
+  // v2.1 R16.4: refill inmediato — UNA vez al FINAL de la cascada. Los clientes
+  // recién llegados quedan visibles para la SIGUIENTE cascada / serveOrder;
+  // así la cascada es determinista (el Math.random del draw no re-entra aquí).
+  if (Array.isArray(s.run.activeClients)) refillClients(s, rngFallback());
   return { state: s, steps };
 }
 
@@ -708,7 +842,10 @@ export function isServeReady(state, cellId) {
   if (!cell) return false;
   const tg = topGroup(cell.stack);
   if (!tg.color) return false;
-  return (state.run.orders || []).some((o) =>
+  // v2.1 R16.4: solo cuentan los clientes VISIBLES (activeClients) — en runs
+  // viejas sin activeClients (shape v1) se consideran todas las orders.
+  const pool = Array.isArray(state.run.activeClients) ? state.run.activeClients : state.run.orders;
+  return (pool || []).some((o) =>
     o && !o.served && o.color === tg.color && tg.count >= o.qty);
 }
 
@@ -746,8 +883,12 @@ export function closeRun(state, reason = 'manual') {
     reason,
     bonus,
     victory: reason === 'allServed',                                      // R2.6
-    served: s.run.orders.filter((o) => o.served).length,
-    total: s.run.orders.length,
+    // v2.1 R16.4: served/total de la COLA (clientsServed / TOTAL efectivo);
+    // en runs viejas sin contadores (shape v1) se derivan de orders.
+    served: s.run.clientsServed != null
+      ? s.run.clientsServed
+      : s.run.orders.filter((o) => o.served).length,
+    total: s.run.clientsServed != null ? totalClients(s) : s.run.orders.length,
   };
   s.progress.totalGames += 1;                                            // R2.5
   s.progress.cafeLevel = s.progress.totalGames + 1;                       // R7.1
@@ -784,13 +925,78 @@ export function buySkill(state, power) {
     s.skills.previewPool.level = level + 1;
     return s;
   }
-  // v1 — skills de USES (destroyPile / swapPiles / refreshPool)
+  // v2.1 R17.3 — capacidad: modelo LEVELS (level 0..80; TOTAL = MIN+level)
+  if (power === 'capacidad') {
+    const level = sk.level || 0;
+    const capMax = CONFIG.MAX_CLIENTS - CONFIG.MIN_CLIENTS;   // 80 (R16.1)
+    if (level >= capMax) return { error: 'max' };
+    const price = CONFIG.CAP_PRICE_BASE * Math.pow(CONFIG.CAP_RATIO, level); // ⚖BALANCE
+    if (s.progress.cafeLevel < sk.unlockLevel) return { error: 'locked' }; // R7.1
+    if (s.progress.coins < price) return { error: 'noFunds' };             // R7.3
+    s.progress.coins -= price;
+    s.skills.capacidad.owned = true;
+    s.skills.capacidad.level = level + 1;
+    return s;
+  }
+  // v1 — skills de USES (destroyPile / swapPiles / refreshPool / queueSkip)
   if (sk.owned) return { error: 'owned' };
   if (s.progress.cafeLevel < sk.unlockLevel) return { error: 'locked' }; // R7.1
   if (s.progress.coins < sk.price) return { error: 'noFunds' };          // R7.3
   s.progress.coins -= sk.price;
   s.skills[power].owned = true;
-  s.skills[power].uses = CONFIG.USES_PER_RUN[power];                     // R7.3
+  // v2.1 R17.2: usesBought nace 0 (acumulado de mejoras de usos)
+  s.skills[power].usesBought = s.skills[power].usesBought || 0;      // R17.2
+  // v2.1 R17.2: usos iniciales incluyen las mejoras de usos ya compradas
+  s.skills[power].uses = CONFIG.USES_PER_RUN[power] + (s.skills[power].usesBought || 0); // R7.3/R17.2
+  return s;
+}
+
+// ---------------------------------------------------------------------------
+// v2.1 R17.1 — useQueueSkip(state): los 3 clientes VISIBLES vuelven al final
+// de la cola (run.queueBack, FIFO — re-entran después de los que falten por
+// dibujar: queueBack se consume ANTES de dibujar nuevos en refillClients) y
+// entran 3 nuevos (draw). NO consume nada más. {error} si uses===0 o !owned.
+// ---------------------------------------------------------------------------
+export function useQueueSkip(state) {
+  const guard = ensureOwnedUses(state, 'queueSkip');
+  if (guard) return guard;
+  const s = clone(state);
+  const old = s.run.activeClients.splice(0, s.run.activeClients.length);
+  s.run.queueBack.push(...old);                 // R17.1: al fondo, orden FIFO
+  // v2.1 FIX (T17e): drawClientInto MUTA `s` (el caller ya clonó); drawClient
+  // es el export PURO (clona y descarta) — no dibujaba nada.
+  for (let i = 0; i < 3; i++) drawClientInto(s, Math.random);  // 3 nuevos (R16.3)
+  refillClients(s, Math.random);                // edge: cola agotada → re-entran
+  s.skills.queueSkip.uses -= 1;
+  return s;
+}
+
+// ---------------------------------------------------------------------------
+// v2.1 R17.2 — MEJORA DE USOS (tienda): cada skill modelo 'uses'
+// (destroyPile/swapPiles/refreshPool/queueSkip) puede subir +1 uso por partida.
+// Precio = USES_UP_BASE * USES_UP_RATIO^comprasDelSkill (exponencial, sin
+// tope — auto-limita). Estructura state.skills[p].usesBought (acumulado).
+// openRun repone uses = USES_PER_RUN[p] + usesBought.
+// ---------------------------------------------------------------------------
+export function usesUpPrice(state, power) {
+  return CONFIG.USES_UP_BASE * Math.pow(CONFIG.USES_UP_RATIO, buysOf(state, power));
+}
+// comprasDelSkill acumuladas (usesBought) del skill dado
+function buysOf(state, power) {
+  const sk = state && state.skills && state.skills[power];
+  return (sk && sk.usesBought) || 0;
+}
+export function buyUsesUp(state, power) {
+  const sk = state && state.skills && state.skills[power];
+  if (!sk) return { error: 'noSkill' };
+  if (!CONFIG.USES_PER_RUN[power]) return { error: 'noUsesModel' };  // solo modelo 'uses'
+  const s = clone(state);
+  const cur = s.skills[power];
+  if (!cur.owned) return { error: 'locked' };                        // R7.1: mejora lo comprado
+  const price = CONFIG.USES_UP_BASE * Math.pow(CONFIG.USES_UP_RATIO, cur.usesBought || 0);
+  if (s.progress.coins < price) return { error: 'noFunds' };         // R7.3
+  cur.usesBought = (cur.usesBought || 0) + 1;                        // acumulado (sin tope)
+  s.progress.coins -= price;
   return s;
 }
 
@@ -969,6 +1175,30 @@ export function deserializeState(json) {
         // R15.1 defaults para saves viejos (modelo toggle / levels, sin uses)
         if (!s.skills.serveManual) s.skills.serveManual = { owned: false, autoServe: true };
         if (!s.skills.previewPool) s.skills.previewPool = { owned: false, level: 0 };
+        // v2.1 R17 defaults (cola de clientes / usos mejorados)
+        if (!s.skills.queueSkip) s.skills.queueSkip = { owned: false, uses: 0, usesBought: 0 };
+        if (!s.skills.capacidad) s.skills.capacidad = { owned: false, level: 0 };
+      }
+      if (s.run) {
+        // v2.1 R16 defaults para runs viejas (pre-cola): migración documentada
+        // en DESIGN_DECISIONS §clientes — si la run vieja no tiene
+        // activeClients, las primeras 3 orders se toman como VISIBLES y el
+        // resto de la run vieja se DESCARTA (no se pre-genera la cola).
+        if (!Array.isArray(s.run.activeClients)) {
+          const act = (s.run.orders || []).slice(0, 3);
+          s.run.orders = act;                                  // resto descartado
+          s.run.activeClients = act;
+          s.run.clientsDrawn = act.length;
+          s.run.clientsServed = act.filter((o) => o.served).length;
+          if (s.run.orderSeq == null) s.run.orderSeq = act.length;
+        }
+        if (s.run.queueBack == null) s.run.queueBack = [];      // R17.1
+        if (s.run.clientsDrawn == null) s.run.clientsDrawn = (s.run.orders || []).length;
+        if (s.run.clientsServed == null) {
+          s.run.clientsServed = (s.run.orders || []).filter((o) => o.served).length;
+        }
+        if (s.run.orderSeq == null) s.run.orderSeq = (s.run.orders || []).length;
+        if (s.run.rosterIndex == null) s.run.rosterIndex = 5;   // R13.3 v2.1
       }
       return s;
     }
