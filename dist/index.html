@@ -220,6 +220,8 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .pow .uses{position:absolute;top:-8px;right:-6px;background:var(--highlight);border:2px solid var(--ink);
   border-radius:999px;font-size:11px;padding:0 6px;font-weight:800}
 .pow.locked{background:var(--lock);opacity:.8;cursor:not-allowed}
+.pow.depleted{opacity:.5;cursor:not-allowed}
+.pow.depleted .uses{background:var(--lock)}
 .pow[data-mode=destroy].selected{outline:3px solid var(--danger)}
 .pow[data-mode=swap].selected{outline:3px solid var(--tile-blue)}
 .pow[data-mode=refresh].selected{outline:3px solid var(--tile-mint)}
@@ -1967,7 +1969,7 @@ function renderPowers(){
     {skill:'swapPiles',icon:'power_swap',label:'Swap',mode:'swap'},
     {skill:'refreshPool',icon:'power_refresh',label:'Refresh',mode:'refresh'},
     // v2 — activar baldosa dormant ESTA partida (R14.2/R14.3, precio runTilePrice)
-    {skill:'__activate',icon:'power_activate',label:`🪧 ${fmt(Math.round(runTilePrice(state)))}`,mode:'activate'},
+    {skill:'__activate',icon:'power_activate',label:'Activate',mode:'activate'},
   ];
   // v2 R15.1: toggle auto-serve solo si serveManual.owned (modelo TOGGLE)
   if(state.skills.serveManual && state.skills.serveManual.owned)
@@ -1978,13 +1980,25 @@ function renderPowers(){
     arr.push({skill:'queueSkip',icon:'📨',label:'Queue',mode:'queueskip'});
   box.innerHTML = arr.map(d=>{
     const s=state.skills[d.skill]||{owned:true};
-    const uses = (typeof s.uses==='number') ? `<span class="uses">${s.uses}</span>` : '';
-    return `<div class="pow ${!s.owned?'locked':''} ${ui.mode===d.mode?'selected':''}" data-mode="${d.mode}" data-skill="${d.skill}">
+    // Badge unificado (clase .uses): contador de usos si comprado; si NO
+    // comprado, precio de compra; Activate siempre muestra su precio. El 🪙
+    // distingue un precio de un contador de usos.
+    const uses = d.mode==='activate'
+      ? `<span class="uses">🪙${fmt(Math.round(runTilePrice(state)))}</span>`
+      : (s.owned && typeof s.uses==='number')
+        ? `<span class="uses">${s.uses}</span>`
+        : (typeof s.price==='number' ? `<span class="uses">🪙${fmt(s.price)}</span>` : '');
+    const depleted = s.owned && typeof s.uses==='number' && s.uses<=0;
+    return `<div class="pow ${!s.owned?'locked':''} ${depleted?'depleted':''} ${ui.mode===d.mode?'selected':''}" data-mode="${d.mode}" data-skill="${d.skill}">
       ${spr(d.icon,22)}<span>${d.label}</span>${uses}</div>`;
   }).join('');
   $$('#powerbar .pow').forEach(p=>p.addEventListener('click',()=>{
     if(ui.anim) return;
     const skill=p.dataset.skill, mode=p.dataset.mode;
+    // v2.2 guard agotado: toast y salida ANTES de entrar al modo (espejo del
+    // guard ensureOwnedUses de game.js; la lógica de gastar usos NO cambia)
+    const gs=state.skills[skill]||{owned:true};
+    if(gs.owned && typeof gs.uses==='number' && gs.uses<=0){ toast(ERRT.noUses); return; }
     if(mode==='activate'){                    // v2: modo activar baldosa apagada
       ui.mode = ui.mode==='activate'?null:'activate'; ui.slot=false; ui.servingOrder=null;
       $('#hint').textContent = ui.mode
