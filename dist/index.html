@@ -12,8 +12,8 @@
 :root{
   --bg-primary:#f7d1e1; --panel:#f8f1d5; --wood:#b6947c; --wood-dark:#9a7a63;
   --accent:#f6a7c1; --accent-2:#ffb2c1; --highlight:#fff5b2;
-  --tile-mint:#a8e1d4; --tile-blue:#b2d7ff; --tile-pink:#ffb2c1; --tile-blush:#f6a7c1;
-  --tile-lavender:#e5c4e8; --tile-cream:#f8f1d3;
+  --tile-mint:#7fd6a4; --tile-blue:#7cc4f5; --tile-pink:#ff8fa3; --tile-blush:#ffab72;
+  --tile-lavender:#c49ade; --tile-cream:#f0d46e;
   --ink:#794835; --ink-soft:#a06e52; --success:#a8e1d4; --danger:#c96a5a;
   --lock:#a0928a; --shadow:rgba(121,72,53,.25);
   --font-display:'Baloo 2',system-ui,'Segoe UI',sans-serif;
@@ -86,7 +86,14 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .bubble{display:flex;align-items:center;justify-content:center;gap:5px;background:var(--panel);border:2px solid var(--ink);
   border-radius:999px;padding:2px 8px;margin-top:4px;font-family:var(--font-display);font-weight:800;font-size:16px}
 .order-card.ready .bubble{background:var(--highlight)}
-.minitile{width:15px;height:15px;border-radius:4px;border:2px solid var(--ink);display:inline-block}
+/* hexagonal minitile (same nested clip-path technique as .ttile): outer hex
+   is a 30%-darkened rim, inner ::before hex carries the fill. Color arrives
+   via --mc (inline) so the rim mixes from the tile token. */
+.minitile{width:20px;height:17px;position:relative;display:inline-block;
+  clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);
+  background:color-mix(in srgb,var(--mc),#000 30%)}
+.minitile::before{content:"";position:absolute;inset:2px;background:var(--mc);
+  clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)}
 
 /* board — 2D honeycomb (flat-top hexagons). Axial {q,r} coords group cells into
    rows. PERFECT honeycomb geometry for the drawn hex (box 2*--hx wide; clip-path
@@ -104,33 +111,57 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .cell{position:relative;width:var(--cw);height:var(--ch);cursor:pointer;flex:0 0 auto}
 .hexbg{position:absolute;inset:0;background:var(--wood);clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%)}
 .cell.blocked .hexbg{background:var(--lock)}
-.cell.calm .hexbg{box-shadow:inset 0 0 0 3px var(--danger);filter:drop-shadow(0 0 4px var(--danger))}
-.cell.targetable:not(.blocked) .hexbg{box-shadow:inset 0 0 0 3px var(--highlight);filter:drop-shadow(0 0 4px var(--highlight))}
-.cell.targetmode .hexbg{box-shadow:inset 0 0 0 3px var(--danger);filter:drop-shadow(0 0 4px var(--danger))}
-.cell.swapmode .hexbg{box-shadow:inset 0 0 0 3px var(--tile-blue);filter:drop-shadow(0 0 4px var(--tile-blue))}
-.cell.serve-target:not(.blocked) .hexbg{box-shadow:inset 0 0 0 3px var(--accent-2);filter:drop-shadow(0 0 4px var(--accent-2))}
+/* true hexagon borders: state colors fill the OUTER hex (--hb) and an inner
+   ::after hex (inset --hbw) re-covers the center -> a perfect 6-sided ring.
+   A box-shadow inset paints a rectangular frame that clip-path only trims. */
+.cell.calm .hexbg{--hb:var(--danger);filter:drop-shadow(0 0 4px var(--danger))}
+.cell.targetable:not(.blocked) .hexbg{--hb:var(--highlight);filter:drop-shadow(0 0 4px var(--highlight))}
+.cell.targetmode .hexbg{--hb:var(--danger);filter:drop-shadow(0 0 4px var(--danger))}
+.cell.swapmode .hexbg{--hb:var(--tile-blue);filter:drop-shadow(0 0 4px var(--tile-blue))}
+.cell.serve-target:not(.blocked) .hexbg{--hb:var(--accent-2);filter:drop-shadow(0 0 4px var(--accent-2))}
+.cell.calm .hexbg::before,.cell.targetable:not(.blocked) .hexbg::before,
+.cell.targetmode .hexbg::before,.cell.swapmode .hexbg::before,
+.cell.serve-target:not(.blocked) .hexbg::before,.board.actmode .cell.dormant .hexbg::before,
+.cell.casc .hexbg::before,.expand-slot .hexbg::before{
+  content:"";position:absolute;inset:0;background:var(--hb);
+  clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%)}
+.cell.calm .hexbg::after,.cell.targetable:not(.blocked) .hexbg::after,
+.cell.targetmode .hexbg::after,.cell.swapmode .hexbg::after,
+.cell.serve-target:not(.blocked) .hexbg::after,.board.actmode .cell.dormant .hexbg::after,
+.cell.casc .hexbg::after,.expand-slot .hexbg::after{
+  content:"";position:absolute;inset:var(--hbw,3px);background:inherit;
+  clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%)}
 /* stacks are CENTERED on the hex and lifted upward via --lift (one shared
    formula: tile i gets --lift:-i*step) — same clip-path as .hexbg so a single
    tile covers its hex exactly. */
 .stack{position:absolute;inset:0;z-index:2;pointer-events:none}
 .tile{position:absolute;left:50%;top:50%;translate:-50% calc(-50% + var(--lift,0px));width:calc(var(--hx)*1.78);height:calc(var(--hx)*1.45);
   display:flex;align-items:center;justify-content:center;
-  clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%);
-  /* same-color darker border: box-shadow (not outline) because clip-path would
-     clip an outline entirely; the inset shadow follows the hexagon's 6 sides.
+  /* true hexagon border via nested clip-path: the outer layer paints the
+     darker RIM color; the inner ::before hex (inset 2px, same polygon)
+     paints the fill --tc, leaving a perfect 6-sided rim. A box-shadow inset
+     would paint a rectangular frame that clip-path only trims at corners.
      --tc is the tile color, set inline on each tile (see cellHTML). */
-  box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--tc),#000 30%)}
-.tile .dot{width:7px;height:7px;background:rgba(121,72,53,.35);border-radius:50%}
+  clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%);
+  background:color-mix(in srgb,var(--tc),#000 30%)}
+.tile::before{content:"";position:absolute;inset:2px;background:var(--tc);
+  clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%)}
+.tile .dot{position:relative;z-index:1;width:7px;height:7px;background:rgba(121,72,53,.35);border-radius:50%}
 /* top:-16px clears the topmost tile of a full 3-tile stack now that tiles are
    centered on the hex (the lifted top tile pokes above the hex top) */
 .stack .badge{position:absolute;top:-16px;left:50%;translate:-50% 0;z-index:5;background:var(--highlight);
   border:2px solid var(--ink);border-radius:999px;font-size:10px;font-weight:800;padding:0 6px;line-height:1.2}
-.calmk{position:absolute;top:-9px;right:-3px;z-index:4;width:18px;height:18px;background:var(--danger);
-  clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);border:2px solid var(--ink)}
-.lockovl{position:absolute;inset:0;z-index:3;background:var(--lock);display:flex;align-items:center;justify-content:center;
-  clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%);border:2px dashed var(--ink);font-size:20px}
+.calmk{position:absolute;top:-9px;right:-3px;z-index:4;width:18px;height:18px;
+  clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);background:var(--ink)}
+.calmk::before{content:"";position:absolute;inset:2px;background:var(--danger);
+  clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+.lockovl{position:absolute;inset:0;z-index:3;display:flex;align-items:center;justify-content:center;
+  clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%);background:var(--ink);font-size:20px}
+.lockovl::before{content:"";position:absolute;inset:2px;background:var(--lock);
+  clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%)}
+.lockovl span{position:relative;z-index:1}
 /* expansion: free adjacent hex positions, highlighted; tap one to place a tile */
-.expand-slot .hexbg{background:var(--accent-2);opacity:.45;box-shadow:inset 0 0 0 3px var(--accent)}
+.expand-slot .hexbg{background:var(--accent-2);opacity:.45;--hb:var(--accent)}
 .expand-slot{animation:pulseGlow 1.6s ease-in-out infinite}
 .expand-slot .exicon{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   color:var(--ink);font-size:24px;font-weight:900;pointer-events:none;z-index:2}
@@ -140,9 +171,9 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
    partida o tienda); el modo 🪧 Activar re-habilita su pointer-events */
 .cell.dormant{opacity:.55;pointer-events:none}
 .board.actmode .cell.dormant{pointer-events:auto;cursor:pointer}
-.board.actmode .cell.dormant .hexbg{box-shadow:inset 0 0 0 3px var(--tile-mint);filter:drop-shadow(0 0 4px var(--tile-mint))}
+.board.actmode .cell.dormant .hexbg{--hb:var(--tile-mint);filter:drop-shadow(0 0 4px var(--tile-mint))}
 /* v2 cascada animada (R12.2): anillo + pop en celdas afectadas por eslabón */
-.cell.casc .hexbg{box-shadow:inset 0 0 0 4px var(--highlight);filter:drop-shadow(0 0 8px var(--highlight))}
+.cell.casc .hexbg{--hb:var(--highlight);--hbw:4px;filter:drop-shadow(0 0 8px var(--highlight))}
 .cell.casc .stack{animation:cascPop .9s cubic-bezier(.4,0,.2,1)}
 @keyframes cascPop{0%{transform:scale(1)}40%{transform:scale(1.14)}100%{transform:scale(1)}}
 .board.shake{animation:shake .45s cubic-bezier(.4,0,.2,1)}
@@ -155,7 +186,12 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .pv-lbl{font-size:11px;font-weight:800;color:var(--ink-soft);white-space:nowrap}
 .pv-tand{display:flex;gap:6px;flex:0 0 auto}
 .pv-pile{display:flex;flex-direction:column-reverse;gap:1px;align-items:center}
-.pv-t{width:20px;height:15px;border-radius:4px;border:2px solid var(--ink);display:block}
+/* preview tiles use the same hexagon treatment as the board tiles */
+.pv-t{width:22px;height:19px;position:relative;display:block;
+  clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);
+  background:color-mix(in srgb,var(--tc),#000 30%)}
+.pv-t::before{content:"";position:absolute;inset:2px;background:var(--tc);
+  clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)}
 /* nombre de la criatura sobre su pedido (R13.2 ROSTER) */
 .oname{font-size:10px;font-weight:800;color:var(--ink-soft);line-height:1.15;margin-top:2px}
 
@@ -167,9 +203,12 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .poolslot.drop{border:2px dashed var(--wood-dark)}
 .tray{position:relative;width:46px;height:100%} /* tiles are absolute, stacked from the bottom like the board */
 .ttile{position:absolute;left:50%;bottom:0;translate:-50% 0;width:46px;height:40px;display:flex;align-items:center;justify-content:center;
+  /* true hexagon border via nested clip-path (rim outside, fill inside) */
   clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);
-  box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--tc),#000 30%)}
-.ttile .d{width:6px;height:6px;background:rgba(121,72,53,.4);border-radius:50%;margin-top:-16px}
+  background:color-mix(in srgb,var(--tc),#000 30%)}
+.ttile::before{content:"";position:absolute;inset:2px;background:var(--tc);
+  clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)}
+.ttile .d{position:relative;z-index:1;width:6px;height:6px;background:rgba(121,72,53,.4);border-radius:50%;margin-top:-16px}
 .poolempty{font-size:10px;color:var(--wood-dark);font-weight:700;text-align:center;width:100%;align-self:flex-end;padding-bottom:6px}
 
 /* powers */
@@ -268,7 +307,7 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   .order-card{flex:0 0 calc((100% - 12px)/3);width:auto;min-height:64px;padding:4px 2px;position:relative}
   .order-card .o,.order-card .catimg{width:40px!important;height:40px!important;margin:0 auto}
   .order-card .bubble{position:absolute;top:1px;right:3px;margin:0;padding:0 5px;gap:3px;font-size:12px}
-  .order-card .bubble .minitile{width:11px;height:11px;border-width:1px}
+  .order-card .bubble .minitile{width:15px;height:13px}
   .order-card .oname{font-size:9px}
   .seltag{font-size:11px}
   /* pool / preview / hint: densidad -20% */
@@ -1738,9 +1777,10 @@ function renderOrders(){
     const name = ROSTER[(o.color||1)-1] || 'Creature';
     const ready = !o.served && orderIsReady(o);
     const sel = ui.servingOrder===o.id;
-    return `<div class="order-card ${o.served?'served':''} ${ready?'ready':''} ${sel?'selected':''}" data-oid="${o.id}">
+    return `<div class="order-card ${o.served?'served':''} ${ready?'ready':''} ${sel?'selected':''}" data-oid="${o.id}"
+      style="border-top:6px solid var(${tileVar(o.color)})">
       ${spr(cat,44)}
-      <div class="bubble">${o.qty}<span class="minitile" style="background:var(${tileVar(o.color)})"></span></div>
+      <div class="bubble">${o.qty}<span class="minitile" style="--mc:var(${tileVar(o.color)})"></span></div>
       <div class="oname">${o.served?'✔ ':''}${name}</div>
       ${sel?'<div class="seltag">▼</div>':''}</div>`;
   }).join('');
@@ -1804,11 +1844,11 @@ function cellHTML(cell, idx){
     // --lift:-i*step (a growing `top:Npx` would fill downward from the ceiling).
     const step=stackStep();
     stack='<div class="stack">'+cell.stack.map((c,ci)=>
-      `<div class="tile" style="--lift:${-ci*step}px;--tc:var(${tileVar(c)});background:var(--tc)"><span class="dot"></span></div>`).join('')+
+      `<div class="tile" style="--lift:${-ci*step}px;--tc:var(${tileVar(c)})"><span class="dot"></span></div>`).join('')+
       (cell.stack.length>1?`<span class="badge">${cell.stack.length}</span>`:'')+'</div>';
   }
   return `<div class="${cls}" data-id="${idx}"${tip?` title="${tip}"`:''}><div class="hexbg"></div>${stack}
-    ${cell.blocked?'<div class="lockovl">🔒</div>':''}
+    ${cell.blocked?'<div class="lockovl"><span>🔒</span></div>':''}
     ${cell.calamity?'<div class="calmk"></div>':''}</div>`;
 }
 function renderBoard(){
@@ -1905,7 +1945,7 @@ function renderPool(){
   });
   box.innerHTML = order.map(({i,pile})=>{
     let inner = pile&&pile.length ? '<div class="tray">'+pile.map((c,ci)=>
-      `<div class="ttile" style="bottom:${ci*step}px;--tc:var(${tileVar(c)});background:var(--tc)"><span class="d"></span></div>`).join('')+'</div>'
+      `<div class="ttile" style="bottom:${ci*step}px;--tc:var(${tileVar(c)})"><span class="d"></span></div>`).join('')+'</div>'
       : '<div class="poolempty">empty</div>';
     return `<div class="poolslot ${ui.slot===i?'selected':''} ${(!pile||!pile.length)?'drop':''}" data-slot="${i}">${inner}</div>`;
   }).join('');
@@ -2113,7 +2153,7 @@ function renderPreview(){
   box.innerHTML='<span class="pv-lbl">NEXT:</span>'+tandas.map(t=>
     '<div class="pv-tand">'+t.map(pile=>
       '<div class="pv-pile">'+pile.map(c=>
-        `<span class="pv-t" style="background:var(${tileVar(c)})"></span>`).join('')+'</div>'
+        `<span class="pv-t" style="--tc:var(${tileVar(c)})"></span>`).join('')+'</div>'
     ).join('')+'</div>').join('');
 }
 
@@ -2297,7 +2337,7 @@ function showShop(){
   } else {
     const n = co + 1, cPrice = CONFIG.COLOR_PRICE_BASE * (n - 3), can = state.progress.coins >= cPrice;
     colorRow = `<div class="rowcard"><div class="rowinfo">
-      <b>Buy color ${n} <span class="minitile" style="background:var(${tileVar(n)})"></span></b>
+      <b>Buy color ${n} <span class="minitile" style="--mc:var(${tileVar(n)})"></span></b>
       <span>${co}/${CONFIG.MAX_COLORS} colors · roster up to ${Math.min(n + 1, CONFIG.MAX_COLORS)} creatures</span></div>
       <button class="btn btn-sm" data-color="1" ${can ? '' : 'disabled'}>${fmt(cPrice)}🪙</button></div>`;
   }
