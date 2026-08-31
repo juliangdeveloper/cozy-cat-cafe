@@ -54,9 +54,9 @@ export const CONFIG = {
 // render/sprites llega después.
 // ---------------------------------------------------------------------------
 export const ROSTER = [
-  'Gato anfitrión', 'Zorrito', 'Rana', 'Dragoncito',
-  'Robot Barredor', 'Robot Barista', 'Robot Repartidor', 'Robot DJ',
-  'Humano gemelo A', 'Humano gemelo B',
+  'Host cat', 'Fox kit', 'Frog', 'Dragonling',
+  'Sweeper bot', 'Barista bot', 'Delivery bot', 'DJ bot',
+  'Human twin A', 'Human twin B',
 ];
 
 // ---------------------------------------------------------------------------
