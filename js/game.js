@@ -19,7 +19,7 @@ export const CONFIG = {
   CALAMITY_MAX_FRAC: 1 / 3,         // R8.2 hi
   CALAMITY_THRESHOLD: 15,           // R8.1 only if boardCells > 15
   BLOCK_PROB: 0.5,                  // R8.3 ~50% blocked / ~50% prestockated
-  USES_PER_RUN: { destroyPile: 3, swapPiles: 3, refreshPool: 2, queueSkip: 2 }, // R7 USES_PER_RUN (+ R17.1 queueSkip)
+  USES_PER_RUN: { destroyPile: 3, swapPiles: 3, refreshPool: 2, queueSkip: 2, tables: 1 }, // R7 USES_PER_RUN (+ R17.1 queueSkip, + v2.2 tables R14.3)
   PRODUCTS_PER_COLOR: 3,            // R10.1 [OBSOLETO v2 — reemplazado por R13.7]
   IDLE_RATE: { workers: 0.5, fame: 0.3, machines: 0.8 }, // R9.1
   IDLE_CAP:  { workers: 60,  fame: 100,  machines: 40 },  // R9.3 caps
@@ -32,8 +32,10 @@ export const CONFIG = {
   // v2 — mecánica v2 (R13 clientes-criaturas / R14 tablero dual) ⚖BALANCE
   UNLOCK_PLACED_PILES: 3,           // R13.4 pilas colocadas por cada desbloqueo de criatura
   COLOR_PRICE_BASE: 150,            // R13.7 precio color = BASE * (n-3), n = colorsOwned tras comprar
-  RUN_TILE_BASE: 40,                // R14.3 runTilePrice   = BASE * 1.6^runTilesActivated
-  PERM_TILE_BASE: 200,              // R14.4 permTilePrice  = BASE * 1.35^permTiles
+  RUN_TILE_BASE: 40,                // R14.3 [OBSOLETO v2.2 — queda solo por compat de tests viejos; runTilePrice≡0]
+  PERM_TILE_BASE: 200,              // R14.4 v2.2: alias de TABLES_PERM_BASE (mismo valor)
+  TABLES_PERM_BASE: 200,            // v2.2 R14.4 precio compra permanente 'tables' = BASE * RATIO^permTiles
+  TABLES_PERM_RATIO: 1.35,          // v2.2 R14.4
   MAX_COLORS: 10,                   // R13.7 10 colores / criaturas en orden de desbloqueo (R13.2)
   DEBRIS_THRESHOLD: 10,             // v2 escombros: umbral para entrar en tablero
   DEBRIS_BONUS_PER: 25,             // v2 escombros: bonus por escombro limpiado
@@ -153,6 +155,10 @@ export function createGame(init = {}) {
       // v2.1 R17.1 — queueSkip: modelo USES (R7.4) — los 3 visibles van al
       // fondo de la cola y entran 3 nuevos. R17.2: usesBought (mejora de usos).
       queueSkip: { owned: false, uses: 0, usesBought: 0, price: 100, unlockLevel: 1 },
+      // v2.2 R14.3/R14.4 — tables ("Activate"): modelo USES (1 uso base/partida,
+      // repuesto por openRun). La compra permanente vive en la TIENDA
+      // (buyTablesUp); price:0 aquí para que buySkill nunca lo venda.
+      tables: { owned: false, uses: 0, usesBought: 0, unlockLevel: 1, price: 0 },
       // v2.1 R17.3 — capacidad: modelo LEVELS (level 0..80); TOTAL_CLIENTS =
       // MIN_CLIENTS + level (R16.1). Precio por fórmula CAP_PRICE (sk.price
       // no se usa; precio = CAP_PRICE_BASE * CAP_RATIO^level).
@@ -249,7 +255,7 @@ function expandTileCheck(s, q, r) {
 // Board / pool generation — v2.1 (R14.1/R14.2; reemplaza el board v1 de 7).
 // Firma elegida: generateBoard(n, rng) -> array de `n` celdas axiales
 // { id, q, r, stack, blocked, calamity, dormant }. En el juego n SIEMPRE es 32
-// (panal con picos: 4 filas axiales [7,9,9,7] — estilo hexágono Catan pequeño).
+// (rectángulo 8×4 pointy: 4 filas axiales de 8 = 32 celdas, R14.1 v2.2).
 // Las celdas nacen dormant:true (visibles pero apagadas) salvo el núcleo 2-3-2
 // (7 celdas, mismas coords que initialHexCells) que queda jugable (dormant:false).
 // ---------------------------------------------------------------------------
@@ -258,20 +264,17 @@ export function generateBoard(n, rng) {
   const core = new Set(initialHexCells().map((c) => `${c.q},${c.r}`));
   const board = [];
   let id = 0;
-  // v2-shape: panal con picos filas [7,9,9,7] = 32 celdas (estilo hexágono
-  // Catan pequeño). 4 filas axiales consecutivas (r fijo) con el inicio q
-  // desfasado por fila para que el contorno sea un hexágono con picos arriba/
-  // abajo y simetría de 180° (mapa q→−q, r→−1−r; filas anchas 9 en el centro):
-  //   r=-2: q -3..3  (7)      r=-1: q -4..4  (9)
-  //   r= 0: q -4..4  (9)      r= 1: q -3..3  (7)
-  // Filas consecutivas offset medio (paridad de r en el renderer) → panal
-  // regular: cada celda interior tiene sus 6 vecinos axiales dentro del shape.
-  // (v2.0 usaba panal rectangular 6 filas de 5 = 30; reemplazado por este.)
-  const ROWS = [ // [r, qStart, width]
-    [-2, -3, 7],
-    [-1, -4, 9],
-    [0, -4, 9],
-    [1, -3, 7],
+  // RECTÁNGULO 8×4 pointy (R14.1 v2.2): 4 filas axiales de 8 = 32 celdas,
+  // contorno rectangular tipo marco de Catan con offset de panal. En columna
+  // plegada col = q + floor(r/2) las 4 filas cubren el MISMO patrón consecutivo
+  // -3..4 (qStart + floor(r/2) constante = -3) — así lo exige T14g:
+  //   r=-2: q -2..5   r=-1: q -2..5   r=0: q -3..4   r=1: q -3..4
+  // El núcleo 2-3-2 (7 celdas, initialHexCells) queda dentro y jugable.
+  const ROWS = [ // [r, qStart, width] — RECTÁNGULO 8×4 pointy (32 celdas)
+    [-2, -2, 8],
+    [-1, -2, 8],
+    [0, -3, 8],
+    [1, -3, 8],
   ];
   for (const [r, qStart, w] of ROWS) {
     for (let q = qStart; q < qStart + w; q++) {
@@ -435,7 +438,7 @@ function refillClients(s, rng) {
 export function openRun(state, rng) {
   let s = clone(state);
   if (s.progress.permTiles == null) s.progress.permTiles = 1;      // v2 default (saves v1)
-  const board = generateBoard(32, rng);                            // R14.1 board dual 32 (v2-shape [7,9,9,7])
+  const board = generateBoard(32, rng);                            // R14.1 board dual 32 (rectángulo 8×4 pointy, v2.2)
   s.run = {
     phase: 'open', board,
     orders: [], activeClients: [],                                 // v2.1 R16.2 clientes = pedidos flotantes
@@ -482,11 +485,10 @@ export function topGroup(stack) {
 }
 
 // ---------------------------------------------------------------------------
-// R12.1 — merge: los vecinos axiales cuyo tope (racha final) tiene el MISMO
-// color que el tope resultante de `cell` ceden esa racha al final del stack de
-// `cell`. El vecino conserva su sub-pila inferior; si al cederla queda vacío
-// conserva una ficha del color fusionado (contrato T11a: D gana la racha
-// completa y A conserva [2]). Una pasada por los 6 vecinos.
+// R12.1 v2.2 — merge: los vecinos axiales cuyo tope (racha final) tiene el MISMO
+// color que el tope resultante de `cell` ceden esa racha COMPLETA al final del
+// stack de `cell`. El vecino queda con `stack: []` (v2.2: SIN ficha de reserva
+// — reemplaza el contrato T11a "A conserva [2]"). Una pasada por los 6 vecinos.
 // ---------------------------------------------------------------------------
 function mergeNeighbors(s, cell) {
   const board = (s.run && s.run.board) || [];
@@ -498,7 +500,8 @@ function mergeNeighbors(s, cell) {
     const ntg = topGroup(nb.stack);
     if (ntg.color === tg.color) {
       cell.stack = cell.stack.concat(nb.stack.splice(nb.stack.length - ntg.count, ntg.count));
-      if (!nb.stack.length) nb.stack.push(ntg.color);   // conserva una ficha
+      // v2.2 R12.1: el vecino cede su racha completa y queda VACÍO (sin ficha
+      // de reserva — antes: nb.stack.push(ntg.color)).
     }
   }
 }
@@ -537,13 +540,21 @@ export function placeStack(state, cellId, slot, rngOrStack) {
       const nb = b.find((c) => c && c.q === cell.q + dq && c.r === cell.r + dr);
       return !!(nb && nb.stack && nb.stack.length && topGroup(nb.stack).color === pc);
     })) || topGroup(cell.stack).color === pc;
-    if (!canMerge) return { error: 'noMerge', state: s };
+    if (!canMerge) {
+      // v2.2 R3.5: pilas SOLO en celdas vacías. Si la celda está ocupada y la
+      // pila explícita no fusiona con nada => {error:'occupied'} (T18a). En
+      // celda vacía sin fusión se conserva el contrato T11b ('noMerge').
+      // NOTA: con fusión SÍ se permite sobre celda ocupada (T18c/T11a: la pila
+      // explícita "vierte" su racha y el merge pullifica las vecinas).
+      return { error: (cell.stack && cell.stack.length) ? 'occupied' : 'noMerge', state: s };
+    }
     cell.stack = cell.stack.concat(pileArr);          // R3.4 apila al tope
     mergeNeighbors(s, cell);                          // R12.1 merge
     return s;
   }
   const rng = rngOrStack;
   if (cell.dormant) return { error: 'dormant' };        // v2 R14.2 no colocable
+  if (cell.stack && cell.stack.length) return { error: 'occupied' };   // v2.2 R3.5: solo espacios vacíos
   if (s.run.poolPlaced >= 3 && s.run.pool.every((x) => x.length === 0)) {
     return { error: 'emptyPool' };
   }
@@ -607,24 +618,23 @@ export function buyColor(state) {
 }
 
 // ---------------------------------------------------------------------------
-// v2 — Economía de baldosas (R14.2/R14.3/R14.4). Tablero dual 32 (v2-shape
-// [7,9,9,7]): las celdas
-// dormant se activan TEMPORALMENTE por partida (activateTile, techo
-// runTilesActivated <= progress.permTiles) o se compran PERMANENTES en tienda
-// (buyPermTile sube el techo; NO activa la celda — la activación es siempre
-// temporal). Precios exponenciales ⚖BALANCE:
-//   runTilePrice   = RUN_TILE_BASE  * 1.6^runTilesActivated   (R14.3)
-//   permTilePrice  = PERM_TILE_BASE * 1.35^permTiles          (R14.4)
-// (sin redondeo: la fórmula es la spec exacta)
+// v2 — Economía de baldosas (R14.2/R14.3/R14.4; v2.2: Activate por USOS).
+// Tablero dual 32 (rectángulo 8×4 pointy v2.2): las celdas dormant se activan
+// TEMPORALMENTE por partida con la skill 'tables' (modelo USES R7.4/R17.2:
+// 1 uso base + usesBought por partida, repuesto por openRun; SIN costo de
+// monedas por activación — el costo vive en la TIENDA). La compra permanente
+// es buyTablesUp (R14.4 v2.2): sube permTiles (techo histórico, compat) Y
+// usesBought (+1 mesa/partida). Precio exponencial ⚖BALANCE:
+//   permTilePrice  = TABLES_PERM_BASE * 1.35^permTiles  (= PERM_TILE_BASE)
+// runTilePrice ≡ 0 desde v2.2 (sin precio por activación).
 // ---------------------------------------------------------------------------
 export function runTilePrice(state) {
-  const n = (state.run && state.run.runTilesActivated) || 0;
-  return CONFIG.RUN_TILE_BASE * 1.6 ** n;
+  return 0;   // v2.2: sin precio por activación (modelo usos de skills.tables)
 }
 
 export function permTilePrice(state) {
   const m = (state.progress && state.progress.permTiles) || 0;
-  return CONFIG.PERM_TILE_BASE * 1.35 ** m;
+  return CONFIG.TABLES_PERM_BASE * CONFIG.TABLES_PERM_RATIO ** m;
 }
 
 function v2CellOf(s, cellId) {
@@ -640,13 +650,14 @@ export function activateTile(state, cellId, rng) {
   const cell = v2CellOf(s, cellId);
   if (!cell) return { error: 'noCell', state: s };
   if (!cell.dormant) return { error: 'notDormant', state: s };   // solo baldosas apagadas
-  const perm = s.progress.permTiles || 0;
-  if ((s.run.runTilesActivated || 0) >= perm) return { error: 'cap', state: s }; // R14.2 techo
-  const price = runTilePrice(s);
-  if (s.progress.coins < price) return { error: 'noFunds', state: s };
+  // v2.2 R14.3: modelo USOS de la skill 'tables' (R7.8) — sin techo permTiles
+  // y SIN costo de coins (el costo vive en la compra permanente de la tienda).
+  const sk = s.skills && s.skills.tables;
+  if (!sk || !sk.owned) return { error: 'locked', state: s };   // R7.8
+  if ((sk.uses | 0) <= 0) return { error: 'noUses', state: s }; // R14.3 v2.2
   cell.dormant = false;                                // activa ESTA partida
   s.run.runTilesActivated = (s.run.runTilesActivated || 0) + 1;
-  s.progress.coins -= price;
+  sk.uses -= 1;                                        // sin costo de coins
   // R14.5: al activar puede cruzarse el umbral de JUGABLES (> 15) — las
   // calamidades entran UNA sola vez por partida (flag run.calamitiesApplied;
   // applyCalamities es no-op si ya aplicaron o si no se cruzó el umbral).
@@ -654,17 +665,27 @@ export function activateTile(state, cellId, rng) {
   return s;
 }
 
-export function buyPermTile(state, cellId) {
+// ---------------------------------------------------------------------------
+// v2.2 R14.4 — buyTablesUp (reemplaza a buyPermTile): compra permanente en la
+// TIENDA. Sube el techo histórico permTiles (+1) Y skills.tables.usesBought
+// (+1 mesa activable por partida; openRun repone uses = 1 + usesBought).
+// La 1ª compra marca tables como owned. La celda elegida NO se activa aquí.
+// Precio = permTilePrice = TABLES_PERM_BASE * 1.35^permTiles.
+// ---------------------------------------------------------------------------
+export function buyTablesUp(state) {
   const s = clone(state);
   if (s.progress.permTiles == null) s.progress.permTiles = 1;
+  if (!s.skills.tables) s.skills.tables = { owned: false, uses: 0, usesBought: 0 };
   const price = permTilePrice(s);
   if (s.progress.coins < price) return { error: 'noFunds', state: s };
-  // sube el techo permanente; la celda elegida NO se activa aquí (R14.4):
-  // sigue dormant hasta un activateTile posterior (temporal por partida).
-  s.progress.permTiles += 1;
+  s.progress.permTiles += 1;                                    // techo permanente
+  s.skills.tables.usesBought = (s.skills.tables.usesBought || 0) + 1;  // mesas/partida
+  s.skills.tables.owned = true;
   s.progress.coins -= price;
   return s;
 }
+// alias deprecado (compat imports viejos: buyPermTile(state, cellId))
+export const buyPermTile = buyTablesUp;
 
 // ---------------------------------------------------------------------------
 // serveOrder(state, orderId, cellId) — click client (order) then pile (cell).
@@ -1178,6 +1199,8 @@ export function deserializeState(json) {
         // v2.1 R17 defaults (cola de clientes / usos mejorados)
         if (!s.skills.queueSkip) s.skills.queueSkip = { owned: false, uses: 0, usesBought: 0 };
         if (!s.skills.capacidad) s.skills.capacidad = { owned: false, level: 0 };
+        // v2.2 R14.3 defaults (Activate = skill 'tables' modelo usos)
+        if (!s.skills.tables) s.skills.tables = { owned: false, uses: 0, usesBought: 0 };
       }
       if (s.run) {
         // v2.1 R16 defaults para runs viejas (pre-cola): migración documentada

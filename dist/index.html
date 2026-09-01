@@ -90,10 +90,10 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
    is a 30%-darkened rim, inner ::before hex carries the fill. Color arrives
    via --mc (inline) so the rim mixes from the tile token. */
 .minitile{width:20px;height:17px;position:relative;display:inline-block;
-  clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
   background:color-mix(in srgb,var(--mc),#000 30%)}
 .minitile::before{content:"";position:absolute;inset:2px;background:var(--mc);
-  clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)}
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
 
 /* board — 2D honeycomb (flat-top hexagons). Axial {q,r} coords group cells into
    rows. PERFECT honeycomb geometry for the drawn hex (box 2*--hx wide; clip-path
@@ -105,11 +105,11 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
    index (r - minR); they must NOT be flex-centered per row — independent
    per-row centering breaks the half-hex offset between rows. */
 .board-wrap{overflow-x:auto;padding:10px 4px;position:relative} /* v2: 32 baldosas SIEMPRE visibles (sin max-height); relative = ancla del hint móvil */
-:root{ --hx:36px; --cw:calc(var(--hx)*2); --ch:calc(var(--hx)*1.732); }
+:root{ --hx:34px; --cw:calc(var(--hx)*1.732); --ch:calc(var(--hx)*2); }
 .board{position:relative;margin:0 auto}
-.boardrow{position:absolute;display:flex;gap:calc(var(--cw)*0.5)} /* gap 1*--hx -> centers 3*--hx apart */
+.boardrow{position:absolute;display:flex;gap:0} /* pointy: celdas contiguas (centros √3*hx) */
 .cell{position:relative;width:var(--cw);height:var(--ch);cursor:pointer;flex:0 0 auto}
-.hexbg{position:absolute;inset:0;background:var(--wood);clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%)}
+.hexbg{position:absolute;inset:0;background:var(--wood);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
 .cell.blocked .hexbg{background:var(--lock)}
 /* true hexagon borders: state colors fill the OUTER hex (--hb) and an inner
    ::after hex (inset --hbw) re-covers the center -> a perfect 6-sided ring.
@@ -124,28 +124,28 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .cell.serve-target:not(.blocked) .hexbg::before,.board.actmode .cell.dormant .hexbg::before,
 .cell.casc .hexbg::before,.expand-slot .hexbg::before{
   content:"";position:absolute;inset:0;background:var(--hb);
-  clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%)}
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
 .cell.calm .hexbg::after,.cell.targetable:not(.blocked) .hexbg::after,
 .cell.targetmode .hexbg::after,.cell.swapmode .hexbg::after,
 .cell.serve-target:not(.blocked) .hexbg::after,.board.actmode .cell.dormant .hexbg::after,
 .cell.casc .hexbg::after,.expand-slot .hexbg::after{
   content:"";position:absolute;inset:var(--hbw,3px);background:inherit;
-  clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%)}
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
 /* stacks are CENTERED on the hex and lifted upward via --lift (one shared
    formula: tile i gets --lift:-i*step) — same clip-path as .hexbg so a single
    tile covers its hex exactly. */
 .stack{position:absolute;inset:0;z-index:2;pointer-events:none}
-.tile{position:absolute;left:50%;top:50%;translate:-50% calc(-50% + var(--lift,0px));width:calc(var(--hx)*1.78);height:calc(var(--hx)*1.45);
+.tile{position:absolute;left:50%;top:50%;translate:-50% calc(-50% + var(--lift,0px));width:var(--cw);height:var(--ch);
   display:flex;align-items:center;justify-content:center;
   /* true hexagon border via nested clip-path: the outer layer paints the
      darker RIM color; the inner ::before hex (inset 2px, same polygon)
      paints the fill --tc, leaving a perfect 6-sided rim. A box-shadow inset
      would paint a rectangular frame that clip-path only trims at corners.
      --tc is the tile color, set inline on each tile (see cellHTML). */
-  clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%);
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
   background:color-mix(in srgb,var(--tc),#000 30%)}
 .tile::before{content:"";position:absolute;inset:2px;background:var(--tc);
-  clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%)}
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
 .tile .dot{position:relative;z-index:1;width:7px;height:7px;background:rgba(121,72,53,.35);border-radius:50%}
 /* top:-16px clears the topmost tile of a full 3-tile stack now that tiles are
    centered on the hex (the lifted top tile pokes above the hex top) */
@@ -156,9 +156,9 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .calmk::before{content:"";position:absolute;inset:2px;background:var(--danger);
   clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
 .lockovl{position:absolute;inset:0;z-index:3;display:flex;align-items:center;justify-content:center;
-  clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%);background:var(--ink);font-size:20px}
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:var(--ink);font-size:20px}
 .lockovl::before{content:"";position:absolute;inset:2px;background:var(--lock);
-  clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%)}
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
 .lockovl span{position:relative;z-index:1}
 /* expansion: free adjacent hex positions, highlighted; tap one to place a tile */
 .expand-slot .hexbg{background:var(--accent-2);opacity:.45;--hb:var(--accent)}
@@ -188,10 +188,10 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .pv-pile{display:flex;flex-direction:column-reverse;gap:1px;align-items:center}
 /* preview tiles use the same hexagon treatment as the board tiles */
 .pv-t{width:22px;height:19px;position:relative;display:block;
-  clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
   background:color-mix(in srgb,var(--tc),#000 30%)}
 .pv-t::before{content:"";position:absolute;inset:2px;background:var(--tc);
-  clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)}
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
 /* nombre de la criatura sobre su pedido (R13.2 ROSTER) */
 .oname{font-size:10px;font-weight:800;color:var(--ink-soft);line-height:1.15;margin-top:2px}
 
@@ -204,10 +204,10 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .tray{position:relative;width:46px;height:100%} /* tiles are absolute, stacked from the bottom like the board */
 .ttile{position:absolute;left:50%;bottom:0;translate:-50% 0;width:46px;height:40px;display:flex;align-items:center;justify-content:center;
   /* true hexagon border via nested clip-path (rim outside, fill inside) */
-  clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
   background:color-mix(in srgb,var(--tc),#000 30%)}
 .ttile::before{content:"";position:absolute;inset:2px;background:var(--tc);
-  clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)}
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
 .ttile .d{position:relative;z-index:1;width:6px;height:6px;background:rgba(121,72,53,.4);border-radius:50%;margin-top:-16px}
 .poolempty{font-size:10px;color:var(--wood-dark);font-weight:700;text-align:center;width:100%;align-self:flex-end;padding-bottom:6px}
 
@@ -264,25 +264,25 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 @keyframes conf{0%{opacity:1;transform:translate(0,0) rotate(0)}60%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(720deg)}}
 
 @media(min-width:720px){#app{max-width:680px}.powerbar{flex-wrap:nowrap}}
-/* v2-shape: board 7,9,9,7 (32) — EXTENSIÓN REAL del panal = 27.5*hx (las filas
-   impares arrancan a +1.5*hx; fila de 9 mide 26hx y arranca a 1.5hx). El criterio
-   es "máximo hx que quepa": hx = floor((vw-20)/27.5), donde 20 = 6px padding
-   #app (x2, móvil) + 4px padding .board-wrap (x2).
-   ESCALERA FINAL (mobile-first 2026-08, verificada por DOM):
-     vw >= 760  -> 23   (23*27.5=632.5 <= 652 wrap desktop)
-     vw >= 561  -> 15   (15*27.5=412.5 <= 541+)
-     vw >= 433  -> 15   (430: 385 <= 410 ✓; 16 => 440 > 410 NO cabe)
-     vw >= 405  -> 14   (14*27.5=385;   en 414: 385 <= 394 ✓)
-     vw >= 378  -> 13   (13*27.5=357.5; en 390: 357.5 <= 370 ✓)
-     vw >= 350  -> 12   (12*27.5=330;   en 360: 330 <= 340 ✓)
-     vw <  350  -> 11   (11*27.5=302.5)
+/* v2.2: tablero RECTÁNGULO 8×4 pointy (32 celdas, 4 filas de 8) — extensión
+   real del panal ≈ 16.7hx (8 columnas √3·hx + offset de fila impar 0.866·hx,
+   con margen). El criterio es "máximo hx que quepa": hx = floor((vw-20)/16.7),
+   donde 20 = 6px padding #app (x2, móvil) + 4px padding .board-wrap (x2).
+   ESCALERA (v2.2, conservadora — sobre-dimensiona la extensión):
+     vw >= 761  -> 39   (39*16.7=651 <= 660)
+     vw >= 433  -> 23   (23*16.7=384 <= 394, vw 414)
+     vw >= 405  -> 22   (22*16.7=367 <= 370, vw 390)
+     vw >= 378  -> 20   (20*16.7=334 <= 340, vw 360)
+     vw >= 350  -> 17   (17*16.7=284 <= 300, vw 320)
+     vw <  350  -> 14
    (hx fraccional imposible: el pitch del panal exige enteros) */
-:root{ --hx:15px; }   /* v2-shape: base <=560/759 */
-@media(min-width:760px){:root{--hx:23px}}          /* 23*27.5=632.5 <= 652 */
-@media(max-width:432px){:root{--hx:14px}}          /* 14*27.5=385 <= vw-20 (vw>=405) */
-@media(max-width:404px){:root{--hx:13px}}          /* 13*27.5=357.5 <= vw-20 (vw>=378) */
-@media(max-width:379px){:root{--hx:12px}}          /* 12*27.5=330 <= vw-20 (vw>=350) */
-@media(max-width:349px){:root{--hx:11px}}          /* 11*27.5=302.5 */
+:root{ --hx:22px; }                          /* 22*16.7=367 <= 370 (vw 390) */
+@media(min-width:761px){:root{--hx:39px}}    /* 39*16.7=651 <= 660 */
+@media(max-width:432px){:root{--hx:23px}}    /* 23*16.7=384 <= 394 (vw 414) */
+@media(max-width:404px){:root{--hx:22px}}
+@media(max-width:377px){:root{--hx:20px}}    /* 334 <= 340 (vw 360) */
+@media(max-width:349px){:root{--hx:17px}}    /* 284 <= 300 (vw 320) */
+@media(max-width:319px){:root{--hx:14px}}
 
 /* ============================================================
    MOBILE-FIRST (<=560px): board-first, powerbar sticky inferior,
@@ -302,7 +302,8 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   /* secciones no críticas: sin márgenes verticales extra */
   .idledecor{margin:4px 0;padding:4px}
   /* BOARD PRIORITARIO: wrap sin padding extra, centrado (board margin:0 auto) */
-  .board-wrap{padding:4px}
+  .scene.active{display:flex;flex-direction:column;height:100dvh;height:100vh}
+  .board-wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:4px}
   /* pedidos COMPACTOS: 3 tarjetas fijas (~64px alto), sprite 40px, qty badge;
      >3 pedidos => scroll horizontal (flex-basis fijo + overflow-x ya en base) */
   .orders{gap:6px;padding:4px 0}
@@ -409,7 +410,7 @@ const CONFIG = {
   CALAMITY_MAX_FRAC: 1 / 3,         // R8.2 hi
   CALAMITY_THRESHOLD: 15,           // R8.1 only if boardCells > 15
   BLOCK_PROB: 0.5,                  // R8.3 ~50% blocked / ~50% prestockated
-  USES_PER_RUN: { destroyPile: 3, swapPiles: 3, refreshPool: 2, queueSkip: 2 }, // R7 USES_PER_RUN (+ R17.1 queueSkip)
+  USES_PER_RUN: { destroyPile: 3, swapPiles: 3, refreshPool: 2, queueSkip: 2, tables: 1 }, // R7 USES_PER_RUN (+ R17.1 queueSkip, + v2.2 tables R14.3)
   PRODUCTS_PER_COLOR: 3,            // R10.1 [OBSOLETO v2 — reemplazado por R13.7]
   IDLE_RATE: { workers: 0.5, fame: 0.3, machines: 0.8 }, // R9.1
   IDLE_CAP:  { workers: 60,  fame: 100,  machines: 40 },  // R9.3 caps
@@ -422,8 +423,10 @@ const CONFIG = {
   // v2 — mecánica v2 (R13 clientes-criaturas / R14 tablero dual) ⚖BALANCE
   UNLOCK_PLACED_PILES: 3,           // R13.4 pilas colocadas por cada desbloqueo de criatura
   COLOR_PRICE_BASE: 150,            // R13.7 precio color = BASE * (n-3), n = colorsOwned tras comprar
-  RUN_TILE_BASE: 40,                // R14.3 runTilePrice   = BASE * 1.6^runTilesActivated
-  PERM_TILE_BASE: 200,              // R14.4 permTilePrice  = BASE * 1.35^permTiles
+  RUN_TILE_BASE: 40,                // R14.3 [OBSOLETO v2.2 — queda solo por compat de tests viejos; runTilePrice≡0]
+  PERM_TILE_BASE: 200,              // R14.4 v2.2: alias de TABLES_PERM_BASE (mismo valor)
+  TABLES_PERM_BASE: 200,            // v2.2 R14.4 precio compra permanente 'tables' = BASE * RATIO^permTiles
+  TABLES_PERM_RATIO: 1.35,          // v2.2 R14.4
   MAX_COLORS: 10,                   // R13.7 10 colores / criaturas en orden de desbloqueo (R13.2)
   DEBRIS_THRESHOLD: 10,             // v2 escombros: umbral para entrar en tablero
   DEBRIS_BONUS_PER: 25,             // v2 escombros: bonus por escombro limpiado
@@ -543,6 +546,10 @@ function createGame(init = {}) {
       // v2.1 R17.1 — queueSkip: modelo USES (R7.4) — los 3 visibles van al
       // fondo de la cola y entran 3 nuevos. R17.2: usesBought (mejora de usos).
       queueSkip: { owned: false, uses: 0, usesBought: 0, price: 100, unlockLevel: 1 },
+      // v2.2 R14.3/R14.4 — tables ("Activate"): modelo USES (1 uso base/partida,
+      // repuesto por openRun). La compra permanente vive en la TIENDA
+      // (buyTablesUp); price:0 aquí para que buySkill nunca lo venda.
+      tables: { owned: false, uses: 0, usesBought: 0, unlockLevel: 1, price: 0 },
       // v2.1 R17.3 — capacidad: modelo LEVELS (level 0..80); TOTAL_CLIENTS =
       // MIN_CLIENTS + level (R16.1). Precio por fórmula CAP_PRICE (sk.price
       // no se usa; precio = CAP_PRICE_BASE * CAP_RATIO^level).
@@ -639,7 +646,7 @@ function expandTileCheck(s, q, r) {
 // Board / pool generation — v2.1 (R14.1/R14.2; reemplaza el board v1 de 7).
 // Firma elegida: generateBoard(n, rng) -> array de `n` celdas axiales
 // { id, q, r, stack, blocked, calamity, dormant }. En el juego n SIEMPRE es 32
-// (panal con picos: 4 filas axiales [7,9,9,7] — estilo hexágono Catan pequeño).
+// (rectángulo 8×4 pointy: 4 filas axiales de 8 = 32 celdas, R14.1 v2.2).
 // Las celdas nacen dormant:true (visibles pero apagadas) salvo el núcleo 2-3-2
 // (7 celdas, mismas coords que initialHexCells) que queda jugable (dormant:false).
 // ---------------------------------------------------------------------------
@@ -648,20 +655,17 @@ function generateBoard(n, rng) {
   const core = new Set(initialHexCells().map((c) => `${c.q},${c.r}`));
   const board = [];
   let id = 0;
-  // v2-shape: panal con picos filas [7,9,9,7] = 32 celdas (estilo hexágono
-  // Catan pequeño). 4 filas axiales consecutivas (r fijo) con el inicio q
-  // desfasado por fila para que el contorno sea un hexágono con picos arriba/
-  // abajo y simetría de 180° (mapa q→−q, r→−1−r; filas anchas 9 en el centro):
-  //   r=-2: q -3..3  (7)      r=-1: q -4..4  (9)
-  //   r= 0: q -4..4  (9)      r= 1: q -3..3  (7)
-  // Filas consecutivas offset medio (paridad de r en el renderer) → panal
-  // regular: cada celda interior tiene sus 6 vecinos axiales dentro del shape.
-  // (v2.0 usaba panal rectangular 6 filas de 5 = 30; reemplazado por este.)
-  const ROWS = [ // [r, qStart, width]
-    [-2, -3, 7],
-    [-1, -4, 9],
-    [0, -4, 9],
-    [1, -3, 7],
+  // RECTÁNGULO 8×4 pointy (R14.1 v2.2): 4 filas axiales de 8 = 32 celdas,
+  // contorno rectangular tipo marco de Catan con offset de panal. En columna
+  // plegada col = q + floor(r/2) las 4 filas cubren el MISMO patrón consecutivo
+  // -3..4 (qStart + floor(r/2) constante = -3) — así lo exige T14g:
+  //   r=-2: q -2..5   r=-1: q -2..5   r=0: q -3..4   r=1: q -3..4
+  // El núcleo 2-3-2 (7 celdas, initialHexCells) queda dentro y jugable.
+  const ROWS = [ // [r, qStart, width] — RECTÁNGULO 8×4 pointy (32 celdas)
+    [-2, -2, 8],
+    [-1, -2, 8],
+    [0, -3, 8],
+    [1, -3, 8],
   ];
   for (const [r, qStart, w] of ROWS) {
     for (let q = qStart; q < qStart + w; q++) {
@@ -825,7 +829,7 @@ function refillClients(s, rng) {
 function openRun(state, rng) {
   let s = clone(state);
   if (s.progress.permTiles == null) s.progress.permTiles = 1;      // v2 default (saves v1)
-  const board = generateBoard(32, rng);                            // R14.1 board dual 32 (v2-shape [7,9,9,7])
+  const board = generateBoard(32, rng);                            // R14.1 board dual 32 (rectángulo 8×4 pointy, v2.2)
   s.run = {
     phase: 'open', board,
     orders: [], activeClients: [],                                 // v2.1 R16.2 clientes = pedidos flotantes
@@ -872,11 +876,10 @@ function topGroup(stack) {
 }
 
 // ---------------------------------------------------------------------------
-// R12.1 — merge: los vecinos axiales cuyo tope (racha final) tiene el MISMO
-// color que el tope resultante de `cell` ceden esa racha al final del stack de
-// `cell`. El vecino conserva su sub-pila inferior; si al cederla queda vacío
-// conserva una ficha del color fusionado (contrato T11a: D gana la racha
-// completa y A conserva [2]). Una pasada por los 6 vecinos.
+// R12.1 v2.2 — merge: los vecinos axiales cuyo tope (racha final) tiene el MISMO
+// color que el tope resultante de `cell` ceden esa racha COMPLETA al final del
+// stack de `cell`. El vecino queda con `stack: []` (v2.2: SIN ficha de reserva
+// — reemplaza el contrato T11a "A conserva [2]"). Una pasada por los 6 vecinos.
 // ---------------------------------------------------------------------------
 function mergeNeighbors(s, cell) {
   const board = (s.run && s.run.board) || [];
@@ -888,7 +891,8 @@ function mergeNeighbors(s, cell) {
     const ntg = topGroup(nb.stack);
     if (ntg.color === tg.color) {
       cell.stack = cell.stack.concat(nb.stack.splice(nb.stack.length - ntg.count, ntg.count));
-      if (!nb.stack.length) nb.stack.push(ntg.color);   // conserva una ficha
+      // v2.2 R12.1: el vecino cede su racha completa y queda VACÍO (sin ficha
+      // de reserva — antes: nb.stack.push(ntg.color)).
     }
   }
 }
@@ -927,13 +931,21 @@ function placeStack(state, cellId, slot, rngOrStack) {
       const nb = b.find((c) => c && c.q === cell.q + dq && c.r === cell.r + dr);
       return !!(nb && nb.stack && nb.stack.length && topGroup(nb.stack).color === pc);
     })) || topGroup(cell.stack).color === pc;
-    if (!canMerge) return { error: 'noMerge', state: s };
+    if (!canMerge) {
+      // v2.2 R3.5: pilas SOLO en celdas vacías. Si la celda está ocupada y la
+      // pila explícita no fusiona con nada => {error:'occupied'} (T18a). En
+      // celda vacía sin fusión se conserva el contrato T11b ('noMerge').
+      // NOTA: con fusión SÍ se permite sobre celda ocupada (T18c/T11a: la pila
+      // explícita "vierte" su racha y el merge pullifica las vecinas).
+      return { error: (cell.stack && cell.stack.length) ? 'occupied' : 'noMerge', state: s };
+    }
     cell.stack = cell.stack.concat(pileArr);          // R3.4 apila al tope
     mergeNeighbors(s, cell);                          // R12.1 merge
     return s;
   }
   const rng = rngOrStack;
   if (cell.dormant) return { error: 'dormant' };        // v2 R14.2 no colocable
+  if (cell.stack && cell.stack.length) return { error: 'occupied' };   // v2.2 R3.5: solo espacios vacíos
   if (s.run.poolPlaced >= 3 && s.run.pool.every((x) => x.length === 0)) {
     return { error: 'emptyPool' };
   }
@@ -997,24 +1009,23 @@ function buyColor(state) {
 }
 
 // ---------------------------------------------------------------------------
-// v2 — Economía de baldosas (R14.2/R14.3/R14.4). Tablero dual 32 (v2-shape
-// [7,9,9,7]): las celdas
-// dormant se activan TEMPORALMENTE por partida (activateTile, techo
-// runTilesActivated <= progress.permTiles) o se compran PERMANENTES en tienda
-// (buyPermTile sube el techo; NO activa la celda — la activación es siempre
-// temporal). Precios exponenciales ⚖BALANCE:
-//   runTilePrice   = RUN_TILE_BASE  * 1.6^runTilesActivated   (R14.3)
-//   permTilePrice  = PERM_TILE_BASE * 1.35^permTiles          (R14.4)
-// (sin redondeo: la fórmula es la spec exacta)
+// v2 — Economía de baldosas (R14.2/R14.3/R14.4; v2.2: Activate por USOS).
+// Tablero dual 32 (rectángulo 8×4 pointy v2.2): las celdas dormant se activan
+// TEMPORALMENTE por partida con la skill 'tables' (modelo USES R7.4/R17.2:
+// 1 uso base + usesBought por partida, repuesto por openRun; SIN costo de
+// monedas por activación — el costo vive en la TIENDA). La compra permanente
+// es buyTablesUp (R14.4 v2.2): sube permTiles (techo histórico, compat) Y
+// usesBought (+1 mesa/partida). Precio exponencial ⚖BALANCE:
+//   permTilePrice  = TABLES_PERM_BASE * 1.35^permTiles  (= PERM_TILE_BASE)
+// runTilePrice ≡ 0 desde v2.2 (sin precio por activación).
 // ---------------------------------------------------------------------------
 function runTilePrice(state) {
-  const n = (state.run && state.run.runTilesActivated) || 0;
-  return CONFIG.RUN_TILE_BASE * 1.6 ** n;
+  return 0;   // v2.2: sin precio por activación (modelo usos de skills.tables)
 }
 
 function permTilePrice(state) {
   const m = (state.progress && state.progress.permTiles) || 0;
-  return CONFIG.PERM_TILE_BASE * 1.35 ** m;
+  return CONFIG.TABLES_PERM_BASE * CONFIG.TABLES_PERM_RATIO ** m;
 }
 
 function v2CellOf(s, cellId) {
@@ -1030,13 +1041,14 @@ function activateTile(state, cellId, rng) {
   const cell = v2CellOf(s, cellId);
   if (!cell) return { error: 'noCell', state: s };
   if (!cell.dormant) return { error: 'notDormant', state: s };   // solo baldosas apagadas
-  const perm = s.progress.permTiles || 0;
-  if ((s.run.runTilesActivated || 0) >= perm) return { error: 'cap', state: s }; // R14.2 techo
-  const price = runTilePrice(s);
-  if (s.progress.coins < price) return { error: 'noFunds', state: s };
+  // v2.2 R14.3: modelo USOS de la skill 'tables' (R7.8) — sin techo permTiles
+  // y SIN costo de coins (el costo vive en la compra permanente de la tienda).
+  const sk = s.skills && s.skills.tables;
+  if (!sk || !sk.owned) return { error: 'locked', state: s };   // R7.8
+  if ((sk.uses | 0) <= 0) return { error: 'noUses', state: s }; // R14.3 v2.2
   cell.dormant = false;                                // activa ESTA partida
   s.run.runTilesActivated = (s.run.runTilesActivated || 0) + 1;
-  s.progress.coins -= price;
+  sk.uses -= 1;                                        // sin costo de coins
   // R14.5: al activar puede cruzarse el umbral de JUGABLES (> 15) — las
   // calamidades entran UNA sola vez por partida (flag run.calamitiesApplied;
   // applyCalamities es no-op si ya aplicaron o si no se cruzó el umbral).
@@ -1044,17 +1056,27 @@ function activateTile(state, cellId, rng) {
   return s;
 }
 
-function buyPermTile(state, cellId) {
+// ---------------------------------------------------------------------------
+// v2.2 R14.4 — buyTablesUp (reemplaza a buyPermTile): compra permanente en la
+// TIENDA. Sube el techo histórico permTiles (+1) Y skills.tables.usesBought
+// (+1 mesa activable por partida; openRun repone uses = 1 + usesBought).
+// La 1ª compra marca tables como owned. La celda elegida NO se activa aquí.
+// Precio = permTilePrice = TABLES_PERM_BASE * 1.35^permTiles.
+// ---------------------------------------------------------------------------
+function buyTablesUp(state) {
   const s = clone(state);
   if (s.progress.permTiles == null) s.progress.permTiles = 1;
+  if (!s.skills.tables) s.skills.tables = { owned: false, uses: 0, usesBought: 0 };
   const price = permTilePrice(s);
   if (s.progress.coins < price) return { error: 'noFunds', state: s };
-  // sube el techo permanente; la celda elegida NO se activa aquí (R14.4):
-  // sigue dormant hasta un activateTile posterior (temporal por partida).
-  s.progress.permTiles += 1;
+  s.progress.permTiles += 1;                                    // techo permanente
+  s.skills.tables.usesBought = (s.skills.tables.usesBought || 0) + 1;  // mesas/partida
+  s.skills.tables.owned = true;
   s.progress.coins -= price;
   return s;
 }
+// alias deprecado (compat imports viejos: buyPermTile(state, cellId))
+const buyPermTile = buyTablesUp;
 
 // ---------------------------------------------------------------------------
 // serveOrder(state, orderId, cellId) — click client (order) then pile (cell).
@@ -1568,6 +1590,8 @@ function deserializeState(json) {
         // v2.1 R17 defaults (cola de clientes / usos mejorados)
         if (!s.skills.queueSkip) s.skills.queueSkip = { owned: false, uses: 0, usesBought: 0 };
         if (!s.skills.capacidad) s.skills.capacidad = { owned: false, level: 0 };
+        // v2.2 R14.3 defaults (Activate = skill 'tables' modelo usos)
+        if (!s.skills.tables) s.skills.tables = { owned: false, uses: 0, usesBought: 0 };
       }
       if (s.run) {
         // v2.1 R16 defaults para runs viejas (pre-cola): migración documentada
@@ -1693,6 +1717,7 @@ function confetti(){ if(state.settings.reducedMotion) return;
   document.body.appendChild(c); setTimeout(()=>c.remove(),900);
 }
 const ERRT={ noFunds:'Not enough coins', blocked:'That tile is locked', locked:'Needs a higher café level 💭',
+  occupied:'That tile is occupied — place on an empty tile',
   noUses:'No uses left this café', notReady:'Those pieces don\'t match it / wrong color', emptyPool:'Nothing to place',
   emptySlot:'Tray slot is empty', noOrder:'No order there', noCell:'No tile there', same:'Pick two different tiles', owned:'Already owned',
   noKind:'Unknown expansion', noSystem:'Unknown system', maxed:'Maxed out' };
@@ -1836,7 +1861,9 @@ function cellHTML(cell, idx){
   if(cell.calamity) cls+=' calm';
   if(ui.mode==='destroy') cls+=' targetmode';
   if(ui.mode==='swap') cls+=' swapmode';
-  if(ui.slot!==false && !cell.blocked && !cell.dormant) cls+=' targetable';
+  // v2.2 R3.5: el modo colocar solo apunta a celdas VACÍAS (servir sí apunta
+  // a pilas — el borde serve-target NO se toca).
+  if(ui.slot!==false && !cell.blocked && !cell.dormant && !(cell.stack&&cell.stack.length)) cls+=' targetable';
   if(ui.servingOrder!==null && !cell.blocked && !cell.dormant) cls+=' serve-target';
   // tooltip v2: dormant => compra permanente en la tienda; blocked => calamidad
   const tip = cell.dormant ? 'Buy permanently in the shop'
@@ -1878,27 +1905,18 @@ function renderBoard(){
       }
     }
   }
-  // group by axial row (r); rows are ABSOLUTELY positioned with the exact
-  // honeycomb offsets (CSS comment above): same-row centers 3*hx apart
-  // (cell 2*hx + gap 1*hx), alternate rows offset 1.5*hx, row pitch 0.47*ch.
-  // v2.1 (R14.1): el posicionamiento es GENÉRICO sobre las coords axiales de
-  // cada celda — left de cada fila usa su q mínimo REAL (rowMinQ), no solo la
-  // paridad de r: left = (rowMinQ-minQ)*3*hx + (r impar ? 1.5*hx : 0).
-  // v2-shape: la columna visual se PLEGA como q+floor(r/2) — con el offset
-  // fijo por paridad, esa es la única transformación que conserva la
-  // adyacencia axial en TODAS las transiciones de fila (los vecinos axiales
-  // (q,r±1) y (q∓1,r±1) caen exactamente a ±1.5*hx; sin el pliegue, las
-  // diagonales de filas impares quedan espejadas a 4.5*hx). Verificado
-  // exhaustivamente: 6 deltas × coords [-8..8]×[-4..5] → 0 discrepancias.
-  // Funciona igual para el panal rectangular v2.0 (6 filas de 5) y para el
-  // v2-shape peaked-hex (4 filas [7,9,9,7]=32, qStart [-3,-4,-4,-3]).
+  // POINTY-TOP (Catan) — group by axial row (r); rows ABSOLUTE with pointy offsets:
+  // same-row centers √3*hx apart (cell width √3*hx, gap 0), alternate rows
+  // offset 0.866*hx (√3/2*hx), row pitch 1.5*hx (cell height 2*hx).
+  // 32 cells in rows [4,5,6,6,5,6]; axial {q,r} coords unchanged (R14.1 minimal
+  // left = (rowMinQ-minQ)*rowStepX + (odd?altOffX:0)).
   const byRow=new Map();
   occ.forEach((v,kMinusR)=>{ const rr=v.p.r; if(!byRow.has(rr)) byRow.set(rr,[]); byRow.get(rr).push(v); });
   const rows=[...byRow.keys()].sort((a,b)=>a-b);
   const minR=rows.length?rows[0]:0;
   const minQ=Math.min(...[...occ.values()].map(v=>v.p.q+Math.floor(v.p.r/2))); // v2-shape: columna plegada q+floor(r/2)
-  const hxN=hx(), chN=hxN*1.732;          // live --hx/--ch (media queries resize hexes)
-  const rowStepX=hxN*3, altOffX=hxN*1.5, rowPitch=chN*0.47;
+  const hxN=hx(), chN=hxN*2;              // pointy: alto celda = 2*hx
+  const rowStepX=hxN*1.732, altOffX=hxN*0.866, rowPitch=hxN*1.5;
   let html=""; // v2.2 mobile-first: extensión REAL por fila (fix: las filas impares
                // arrancan a +1.5*hx, así que la extensión del panal es
                // max(left+rowW)-min(left) ≈ 27.5hx para 7-9-9-7 — NO 26hx; con el
@@ -1914,9 +1932,13 @@ function renderBoard(){
   });
   const shift=rowMetas.length?Math.min(...rowMetas.map(m=>m.left)):0;
   const boxW=rowMetas.length?Math.max(...rowMetas.map(m=>m.left+m.rowW))-shift:0;
-  const maxH=rows.length*rowPitch-rowPitch+chN;
+  // v2.2 anti-recorte: las fichas levantadas (--lift negativo) sobresalen por
+  // ARRIBA de la 1ª fila y quedaban detrás de la barra de clientes. Headroom
+  // DENTRO de .board: 10 = altura máx de pila (stackStep por ficha).
+  const liftPad=10*stackStep();
+  const maxH=rows.length*rowPitch-rowPitch+chN+liftPad;
   for(const m of rowMetas){
-    html+=`<div class="boardrow${m.odd?' alt':''}" data-row="${m.rf}" style="left:${m.left-shift}px;top:${m.top}px">`;
+    html+=`<div class="boardrow${m.odd?' alt':''}" data-row="${m.rf}" style="left:${m.left-shift}px;top:${m.top+liftPad}px">`;
     for(const v of m.items){
       if(v.slot) html+=`<div class="cell expand-slot" data-pos="${v.p.q},${v.p.r}" title="Place table here"><div class="hexbg"></div><div class="exicon">＋</div></div>`;
       else html+=cellHTML(v.cell, v.idx);
@@ -1969,8 +1991,8 @@ function renderPowers(){
     {skill:'destroyPile',icon:'power_destroy',label:'Destroy',mode:'destroy'},
     {skill:'swapPiles',icon:'power_swap',label:'Swap',mode:'swap'},
     {skill:'refreshPool',icon:'power_refresh',label:'Refresh',mode:'refresh'},
-    // v2 — activar baldosa dormant ESTA partida (R14.2/R14.3, precio runTilePrice)
-    {skill:'__activate',icon:'power_activate',label:'Activate',mode:'activate'},
+    // v2.2 R14.3 — activar baldosa dormant ESTA partida (skill 'tables', modelo usos)
+    {skill:'tables',icon:'power_activate',label:'Activate',mode:'activate'},
   ];
   // v2 R15.1: toggle auto-serve solo si serveManual.owned (modelo TOGGLE)
   if(state.skills.serveManual && state.skills.serveManual.owned)
@@ -1982,10 +2004,12 @@ function renderPowers(){
   box.innerHTML = arr.map(d=>{
     const s=state.skills[d.skill]||{owned:true};
     // Badge unificado (clase .uses): contador de usos si comprado; si NO
-    // comprado, precio de compra; Activate siempre muestra su precio. El 🪙
-    // distingue un precio de un contador de usos.
+    // comprado, precio de compra. Activate (skill 'tables', modelo usos v2.2):
+    // owned => contador de usos; no owned => precio de la compra permanente en
+    // TIENDA (permTilePrice). El 🪙 distingue un precio de un contador de usos.
     const uses = d.mode==='activate'
-      ? `<span class="uses">🪙${fmt(Math.round(runTilePrice(state)))}</span>`
+      ? (s.owned ? `<span class="uses">${s.uses}</span>`
+                 : `<span class="uses">🪙${fmt(Math.round(permTilePrice(state)))}</span>`)
       : (s.owned && typeof s.uses==='number')
         ? `<span class="uses">${s.uses}</span>`
         : (typeof s.price==='number' ? `<span class="uses">🪙${fmt(s.price)}</span>` : '');
@@ -2000,10 +2024,10 @@ function renderPowers(){
     // guard ensureOwnedUses de game.js; la lógica de gastar usos NO cambia)
     const gs=state.skills[skill]||{owned:true};
     if(gs.owned && typeof gs.uses==='number' && gs.uses<=0){ toast(ERRT.noUses); return; }
-    if(mode==='activate'){                    // v2: modo activar baldosa apagada
+    if(mode==='activate'){                    // v2.2 R14.3: modo activar baldosa apagada (skill 'tables')
       ui.mode = ui.mode==='activate'?null:'activate'; ui.slot=false; ui.servingOrder=null;
       $('#hint').textContent = ui.mode
-        ? `Tap a dormant tile to activate it for THIS run — price ${fmt(Math.round(runTilePrice(state)))} 🪙`
+        ? `Tap a dormant tile to activate it for THIS run — uses left: ${state.skills.tables.uses}`
         : '';
       renderPowers(); renderBoard(); return;
     }
@@ -2179,7 +2203,11 @@ function tapTile(id){
   if(ui.mode==='destroy'){ destroyFlow(id); return; }
   if(ui.mode==='swap'){ swapFlow(id); return; }
   if(ui.mode==='activate'){ activateFlow(id); return; }
-  if(ui.slot!==false){ placeFlow(id, ui.slot); return; }
+  // v2.2 R3.5: en modo colocar, una celda ocupada NO recibe pilas
+  if(ui.slot!==false){
+    if(cell.stack&&cell.stack.length){ toast(ERRT.occupied); return; }
+    placeFlow(id, ui.slot); return;
+  }
   if(ui.servingOrder!==null){
     if(cell.blocked){ toast('Blocked'); return; }
     serveOrderFlow(ui.servingOrder, id); return;
@@ -2187,16 +2215,16 @@ function tapTile(id){
   if(cell.blocked){ toast('Blocked'); return; }
   if(r.orders.some(o=>!o.served)) toast('Tap a client in the queue first, then a stack.');
 }
-// v2 R14.2/R14.3 — activar UNA baldosa dormant por partida (precio runTilePrice)
+// v2.2 R14.3 — activar UNA baldosa dormant por partida (skill 'tables', modelo usos)
 function activateFlow(id){
   const cell=state.run.board[id];
   if(!cell||!cell.dormant){ toast('That tile is already active'); return; }
-  const price=runTilePrice(state);
   const res=activateTile(state, id, Math.random);
+  if(res.error==='locked'){ toast('Unlock "Tables per run" in the Shop 🛒'); return; }
   if(res.error){ err(res); return; }
   state=res; ui.mode=null;
   const el=$(`#board .cell[data-id="${id}"]`); if(el) floatOn(el,'🪧');
-  toast(`Tile activated ✨ (${fmt(Math.round(price))} 🪙)`);
+  toast(`Table activated ✨ (${state.skills.tables.uses} uses left)`);
   renderAll();
 }
 function destroyFlow(id){ const r=useDestroyPile(state,id);
@@ -2356,8 +2384,16 @@ function showShop(){
       <span>${co}/${CONFIG.MAX_COLORS} colors · roster up to ${Math.min(n + 1, CONFIG.MAX_COLORS)} creatures</span></div>
       <button class="btn btn-sm" data-color="1" ${can ? '' : 'disabled'}>${fmt(cPrice)}🪙</button></div>`;
   }
+  // v2.2 R14.4 — compra permanente 'tables' en TIENDA: +1 mesa activable por
+  // partida (usesBought); la 1ª compra marca owned. Precio permTilePrice.
+  const tables = state.skills.tables || { owned: false, usesBought: 0 };
+  const tPrice = Math.round(permTilePrice(state));
+  const tablesRow = `<div class="rowcard"><div class="rowinfo"><b>Tables per run</b>
+    <span>${tables.owned ? `${CONFIG.USES_PER_RUN.tables + tables.usesBought} → +1 per run` : 'unlock: activate dormant tiles each run'}</span></div>
+    <button class="btn btn-sm" data-tables="1">${fmt(tPrice)}🪙</button></div>`;
   $('#shopBox').innerHTML = `
     ${colorRow}
+    ${tablesRow}
     <div class="rowcard"><div class="rowinfo"><b>Extra table</b><span>${p.clients} → ${p.clients+1} cats</span></div>
       <button class="btn btn-sm" data-exp="clients">${fmt(price('clients'))}🪙</button></div>
     <!-- v2 fix (audit): filas "Bigger floor" (R6.2 OBSOLETA-v2, flujo muerto en
@@ -2385,6 +2421,11 @@ function showShop(){
   // v2.1 R13.7: comprar el siguiente color → sube rosterMax (pool genera el color nuevo)
   $$('#shopBox [data-color]').forEach(b=>b.addEventListener('click',()=>{
     const res=buyColor(state);
+    if(res.error){ err(res); } else { state=res; persist(); renderAll(); showShop(); confetti(); }
+  }));
+  // v2.2 R14.4: comprar '+1 mesa activable por partida' → buyTablesUp
+  $$('#shopBox [data-tables]').forEach(b=>b.addEventListener('click',()=>{
+    const res = buyTablesUp(state);
     if(res.error){ err(res); } else { state=res; persist(); renderAll(); showShop(); confetti(); }
   }));
   $('#shopModal').classList.add('show');
@@ -2456,8 +2497,8 @@ async function boot(){
   startLoop();
   window.addEventListener('beforeunload',persist);
 }
-// Release stamp — bump +0.1 per UI change (v1.3 → v1.8: copy, hex borders, palette, power states, mobile).
-const GAME_VERSION = 'v1.8';
+// Release stamp — bump +0.1 per UI change (v1.3 → v1.9: copy, hex borders, palette, power states, mobile, pointy grid, 8×4 rectangle, place-on-empty, tables uses model).
+const GAME_VERSION = 'v1.9';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks };

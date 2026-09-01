@@ -300,7 +300,13 @@ test('T17h [R16.2] roster: arranca 5, tope colorsOwned+1 (10 si owned=10); avanz
   const place = (st, n, seed) => {
     let cur = st;
     for (let i = 0; i < n; i++) {
-      const cell = cur.run.board.findIndex(c => !c.blocked && !c.dormant);
+      // v2.2 R3.5: placeStack SOLO en celdas VACÍAS — 1ª jugable vacía; si no
+      // hay (todas ocupadas), vaciar (simula servicio) y seguir.
+      let cell = cur.run.board.findIndex(c => !c.blocked && !c.dormant && !(c.stack && c.stack.length));
+      if (cell < 0) {
+        cur.run.board.forEach(c => { if (!c.blocked && !c.dormant) c.stack = []; });
+        cell = cur.run.board.findIndex(c => !c.blocked && !c.dormant && !(c.stack && c.stack.length));
+      }
       const ret = G.placeStack(cur, cell, undefined, mulberry32(seed * 100 + i));
       assert.ok(!ret.error, `RED: placeStack debe colocar (paso ${i}): ${JSON.stringify(ret.error)}`);
       cur = unwind(ret, cur);

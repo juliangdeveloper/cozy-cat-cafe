@@ -85,12 +85,14 @@ test('T1.2 colocar vacia slot y NO rellena', () => {
   assert.equal(s.run.poolPlaced, 1);
 });
 
-test('T1.5 colocar sobre piezas apila al tope', () => {
+test('T1.5 v2.2 colocar sobre celda ocupada => {error:"occupied"} sin mutar', () => {
   let s = baseRun();
   s.run.board[0].stack = [2];
-  const pile = s.run.pool[0];
-  s = placeStack(s, 0, 0);
-  assert.deepEqual(s.run.board[0].stack, [2].concat(pile));
+  const before = serializeState(s);
+  const res = placeStack(s, 0, 0);
+  assert.ok(res && res.error === 'occupied',
+    `colocar sobre ocupada debe dar {error:"occupied"}, dio ${JSON.stringify(res && res.error)}`);
+  assert.equal(serializeState(s), before, 'occupied no debe mutar el estado');
 });
 
 test('T1.4 colocar en bloqueada => error sin mutar', () => {
@@ -409,6 +411,9 @@ test('T6.8 usos se reponen al reabrir', () => {
 const T7 = () => {
   // activar `k` baldosas dormant con rng determinista por (seed, paso)
   const act = (st, k, seed) => {
+    // v2.2 R14.3: activateTile es modelo USOS de skills.tables — inyectar usos
+    // para activar libremente en este harness de calamidades.
+    st.skills.tables = { owned: true, uses: 99, usesBought: 0 };
     for (let j = 0; j < k; j++) {
       const d = st.run.board.map((c, i) => ({ c, i })).filter((x) => x.c.dormant && !x.c.blocked);
       if (!d.length) break;
@@ -465,8 +470,9 @@ test('T7.3 conteo brutal: blocked XOR pre-pila, mezcla ~50/50 entre semillas', (
   const frac = blocked / (blocked + pre);
   assert.ok(frac >= 0.3 && frac <= 0.7, `fracción blocked=${frac.toFixed(2)} fuera de [0.3,0.7]`);
 });
-// T7.4 — celda de calamidad con pila pre-colocada: NO bloqueada y placeStack encima
-test('T7.4 pila pre-colocada placeable (no bloqueada) — v2 sobre jugables', () => {
+// T7.4 — celda de calamidad con pila pre-colocada: NO bloqueada, pero v2.2
+// placeStack SOLO en espacios vacíos => {error:'occupied'} sin mutar
+test('T7.4 pre-pila de calamidad NO acepta pilas del pool (occupied) — v2.2', () => {
   const { act, open } = T7();
   let done = false;
   for (let seed = 1; seed <= 20 && !done; seed++) {
@@ -475,10 +481,11 @@ test('T7.4 pila pre-colocada placeable (no bloqueada) — v2 sobre jugables', ()
     const i = s.run.board.findIndex(c => c.calamityStack && !c.blocked);
     if (i < 0) continue;
     assert.ok(s.run.board[i].stack.length >= 1, 'pre-pila => stack>=1');
-    const before = s.run.board[i].stack.length;
-    const res = placeStack(s, i);                 // pila del pool encima
-    assert.ok(!res.error, `placeStack sobre pre-pila debe funcionar, dio ${JSON.stringify(res.error)}`);
-    assert.ok(res.run.board[i].stack.length > before, 'la pila crece al colocar encima');
+    const before = serializeState(s);
+    const res = placeStack(s, i);                 // v2.2: pilas solo en VACÍAS
+    assert.ok(res && res.error === 'occupied',
+      `placeStack sobre pre-pila debe dar {error:"occupied"}, dio ${JSON.stringify(res && res.error)}`);
+    assert.equal(serializeState(s), before, 'occupied no debe mutar el estado');
     done = true;
   }
   assert.ok(done, 'ninguna semilla produjo pre-pila colocable');
