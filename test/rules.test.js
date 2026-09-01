@@ -69,8 +69,8 @@ test('T1.1 pool 3 pilas al abrir', () => {
   assert.equal(s.run.clientsDrawn, 3);           // R16.3: llegada perezosa
   const owned = s.progress.colorsOwned;          // 4 de inicio (R13.7)
   for (const p of s.run.pool) {
-    for (const c of p) assert.ok(c >= 1 && c <= owned); // pool 1..colorsOwned
-    for (const c of p) assert.equal(c, p[0]);           // monocromo (R3.1)
+    assert.ok(p.length >= 1 && p.length <= 7, 'v2.0: pila de tamaño 1..7');
+    for (const c of p) assert.ok(c >= 1 && c <= owned); // colores 1..colorsOwned (multicolor OK)
   }
   for (const o of s.run.orders) assert.ok(o.color >= 1 && o.color <= s.run.rosterIndex); // clientes piden 1..roster
 });
@@ -562,28 +562,33 @@ test('T9.3 tope 10 colores (MAX_COLORS v2)', () => {
 // ---------------------------------------------------------------------------
 // R3.1 — pool mono-color (regression: multicolor-pool bug)
 // ---------------------------------------------------------------------------
-test('R3.1 pool de openRun v2: cada pila es de UNICO color', () => {
+test('R3.1 pool de openRun v2: pilas de tamaño 1..7, colores 1..owned (multicolor v2.0)', () => {
   // v2-reconcile: la firma v2 de generateBoard es (n, rng) y retorna el BOARD
-  // (R14.1, sin pool); el pool monocromo nace en openRun (R13.3). Se testea el
-  // pool de openRun sobre 32 semillas (v2Pile: tamaños 1..4, un solo color).
-  // v2-shape: 30 → 32 semillas (count alineado con el nuevo board de 32 celdas).
+  // (R14.1, sin pool); el pool nace en openRun (R13.3). v2.0: tamaño 1..7 y
+  // color POR FICHA (multicolor). Se testea sobre 32 semillas.
+  let sawMulti = false;
   for (let g = 1; g <= 32; g++) {
     const s = openRun(createGame({ progress: { coins: 1000 } }), rng(g));
     assert.equal(s.run.pool.length, 3);
     for (const pile of s.run.pool) {
-      assert.ok(pile.length >= 1 && pile.length <= 4, 'pile size in 1..4 (R13.3)');
-      for (const c of pile) assert.equal(c, pile[0], 'pile must be one color');
+      assert.ok(pile.length >= 1 && pile.length <= 7, 'pile size in 1..7 (v2.0)');
+      for (const c of pile) assert.ok(c >= 1 && c <= s.progress.colorsOwned, 'color in 1..owned');
     }
+    if (s.run.pool.some(p => p.length > 1 && new Set(p).size > 1)) sawMulti = true;
   }
+  assert.ok(sawMulti, 'v2.0: en 32 semillas debe observarse al menos una pila multicolor');
 });
 
-test('R3.1 refill en placeStack: pilas nuevas son mono-color', () => {
+test('R3.1 refill en placeStack: pilas nuevas tamaño 1..7, colores 1..owned (v2.0)', () => {
   let s = baseRun(); s.progress.colorsUnlocked = 3;
   s = placeStack(s, 0, 0);
   s = placeStack(s, 1, 1);
   s = placeStack(s, 2, 2, rng(9)); // 3a coloca -> refill con rng inyectado
   assert.equal(s.run.pool.length, 3);
-  for (const pile of s.run.pool) for (const c of pile) assert.equal(c, pile[0]);
+  for (const pile of s.run.pool) {
+    assert.ok(pile.length >= 1 && pile.length <= 7, 'v2.0: tamaño 1..7');
+    for (const c of pile) assert.ok(c >= 1 && c <= 4, 'color en 1..colorsOwned(4)');
+  }
 });
 
 test('R3.1 determinismo: misma semilla -> mismo pool tras refill', () => {
@@ -598,15 +603,18 @@ test('R3.1 determinismo: misma semilla -> mismo pool tras refill', () => {
   assert.deepEqual(refill(11), refill(11));
 });
 
-test('R7.7 REFRESH pool genera pilas mono-color y deterministas', () => {
+test('R7.7 REFRESH pool genera pilas deterministas tamaño 1..7 (v2.0)', () => {
   const refresh = () => {
     let s = baseRun(); s.progress.colorsUnlocked = 3;
     s.skills.refreshPool.owned = true; s.skills.refreshPool.uses = 2;
     return useRefreshPool(s, rng(21)).run.pool;
   };
   const p1 = refresh();
-  assert.equal(JSON.stringify(p1), JSON.stringify(refresh()));
-  for (const pile of p1) for (const c of pile) assert.equal(c, pile[0]);
+  assert.deepEqual(p1, refresh());
+  for (const pile of p1) {
+    assert.ok(pile.length >= 1 && pile.length <= 7, 'v2.0: tamaño 1..7');
+    for (const c of pile) assert.ok(c >= 1 && c <= 3, 'color en 1..colorsUnlocked(3)');
+  }
 });
 
 // ---------------------------------------------------------------------------

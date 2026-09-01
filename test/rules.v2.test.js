@@ -41,23 +41,29 @@ const unwind = (ret, fallback) =>
 // ---------------------------------------------------------------------------
 // T11 — Merge y cascada [R12]
 // ---------------------------------------------------------------------------
-test('T11a [R12.1 v2.2] merge: vecino A top 2 se fusiona en D => D [1,2,2,2], A queda VACÍO', () => {
-  need('createGame'); need('placeStack');
+test('T11a [R12.1 v2.0] merge paso a paso: placeStack siembra, resolveCascade fusiona (D [1,2,2,2], A vacío)', () => {
+  need('createGame'); need('placeStack'); need('resolveCascade');
   // GIVEN: estado construido a mano (createGame/openRun + mutación directa del board).
   // A = vecino con stack [2,2]; D = destino con stack [1].
   const s = mkGame();
   const A = s.run.board[0], D = s.run.board[1];
   A.stack = [2, 2];
   D.stack = [1];
-  // R12.1 v2.2 // AMBIGUA: firma placeStack v1 es (state, cellId) con slot en ui —
-  // v1 real es (state, cellId, slot, rng) y coloca pila del pool. Aquí se asume
-  // la firma v2 (state, cellId, slot, stack) pasando la pila [2] explícita.
-  const ret = G.placeStack(s, 1, 0, [2]);
-  const st = unwind(ret, s);
+  // v2.0: aísla el merge del auto-serve (autoServe=false) — con autoServe ON un
+  // cliente visible legítimamente consumiría el tope fusionado en la cascada.
+  s.skills.serveManual.autoServe = false;
+  const placed = G.placeStack(s, 1, 0, [2]);
+  const src = unwind(placed, s);
+  // v2.0: placeStack SOLO siembra run.mergeSeeds (sin fusionar inline)
+  assert.deepEqual(src.run.mergeSeeds, [1], 'RED: placeStack debe sembrar mergeSeeds=[1]');
+  assert.deepEqual(src.run.board[0].stack, [2, 2], 'RED: placeStack NO debe fusionar (paso a paso v2.0)');
+  const res = G.resolveCascade(src);
+  const st = unwind(res, src);
   // THEN: el tope 2 de A se fusiona en D; A cede su racha COMPLETA y queda VACÍO
   // (v2.2: sin ficha de reserva — reemplaza el contrato viejo "A conserva [2]").
-  assert.deepEqual(st.run.board[1].stack, [1, 2, 2, 2], 'RED: D.stack debe ser [1,2,2,2] tras merge');
+  assert.deepEqual(st.run.board[1].stack, [1, 2, 2, 2], 'RED: D.stack debe ser [1,2,2,2] tras la cascada');
   assert.deepEqual(st.run.board[0].stack, [], 'RED: A debe quedar VACÍO tras ceder su racha (R12.1 v2.2)');
+  assert.ok(res.steps >= 1, 'RED: el merge debe ocurrir en cascada (steps>=1)');
 });
 
 test('T11b [R12.1] merge: vecino de tope color distinto NO se fusiona ni muta', () => {

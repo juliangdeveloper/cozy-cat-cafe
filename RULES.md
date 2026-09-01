@@ -130,7 +130,7 @@ export { createGame, CONFIG,
 ```js
 // Sig.: placeStack(state, cellId) -> newState | { error }
 ```
-- `R3.1` — El **pool tiene 3 slots**. Cada slot es una pila de piezas de un ÚNICO color (ej. `[2,2,2]`). Se generan por `rng`. → US-2, G1.
+- `R3.1` — [v2.0] El **pool tiene 3 slots**. Cada slot es una pila de **tamaño 1..7** con **color POR FICHA** aleatorio en los desbloqueados (multicolor; el monocromo es un caso posible, no la regla). Se generan por `rng`. → US-2, G1.
 - `R3.2` — **No se rellena hasta colocar las 3 actuales.** Al colocar una pila en una celda, ese slot se vacía y `poolPlaced += 1`. **NO se genera una pila nueva por slot.** → US-7.
 - `R3.3` — **Refill:** cuando `poolPlaced === 3` (las 3 colocadas), el pool se **rellena de golpe con 3 pilas nuevas** y `poolPlaced = 0`. La única "bandeja vacía con borde punteado" persistente es el instante entre la 3ª colocación y el refill. → US-7; render §4.4 STYLE.
 - `R3.4` — **Colocar** = tomar la pila del slot `kol` del pool y añadir sus piezas a la celda destino: `board[cell].stack = stack.concat(pile)`. **Válido solo si:** celda existe, `!blocked`, `!dormant` y la celda está VACÍA (`stack.length === 0`) — (v2.2: pilas del pool SOLO en espacios vacíos, error `occupied` en celda ocupada). → US-3.
@@ -227,7 +227,7 @@ export { createGame, CONFIG,
 
 ### R12. Merge y cascada (estilo HexaSort) [v2]
 - `R12.1` — **Al colocar (R3.4):** los TOPEs de vecinos axiales (6 deltas) con color igual al tope resultante de la celda destino se FUSIONAN: el grupo queda como N fichas contiguas en stack; (v2.2) el vecino CEDE su racha completa y queda con `stack: []` (sin ficha de reserva — reemplaza el contrato viejo "conserva sub-pila").
-- `R12.2` — **CASCADA:** tras toda mutación de topes (colocar, auto-servir, destrucción umbral, swap) re-evaluar hasta estabilizar; 1 eslabón = `CASCADE_STEP_MS=1600ms` (CONFIG). Orden determinista por eslabón: merge → auto-servir (celdas en orden id ascendente, B3) → destrucción umbral → siguiente eslabón.
+- `R12.2` — **CASCADA (v2.0 paso a paso):** tras toda mutación de topes (colocar, auto-servir, destrucción umbral, swap) re-evaluar hasta estabilizar; el merge tira de **UN vecino por eslabón** (1º imán por índice ascendente, 1º vecino con tope igual color en orden de deltas; determinista) — cada tirón es un paso visible al jugador; 1 eslabón = `CASCADE_STEP_MS=1600ms` (CONFIG). Orden por eslabón: merge (1 tirón) → auto-servir (ids ascendentes) → destrucción umbral → siguiente eslabón.
 - `R12.3` — **UMBRAL:** grupo contiguo ≥ `DEBRIS_THRESHOLD=10` fichas (CONFIG) se destruye al estabilizar, bonus `DEBRIS_BONUS_PER=25` × qty (CONFIG ⚖BALANCE).
 - `R12.4` — destroyPile queda **PENDIENTE DE BALANCE** (pierde valor relativo frente a R12.3).
 

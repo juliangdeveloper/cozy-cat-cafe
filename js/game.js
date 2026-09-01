@@ -67,12 +67,11 @@ export const ROSTER = [
 const clone = (x) => structuredClone(x);
 const rngInt = (rng, lo, hi) => lo + Math.floor(rng() * (hi - lo + 1));
 
-// R3.1: build a single-color pool pile — one random color in [1, cu],
-// repeated `size` (1..3) times. Used by generateBoard, buildPick (refill) and
-// useRefreshPool so EVERY pool slot is monochrome.
+// R3.1 (v2.0): build a single pool pile — size rng 1..7, color POR FICHA
+// aleatorio en [1, cu] (multicolor). Used by buildPick, useRefreshPool and
+// generateBoard-era callers so EVERY pool slot follows the same rule.
 function pile(rng, cu) {
-  const color = rngInt(rng, 1, cu);
-  return Array.from({ length: rngInt(rng, 1, 3) }, () => color);
+  return Array.from({ length: rngInt(rng, 1, 7) }, () => rngInt(rng, 1, cu));
 }
 
 export function mulberry32(seed) {
@@ -378,12 +377,10 @@ function rosterMax(colorsOwned) {
 function poolMaxColor(rosterIndex, colorsOwned) {
   return Math.min(rosterIndex || 1, colorsOwned || 1);
 }
-// v2 helper: pila monocroma de tamaño rng 1-4 en [1, cu] (R13.3/R13.4).
-// v2.1-clients: FIX — un solo color sorteado por pila (la versión previa
-// sorteaba color POR FICHA y con cu>1 generaba pilas multicolor, violando R3.1).
+// v2 helper: pila del pool — tamaño rng 1..7, color POR FICHA aleatorio en
+// [1, cu] (v2.0: multicolor; antes monocromo 1..4, R13.3/R13.4).
 function v2Pile(rng, cu) {
-  const color = rngInt(rng, 1, cu);
-  return Array.from({ length: rngInt(rng, 1, 4) }, () => color);
+  return Array.from({ length: rngInt(rng, 1, 7) }, () => rngInt(rng, 1, cu));
 }
 
 // ---------------------------------------------------------------------------
@@ -453,6 +450,7 @@ export function openRun(state, rng) {
     clientsServed: 0,                                              // R16.4 victoria = === TOTAL
     queueBack: [],                                                 // R17.1 FIFO de devueltos
     orderSeq: 0,                                                   // id ord-N estable
+    mergeSeeds: [],                                                // v2.0 R12.1 paso a paso
   };
   // R16.4: dibujar los 3 VISIBLES iniciales (llegada perezosa, no pre-genera)
   refillClients(s, rng || Math.random);
@@ -485,25 +483,16 @@ export function topGroup(stack) {
 }
 
 // ---------------------------------------------------------------------------
-// R12.1 v2.2 — merge: los vecinos axiales cuyo tope (racha final) tiene el MISMO
-// color que el tope resultante de `cell` ceden esa racha COMPLETA al final del
-// stack de `cell`. El vecino queda con `stack: []` (v2.2: SIN ficha de reserva
-// — reemplaza el contrato T11a "A conserva [2]"). Una pasada por los 6 vecinos.
+// R12.1 v2.0 — merge PASO A PASO: placeStack ya NO fusiona inline; siembra
+// run.mergeSeeds=[celda] y resolveCascade tira de UN vecino por eslabón
+// (orden determinista: imanes por índice ascendente, vecinos en orden HEX_ADJ,
+// gana el 1º con tope igual color). El vecino cede su racha completa y queda
+// con stack: [] (v2.2). Así cada tirón es visible como un paso animado.
 // ---------------------------------------------------------------------------
-function mergeNeighbors(s, cell) {
-  const board = (s.run && s.run.board) || [];
-  const tg = topGroup(cell.stack);
-  if (!tg.color) return;
-  for (const [dq, dr] of HEX_ADJ) {
-    const nb = board.find((c) => c && c.q === cell.q + dq && c.r === cell.r + dr);
-    if (!nb || !nb.stack || nb.stack.length === 0) continue;
-    const ntg = topGroup(nb.stack);
-    if (ntg.color === tg.color) {
-      cell.stack = cell.stack.concat(nb.stack.splice(nb.stack.length - ntg.count, ntg.count));
-      // v2.2 R12.1: el vecino cede su racha completa y queda VACÍO (sin ficha
-      // de reserva — antes: nb.stack.push(ntg.color)).
-    }
-  }
+function seedMerge(s, cell) {
+  if (!s.run) return;
+  const idx = s.run.board.indexOf(cell);
+  if (idx >= 0) s.run.mergeSeeds = [idx];
 }
 
 // ---------------------------------------------------------------------------
@@ -544,12 +533,10 @@ export function placeStack(state, cellId, slot, rngOrStack) {
       // v2.2 R3.5: pilas SOLO en celdas vacías. Si la celda está ocupada y la
       // pila explícita no fusiona con nada => {error:'occupied'} (T18a). En
       // celda vacía sin fusión se conserva el contrato T11b ('noMerge').
-      // NOTA: con fusión SÍ se permite sobre celda ocupada (T18c/T11a: la pila
-      // explícita "vierte" su racha y el merge pullifica las vecinas).
       return { error: (cell.stack && cell.stack.length) ? 'occupied' : 'noMerge', state: s };
     }
     cell.stack = cell.stack.concat(pileArr);          // R3.4 apila al tope
-    mergeNeighbors(s, cell);                          // R12.1 merge
+    seedMerge(s, cell);                               // v2.0 R12.1: merge en cascada paso a paso
     return s;
   }
   const rng = rngOrStack;
@@ -592,7 +579,7 @@ export function placeStack(state, cellId, slot, rngOrStack) {
     }
     s.run.poolPlaced = 0;
   }
-  mergeNeighbors(s, cell);                                 // R12.1 merge
+  seedMerge(s, cell);                                    // v2.0 R12.1: merge en cascada paso a paso
   return s;
 }
 
@@ -764,17 +751,21 @@ export function resolveCascade(state) {
   const s = clone(state);
   let steps = 0;
   // "imanes": celdas cuyo stack cambió dentro de ESTA cascada y que atraen el
-  // merge de sus vecinos. Arranca vacío => el primer eslabón no re-fusiona
-  // pilas ya estables (solo la colocación previa, en placeStack, dispara ese).
-  let magnets = new Set();
+  // merge de sus vecinos. Arranca con run.mergeSeeds (siembra de placeStack,
+  // v2.0) => el primer eslabón tira desde la celda recién colocada.
+  let magnets = new Set(s.run && Array.isArray(s.run.mergeSeeds) ? s.run.mergeSeeds : []);
+  if (s.run) s.run.mergeSeeds = [];                        // consumidas
   for (let guard = 0; guard < 1000; guard++) {
     let acted = false;
-    // (i) merge entre vecinos — solo hacia imanes
+    // (i) merge PASO A PASO [R12.1 v2.0]: UN vecino por eslabón — el 1º imán
+    // (índice ascendente) con el 1º vecino (orden HEX_ADJ) de tope igual color
+    // tira la racha completa del vecino (que queda vacío). Determinista.
     if (magnets.size > 0) {
-      const targets = [...magnets];
+      const targets = [...magnets].sort((a, b) => a - b);
       magnets = new Set();
-      let didMerge = false;
+      let pulled = false;
       for (const i of targets) {
+        if (pulled) { magnets.add(i); continue; }    // pendiente: próximo eslabón
         const cell = s.run.board[i];
         if (!cell || !cell.stack || !cell.stack.length) continue;
         const tg = topGroup(cell.stack);
@@ -785,12 +776,15 @@ export function resolveCascade(state) {
           const ntg = topGroup(nb.stack);
           if (ntg.color === tg.color) {
             cell.stack = cell.stack.concat(nb.stack.splice(nb.stack.length - ntg.count, ntg.count));
-            didMerge = true;
+            magnets.add(i);                          // sigue atraendo (nuevo tope)
+            magnets.add(s.run.board.indexOf(nb));    // el vecino vacío puede recibir
+            pulled = true;
+            acted = true;
+            break;                                   // UN tirón por eslabón
           }
         }
-        if (didMerge) magnets.add(i);
+        // si este imán no tiró, queda agotado (sin vecino de tope igual ahora)
       }
-      if (didMerge) acted = true;
     }
     // (ii) auto-servir: SOLO los clientes VISIBLES (v2.1 R16.4: activeClients,
     // máx 3 — los pedidos NO visibles de run.orders se IGNORAN aunque tengan
@@ -1046,10 +1040,8 @@ export function previewPool(state, rng) {
   const r = (state && state.run) || {};
   const cu = poolMaxColor(r.rosterIndex, state.progress && state.progress.colorsOwned);
   return Array.from({ length: level }, () =>
-    Array.from({ length: 3 }, () => {
-      const color = rngInt(rng, 1, cu);                    // pila monocroma
-      return Array.from({ length: rngInt(rng, 1, 4) }, () => color);
-    }));
+    Array.from({ length: 3 }, () =>
+      Array.from({ length: rngInt(rng, 1, 7) }, () => rngInt(rng, 1, cu))));
 }
 
 function ensureOwnedUses(state, power) {
@@ -1216,6 +1208,7 @@ export function deserializeState(json) {
           if (s.run.orderSeq == null) s.run.orderSeq = act.length;
         }
         if (s.run.queueBack == null) s.run.queueBack = [];      // R17.1
+        if (s.run.mergeSeeds == null) s.run.mergeSeeds = [];    // v2.0 R12.1
         if (s.run.clientsDrawn == null) s.run.clientsDrawn = (s.run.orders || []).length;
         if (s.run.clientsServed == null) {
           s.run.clientsServed = (s.run.orders || []).filter((o) => o.served).length;
