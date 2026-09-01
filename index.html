@@ -146,7 +146,6 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   background:color-mix(in srgb,var(--tc),#000 30%)}
 .tile::before{content:"";position:absolute;inset:2px;background:var(--tc);
   clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
-.tile .dot{position:relative;z-index:1;width:7px;height:7px;background:rgba(121,72,53,.35);border-radius:50%}
 /* top:-16px clears the topmost tile of a full 3-tile stack now that tiles are
    centered on the hex (the lifted top tile pokes above the hex top) */
 .stack .badge{position:absolute;top:-16px;left:50%;translate:-50% 0;z-index:5;background:var(--highlight);
@@ -176,6 +175,13 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .cell.casc .hexbg{--hb:var(--highlight);--hbw:4px;filter:drop-shadow(0 0 8px var(--highlight))}
 .cell.casc .stack{animation:cascPop .9s cubic-bezier(.4,0,.2,1)}
 @keyframes cascPop{0%{transform:scale(1)}40%{transform:scale(1.14)}100%{transform:scale(1)}}
+/* v2.0 merge paso a paso: origen (from) y destino (to) del tirón visible */
+.cell.mergesrc .hexbg{--hb:var(--tile-blue);--hbw:4px;filter:drop-shadow(0 0 8px var(--tile-blue))}
+.cell.mergegoal .hexbg{--hb:var(--success);--hbw:4px;filter:drop-shadow(0 0 10px var(--success))}
+.mergearrow{position:absolute;inset:0;z-index:6;display:flex;align-items:center;justify-content:center;
+  pointer-events:none;font-size:30px;font-weight:900;color:var(--success);
+  text-shadow:0 2px 0 var(--ink),0 0 12px rgba(168,225,212,.8);animation:arrowPop .9s ease-out}
+@keyframes arrowPop{0%{transform:scale(.3);opacity:0}30%{transform:scale(1.25);opacity:1}100%{transform:scale(1);opacity:.85}}
 .board.shake{animation:shake .45s cubic-bezier(.4,0,.2,1)}
 @keyframes shake{0%,100%{transform:translate(0,0)}20%{transform:translate(-7px,3px)}
   40%{transform:translate(6px,-4px)}60%{transform:translate(-4px,2px)}80%{transform:translate(3px,-1px)}}
@@ -208,7 +214,6 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   background:color-mix(in srgb,var(--tc),#000 30%)}
 .ttile::before{content:"";position:absolute;inset:2px;background:var(--tc);
   clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
-.ttile .d{position:relative;z-index:1;width:6px;height:6px;background:rgba(121,72,53,.4);border-radius:50%;margin-top:-16px}
 .poolempty{font-size:10px;color:var(--wood-dark);font-weight:700;text-align:center;width:100%;align-self:flex-end;padding-bottom:6px}
 
 /* powers */
@@ -385,6 +390,7 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
     <label class="btn btn-sec" style="text-align:center;display:block;cursor:pointer">
       Import save… <input type="file" id="importFile" accept=".json,application/json" style="display:none">
     </label>
+    <button class="btn btn-sec" id="resetBtn" style="background:var(--danger);color:#fff8ec">🔄 New game (reset)</button>
   </div>
 </div></div>
 
@@ -627,9 +633,10 @@ function cellHTML(cell, idx){
   if(cell.stack&&cell.stack.length){
     // stacks GROW UPWARD: tile i is centered on the hex and lifted by
     // --lift:-i*step (a growing `top:Npx` would fill downward from the ceiling).
-    const step=stackStep();
-    stack='<div class="stack">'+cell.stack.map((c,ci)=>
-      `<div class="tile" style="--lift:${-ci*step}px;--tc:var(${tileVar(c)})"><span class="dot"></span></div>`).join('')+
+    // v2.0: SIN punto decorativo sobre la ficha (se elimina .dot).
+      const step=stackStep();
+      stack='<div class="stack">'+cell.stack.map((c,ci)=>
+        `<div class="tile" style="--lift:${-ci*step}px;--tc:var(${tileVar(c)})"></div>`).join('')+
       (cell.stack.length>1?`<span class="badge">${cell.stack.length}</span>`:'')+'</div>';
   }
   return `<div class="${cls}" data-id="${idx}"${tip?` title="${tip}"`:''}><div class="hexbg"></div>${stack}
@@ -713,19 +720,11 @@ function renderPool(){
   const box=$('#pool'); if(!box) return;
   const r=state.run;
   const step=stackStep(); // same compact stack offset as the board (stackStep)
-  // VISUAL ORDER ONLY (reference pattern: color blocks + descending staircase).
-  // The DOM order of the 3 trays is sorted, but `data-slot` keeps the REAL game
-  // index, so selection/serving logic is untouched (placeStack uses pool[slot]).
-  const order=r.pool.map((pile,i)=>({i,pile})).sort((a,b)=>{
-    const ha=a.pile?a.pile.length:0, hb=b.pile?b.pile.length:0;
-    if(!ha||!hb) return hb-ha;              // empty trays always last
-    const ca=a.pile[0], cb=b.pile[0];       // trays are monochrome
-    if(ca!==cb) return cb-ca;               // group into color blocks
-    return hb-ha;                           // staircase: taller first
-  });
-  box.innerHTML = order.map(({i,pile})=>{
+  // v2.0: SIN reordenamiento — las bandejas se muestran en su orden real
+  // (data-slot === posición); al colocar una, las demás NO se corren.
+  box.innerHTML = r.pool.map((pile,i)=>{
     let inner = pile&&pile.length ? '<div class="tray">'+pile.map((c,ci)=>
-      `<div class="ttile" style="bottom:${ci*step}px;--tc:var(${tileVar(c)})"><span class="d"></span></div>`).join('')+'</div>'
+      `<div class="ttile" style="bottom:${ci*step}px;--tc:var(${tileVar(c)})"></div>`).join('')+'</div>'
       : '<div class="poolempty">empty</div>';
     return `<div class="poolslot ${ui.slot===i?'selected':''} ${(!pile||!pile.length)?'drop':''}" data-slot="${i}">${inner}</div>`;
   }).join('');
@@ -831,19 +830,22 @@ function serveCellFor(board, order){
 }
 // cascadeLinks(state) — ESPEJO del bucle interno de resolveCascade (game.js):
 // retorna la LISTA de estados intermedios, un eslabón por entrada:
-//   { snap, served:[{cell,amount}], debris:[cell] }
+//   { snap, served:[{cell,amount}], debris:[cell], merged:[{from,to}] }
 // snap es el estado completo tras ESE eslabón (merge / auto-serve / escombros).
-// Solo alimenta la animación: el estado autoritativo SIEMPRE se adopta de
-// resolveCascade al final (playCascade), por si el espejo diverge.
+// v2.0: merge PASO A PASO — un tirón por eslabón; merged marca celdas
+// (vecino→destino) para animar el paso. Solo alimenta la animación: el estado
+// autoritativo SIEMPRE se adopta de resolveCascade al final (playCascade).
 function cascadeLinks(state){
   const s=structuredClone(state);
-  const links=[]; let magnets=new Set();
+  const links=[]; let magnets=new Set(s.run && Array.isArray(s.run.mergeSeeds) ? s.run.mergeSeeds : []);
+  if (s.run) s.run.mergeSeeds = [];
   for(let guard=0; guard<1000; guard++){
-    let acted=false; const served=[], debris=[];
-    // (i) merge hacia imanes (celdas que cambiaron en esta cascada)
+    let acted=false; const served=[], debris=[], merged=[];
+    // (i) merge PASO A PASO: UN tirón por eslabón (espejo de resolveCascade)
     if(magnets.size>0){
-      const targets=[...magnets]; magnets=new Set(); let didMerge=false;
+      const targets=[...magnets].sort((a,b)=>a-b); magnets=new Set(); let pulled=false;
       for(const i of targets){
+        if(pulled){ magnets.add(i); continue; }      // pendiente: próximo eslabón
         const cell=s.run.board[i];
         if(!cell||!cell.stack||!cell.stack.length) continue;
         const tg=topGroup(cell.stack); if(!tg.color) continue;
@@ -853,12 +855,14 @@ function cascadeLinks(state){
           const ntg=topGroup(nb.stack);
           if(ntg.color===tg.color){
             cell.stack=cell.stack.concat(nb.stack.splice(nb.stack.length-ntg.count,ntg.count));
-            didMerge=true;
+            magnets.add(i);
+            magnets.add(s.run.board.indexOf(nb));
+            merged.push({from:s.run.board.indexOf(nb),to:i});
+            pulled=true; acted=true;
+            break;                                    // UN tirón por eslabón
           }
         }
-        if(didMerge) magnets.add(i);
       }
-      if(didMerge) acted=true;
     }
     // (ii) auto-serve: pedidos flotantes (cell===null), si autoServe!==false
     const auto=!(s.skills&&s.skills.serveManual&&s.skills.serveManual.autoServe===false);
@@ -890,7 +894,7 @@ function cascadeLinks(state){
       }
     });
     if(!acted) break;
-    links.push({snap:structuredClone(s),served,debris});
+    links.push({snap:structuredClone(s),served,debris,merged});
   }
   return links;
 }
@@ -922,8 +926,16 @@ async function playCascade(base,authoritative){
       renderOrders(); renderBoard(); renderPool(); updateCoins();
       floatOrders(L.served);
       // anillo+pop en celdas afectadas por el eslabón (.cell.casc)
-      [...L.served.map(x=>x.cell),...L.debris].forEach(i=>{
+      [...L.served.map(x=>x.cell),...L.debris,...(L.merged||[]).flatMap(m=>[m.from,m.to])].forEach(i=>{
         const el=$(`#board .cell[data-id="${i}"]`); if(el) el.classList.add('casc');
+      });
+      // v2.0: marca ORIGEN/DESTINO del tirón de merge + flecha sobre el destino
+      (L.merged||[]).forEach(m=>{
+        const src=$(`#board .cell[data-id="${m.from}"]`); if(src) src.classList.add('mergesrc');
+        const dst=$(`#board .cell[data-id="${m.to}"]`);
+        if(dst){ dst.classList.add('mergegoal');
+          const ar=document.createElement('div'); ar.className='mergearrow'; ar.textContent='⤵';
+          dst.appendChild(ar); }
       });
       if(L.debris.length){                       // destrucción por umbral: shake + confetti
         L.debris.forEach(i=>{ const el=$(`#board .cell[data-id="${i}"]`); if(el) floatOn(el,'💥'); });
@@ -1220,6 +1232,25 @@ function bindGlobal(){
     }; rd.readAsText(f);
   });
   $('#offCollect').addEventListener('click',()=>{ $('#offModal').classList.remove('show'); renderAll(); });
+  // v2.0 — Reset: empezar una partida NUEVA desde 0 (borra el save completo).
+  // Confirmación de doble tap: el 1º arma el botón 4s; el 2º ejecuta el reset.
+  $('#resetBtn').addEventListener('click',()=>{
+    const b=$('#resetBtn');
+    if(!b.dataset.armed){
+      b.dataset.armed='1';
+      b.textContent='⚠ Erase everything? Tap again';
+      setTimeout(()=>{ if($('#resetBtn')){ delete $('#resetBtn').dataset.armed;
+        $('#resetBtn').textContent='🔄 New game (reset)'; } },4000);
+      return;
+    }
+    localStorage.removeItem(KEY);
+    state=createGame();
+    state.meta.exportId='ccc-1-'+Date.now();
+    persist();
+    $('#saveModal').classList.remove('show');
+    renderAll();
+    toast('Fresh start ✓');
+  });
   $('#closeAgain').addEventListener('click',()=>{ $('#closeModal').classList.remove('show'); openTheCafe(); });
   $('#closeMenu').addEventListener('click',()=>{ $('#closeModal').classList.remove('show'); renderMenu(); });
 }
@@ -1252,8 +1283,9 @@ async function boot(){
   startLoop();
   window.addEventListener('beforeunload',persist);
 }
-// Release stamp — bump +0.1 per UI change (v1.3 → v1.9: copy, hex borders, palette, power states, mobile, pointy grid, 8×4 rectangle, place-on-empty, tables uses model).
-const GAME_VERSION = 'v1.9';
+// Release stamp — v2.0: pool 1–7 multicolor, merge paso a paso animado (un tirón por eslabón),
+// pool sin reordenar, sin puntos decorativos, reset de partida en Save.
+const GAME_VERSION = 'v2.0';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks };
