@@ -49,7 +49,13 @@ const placePiles = (s, n, seed = 7) => {
   const rng = mulberry32(seed);
   let cur = s, usedFallback = false;
   for (let i = 0; i < n; i++) {
-    const cell = playableCell(cur);
+    // v2.2 R3.5: placeStack SOLO en celdas VACÍAS — elegir la 1ª jugable vacía;
+    // si no hay (todas ocupadas), vaciar los stacks (simula servicio) y seguir.
+    let cell = cur.run.board.findIndex(c => !c.blocked && !c.dormant && !(c.stack && c.stack.length));
+    if (cell < 0) {
+      cur.run.board.forEach(c => { if (!c.blocked && !c.dormant) c.stack = []; }); // v2.2: simula servicio
+      cell = cur.run.board.findIndex(c => !c.blocked && !c.dormant && !(c.stack && c.stack.length));
+    }
     if (cell < 0) { usedFallback = true; }
     const ret = usedFallback ? { error: 'fallback' }
       : G.placeStack(cur, cell, undefined, rng);

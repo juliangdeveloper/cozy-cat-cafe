@@ -133,8 +133,8 @@ export { createGame, CONFIG,
 - `R3.1` — El **pool tiene 3 slots**. Cada slot es una pila de piezas de un ÚNICO color (ej. `[2,2,2]`). Se generan por `rng`. → US-2, G1.
 - `R3.2` — **No se rellena hasta colocar las 3 actuales.** Al colocar una pila en una celda, ese slot se vacía y `poolPlaced += 1`. **NO se genera una pila nueva por slot.** → US-7.
 - `R3.3` — **Refill:** cuando `poolPlaced === 3` (las 3 colocadas), el pool se **rellena de golpe con 3 pilas nuevas** y `poolPlaced = 0`. La única "bandeja vacía con borde punteado" persistente es el instante entre la 3ª colocación y el refill. → US-7; render §4.4 STYLE.
-- `R3.4` — **Colocar** = tomar la pila del slot `kol` del pool y añadir sus piezas al tope de la celda destino: `board[cell].stack = stack.concat(pile)`. **Válido solo si:** celda existe, `!blocked`, y `stack` NO está bloqueado por calamidad (R8.4). La celda puede tener piezas previas (apilado por tope, R4.2). → US-3.
-- `R3.5` — **Invalid place** (`{error}`): celda bloqueada, celda inexistente, o pool vacío (slot ya colocado). No consume slot, no muta. → US-3.
+- `R3.4` — **Colocar** = tomar la pila del slot `kol` del pool y añadir sus piezas a la celda destino: `board[cell].stack = stack.concat(pile)`. **Válido solo si:** celda existe, `!blocked`, `!dormant` y la celda está VACÍA (`stack.length === 0`) — (v2.2: pilas del pool SOLO en espacios vacíos, error `occupied` en celda ocupada). → US-3.
+- `R3.5` — **Invalid place** (`{error}`): celda bloqueada, celda inexistente, celda ocupada (`occupied`, v2.2), celda dormant, o pool vacío (slot ya colocado). No consume slot, no muta. → US-3.
 
 ### R4. Pedidos y servir
 ```js
@@ -226,7 +226,7 @@ export { createGame, CONFIG,
 - `R10.3` — El tablero crece con la expansión (R6.2) para amortiguar la dificultad de más colores (cozy, sin timer). → US-38. [OBSOLETO v2 — reemplazado por R13.7]
 
 ### R12. Merge y cascada (estilo HexaSort) [v2]
-- `R12.1` — **Al colocar (R3.4):** los TOPEs de vecinos axiales (6 deltas) con color igual al tope resultante de la celda destino se FUSIONAN: el grupo queda como N fichas contiguas en stack; vecinos conservan su sub-pila inferior.
+- `R12.1` — **Al colocar (R3.4):** los TOPEs de vecinos axiales (6 deltas) con color igual al tope resultante de la celda destino se FUSIONAN: el grupo queda como N fichas contiguas en stack; (v2.2) el vecino CEDE su racha completa y queda con `stack: []` (sin ficha de reserva — reemplaza el contrato viejo "conserva sub-pila").
 - `R12.2` — **CASCADA:** tras toda mutación de topes (colocar, auto-servir, destrucción umbral, swap) re-evaluar hasta estabilizar; 1 eslabón = `CASCADE_STEP_MS=1600ms` (CONFIG). Orden determinista por eslabón: merge → auto-servir (celdas en orden id ascendente, B3) → destrucción umbral → siguiente eslabón.
 - `R12.3` — **UMBRAL:** grupo contiguo ≥ `DEBRIS_THRESHOLD=10` fichas (CONFIG) se destruye al estabilizar, bonus `DEBRIS_BONUS_PER=25` × qty (CONFIG ⚖BALANCE).
 - `R12.4` — destroyPile queda **PENDIENTE DE BALANCE** (pierde valor relativo frente a R12.3).
@@ -240,11 +240,11 @@ export { createGame, CONFIG,
 - `R13.6` — Victoria [v2.1 → R16.4]: servir a TODOS los clientes de la cola (`clientsServed === totalClients`). R2.2/R2.4 sin cambio.
 - `R13.7` — Colores: 10 máx, 4 de inicio. Compra DIRECTA en tienda: `buyColor` desbloquea el siguiente color del roster; precio `COLOR_PRICE(n) = COLOR_PRICE_BASE * (n-3)` CONFIG ⚖BALANCE. R10 queda REPLANTEADA: `productsBought`/catálogo se ELIMINA del state (§1); `colorsUnlocked`/`colorsOwned` pasa a derivarse de compras directas. R10.2 (solo colores desbloqueados se generan) se mantiene como principio. R10.1/R10.3 y R6.3 quedan marcadas OBSOLETAS-v2 (reemplazadas por R13.7).
 
-### R14. Tablero dual peaked-hex 32 [v2] (modifica R6.2, R8)
-- `R14.1` — Tablero SIEMPRE dibujado completo: panal con picos filas [7,9,9,7] = 32 celdas (estilo hexágono Catan pequeño; axial, 4 filas consecutivas offset medio). No jugable = visible apagada (estilo lock).
-- `R14.2` — Jugable al inicio = núcleo 2-3-2 (7). Activables por partida ≤ `permTiles` (techo permanente). [v2] R6.2 (`boardCells += 3`) queda OBSOLETA: su rol lo cumplen las baldosas permanentes (R14.4). El campo `progress.boardCells` se ELIMINA del JSON §1. → US-52.
-- `R14.3` — Compra temporal: tocar baldosa apagada → activa esa celda esta partida; `runTilePrice = RUN_TILE_BASE × 1.6^runTilesActivated` (CONFIG ⚖BALANCE).
-- `R14.4` — Compra permanente (tienda): eliges baldosa concreta; `permTilePrice = PERM_TILE_BASE × 1.35^permTiles` (CONFIG ⚖BALANCE). Habilita el techo, la activación es siempre temporal.
+### R14. Tablero dual rectangular 8×4 pointy 32 [v2.2] (modifica R6.2, R8)
+- `R14.1` — Tablero SIEMPRE dibujado completo: RECTÁNGULO pointy de 4 filas axiales × 8 celdas = 32 (v2.2, contorno rectangular tipo marco de Catan con offset de panal; en columna plegada `q+floor(r/2)` las 4 filas comparten patrón consecutivo). No jugable = visible apagada (estilo lock). (v2.0/v2.1: panal [7,9,9,7], reemplazado.)
+- `R14.2` — Jugable al inicio = núcleo 2-3-2 (7). [v2.2] La capacidad de activar por partida la da la skill `tables` (modelo USES, R14.3); `permTiles` queda como contador histórico de compras. [v2] R6.2 (`boardCells += 3`) queda OBSOLETA.
+- `R14.3` — [v2.2] Activate por USOS: skill `tables` (modelo USES R7.4/R17.2) — 1 uso base por partida + `usesBought`; `openRun` repone `uses = USES_PER_RUN.tables + usesBought`. Tocar baldosa apagada consume 1 uso y la activa ESA partida. SIN costo de monedas por activación (`runTilePrice ≡ 0`; RUN_TILE_BASE OBSOLETO-v2.2).
+- `R14.4` — [v2.2] Compra permanente en TIENDA (`buyTablesUp`, fila "Tables per run"): `permTilePrice = TABLES_PERM_BASE(200) × 1.35^permTiles` ⚖BALANCE → `permTiles += 1` (techo histórico) Y `skills.tables.usesBought += 1` (+1 mesa activable por partida; se repone en cada openRun). La 1ª compra marca `tables.owned`. NO activa ninguna celda (la activación es siempre temporal).
 - `R14.5` — Calamidades (R8): rango se calcula sobre celdas JUGABLES, no sobre 32. [v2] R8.1 se reinterpreta: calamidades entran cuando las celdas JUGABLES (núcleo 7 + activadas) > 15. El rango lo/hi se calcula sobre jugables, no sobre 32. → US-53.
 
 ### R15. Skills v2 [v2] (amplía R7)
@@ -287,7 +287,7 @@ const pay = (q, m=0) => Math.round(5 * q ** (1.25 + 0.05*m));
 - `T1.2` — **colocar pila vacía slot y NO rellena:** GIVEN pool `[[1,1],[2],[3]]`, celda libre `c`; WHEN `placeStack(c, slot0)`; THEN `board[c].stack === [1,1]`, `pool[0] === []`, `pool.length === 3` (no se añadió pila), `poolPlaced === 1`. [R3.2]
 - `T1.3` — **refill al colocar la 3ª:** GIVEN `poolPlaced===2` y pool `[[], [], [3]]`; WHEN colocar el slot 2; THEN `poolPlaced === 0` y `pool === [[…],[…],[…]]` (3 pilas nuevas, `length===3`). [R3.3]
 - `T1.4` — **colocar en celda bloqueada → error, sin mutar:** GIVEN celda `blocked:true`; WHEN `placeStack`; THEN devuelve `{error}` y `pool`/`board` idénticos. [R3.5, R8.4]
-- `T1.5` — **colocar en celda ya con piezas apila al tope:** GIVEN `stack:[2]`; WHEN colocar `[2,2]`; THEN `stack === [2,2,2]`. [R3.4, R4.2]
+- `T1.5` — **v2.2 colocar en celda ocupada → `occupied` sin mutar:** GIVEN `stack:[2]`; WHEN colocar; THEN `{error:'occupied'}` y estado idéntico. [R3.5]
 
 ### T2. Pedidos / servir
 - `T2.1` — **listo cuando tope color Y cantidad exacta:** GIVEN order `{color:2, qty:3}`, `stack:[2,2,2]`; THEN `orderReadyOn === true`. [R4.2]
@@ -349,7 +349,7 @@ const pay = (q, m=0) => Math.round(5 * q ** (1.25 + 0.05*m));
 - `T10.4` — **export id embebido:** GIVEN state; THEN `meta.exportId` no vacío y estable entre save/load. [R1.1, R1.3]
 
 ### T11. Merge y cascada [v2]
-- `T11.1` — **merge con tope de 2 vecinos:** GIVEN celda destino con tope color 2, vecinos axiales A y B con tope color 2; WHEN `placeStack` con pila [2]; THEN el grupo fusionado queda como N fichas contiguas en el stack destino y los stacks de A/B pierden solo su tope (conservan sub-pila inferior). [R12.1]
+- `T11.1` — **merge con tope de 2 vecinos (v2.2):** GIVEN celda destino con tope color 2, vecinos axiales A y B con tope color 2; WHEN `placeStack` con pila [2]; THEN el grupo fusionado queda como N fichas contiguas en el stack destino y A/B ceden su racha COMPLETA quedando `stack: []` (sin ficha de reserva). [R12.1]
 - `T11.2` — **no merge si color difiere:** GIVEN vecinos con tope color ≠ tope destino; WHEN colocar; THEN stacks de vecinos intactos. [R12.1]
 - `T11.3` — **orden determinista de eslabón:** GIVEN una colocación que dispara merge + pedidos servibles + grupo ≥ umbral; THEN al estabilizar el eslabón se ejecuta en orden: merge → auto-servir (ids ascendentes) → destrucción umbral; nunca antes. [R12.2]
 - `T11.4` — **cascada itera hasta estabilizar:** GIVEN merge que deja un nuevo tope servible; THEN se evalúa el siguiente eslabón tras `CASCADE_STEP_MS` y la cascada termina solo sin mutaciones pendientes. [R12.2]
@@ -364,11 +364,11 @@ const pay = (q, m=0) => Math.round(5 * q ** (1.25 + 0.05*m));
 - `T12.5` — **cada criatura pide solo su color:** GIVEN roster de 3 criaturas; THEN los pedidos generados tienen color ∈ {1,2,3}, uno por criatura. [R13.2]
 - `T12.6` — **arranque de run:** GIVEN `openRun`; THEN `rosterIndex===1` (solo Gato), pool genera solo color 1, y solo el núcleo 2-3-2 (7 celdas) es jugable. [R13.3, R14.2]
 
-### T13. Tablero dual peaked-hex 32 [v2]
-- `T13.1` — **tablero fijo 32 celdas:** GIVEN `generateBoard`; THEN 32 celdas en panal con picos filas [7,9,9,7] (axial, consecutivas offset medio), todas presentes en `board` (no jugables con flag lock). [R14.1]
-- `T13.2` — **activables ≤ permTiles:** GIVEN `permTiles=2` (m); WHEN intentar activar una 3ª baldosa apagada esta partida; THEN `{error}` y nada cambia. [R14.2]
-- `T13.3` — **precio exponencial n:** GIVEN `runTilesActivated=3`; THEN `runTilePrice = RUN_TILE_BASE × 1.6^3`; colocar la 4ª usa `1.6^4`. [R14.3]
-- `T13.4` — **precio exponencial m:** GIVEN `permTiles=2`; THEN `permTilePrice = PERM_TILE_BASE × 1.35^2`. [R14.4]
+### T13. Tablero dual rectangular 8×4 32 [v2.2]
+- `T13.1` — **tablero fijo 32 celdas:** GIVEN `generateBoard`; THEN 32 celdas en RECTÁNGULO pointy 4 filas × 8 (v2.2; axial, columnas plegadas consecutivas compartidas), todas presentes en `board` (no jugables con flag lock). [R14.1]
+- `T13.2` — **[v2.2] activate sin usos → noUses:** GIVEN `skills.tables.uses===0`; WHEN activar una baldosa apagada; THEN `{error:'noUses'}` y nada cambia. [R14.3]
+- `T13.3` — **[v2.2] activar consume 1 uso, sin coins:** GIVEN `skills.tables.uses===2`; WHEN activar; THEN `uses===1`, `runTilesActivated+1`, coins sin cambio (`runTilePrice ≡ 0`). [R14.3]
+- `T13.4` — **precio exponencial m (buyTablesUp):** GIVEN `permTiles=2`; THEN `permTilePrice = TABLES_PERM_BASE(200) × 1.35^2`; comprar sube permTiles Y usesBought. [R14.4]
 - `T13.5` — **permanente habilita techo, activación es temporal:** GIVEN compra permanente de baldosa B; THEN `permTiles += 1` y B sigue apagada al abrir la siguiente run (solo activable temporalmente). [R14.4]
 - `T13.6` — **calamidades sobre jugables:** GIVEN tablero 32 con 23 jugables; THEN el rango de calamidades se calcula sobre 23 (jugables), no sobre 32. [R14.5, R8.2]
 

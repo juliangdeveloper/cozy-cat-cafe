@@ -41,7 +41,7 @@ const unwind = (ret, fallback) =>
 // ---------------------------------------------------------------------------
 // T11 — Merge y cascada [R12]
 // ---------------------------------------------------------------------------
-test('T11a [R12.1] merge: vecino A top 2 se fusiona en D => D [1,2,2,2], A conserva sub-pila', () => {
+test('T11a [R12.1 v2.2] merge: vecino A top 2 se fusiona en D => D [1,2,2,2], A queda VACÍO', () => {
   need('createGame'); need('placeStack');
   // GIVEN: estado construido a mano (createGame/openRun + mutación directa del board).
   // A = vecino con stack [2,2]; D = destino con stack [1].
@@ -49,14 +49,15 @@ test('T11a [R12.1] merge: vecino A top 2 se fusiona en D => D [1,2,2,2], A conse
   const A = s.run.board[0], D = s.run.board[1];
   A.stack = [2, 2];
   D.stack = [1];
-  // R12.1 // AMBIGUA: firma placeStack v1 es (state, cellId) con slot en ui —
+  // R12.1 v2.2 // AMBIGUA: firma placeStack v1 es (state, cellId) con slot en ui —
   // v1 real es (state, cellId, slot, rng) y coloca pila del pool. Aquí se asume
   // la firma v2 (state, cellId, slot, stack) pasando la pila [2] explícita.
   const ret = G.placeStack(s, 1, 0, [2]);
   const st = unwind(ret, s);
-  // THEN: el tope 2 de A se fusiona en D; A conserva [2].
+  // THEN: el tope 2 de A se fusiona en D; A cede su racha COMPLETA y queda VACÍO
+  // (v2.2: sin ficha de reserva — reemplaza el contrato viejo "A conserva [2]").
   assert.deepEqual(st.run.board[1].stack, [1, 2, 2, 2], 'RED: D.stack debe ser [1,2,2,2] tras merge');
-  assert.deepEqual(st.run.board[0].stack, [2], 'RED: A debe conservar su sub-pila [2]');
+  assert.deepEqual(st.run.board[0].stack, [], 'RED: A debe quedar VACÍO tras ceder su racha (R12.1 v2.2)');
 });
 
 test('T11b [R12.1] merge: vecino de tope color distinto NO se fusiona ni muta', () => {

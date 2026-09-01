@@ -14,9 +14,9 @@
 //
 // v2.1-clients: reemplaza el playthrough v2 (roster crecía cada 3 pilas y
 // victoria = orders.length servidas) por el flujo v2.1 con cola de clientes.
-import { createGame, openRun, placeStack, resolveCascade, closeRun, buyColor,
-         buySkill, useQueueSkip, topGroup, totalClients, runVictory,
-         serializeState, deserializeState, mulberry32, CONFIG } from '../js/game.js';
+import { createGame, openRun, placeStack, resolveCascade, closeRun, buyColor, buySkill,
+         useQueueSkip, useRefreshPool, activateTile, buyTablesUp, buyUsesUp, topGroup,
+         totalClients, runVictory, serializeState, deserializeState, mulberry32, CONFIG, HEX_ADJ } from '../js/game.js';
 import assert from 'node:assert/strict';
 
 let state = createGame({ progress: { coins: 20000 } });
@@ -52,7 +52,10 @@ const rosterCap = (owned) => owned < CONFIG.MAX_COLORS ? owned + 1 : CONFIG.MAX_
 // si no pudo colocar. NOTE: placeStack/buyColor retornan el ESTADO en éxito y
 // {error[,state]} en fallo — unwrap: (res.state ?? res).
 const unwrap = (res) => (res && res.state !== undefined ? res.state : res);
-function step(seed, n) {
+// growth=true (fase 1): basta COLOCAR cualquier pila en celda vacía (cada
+// colocación cuenta para placedCounter/roster R13.4); sin espacio → activar
+// baldosa (skill tables) → refresh → 'full'.
+function step(seed, n, growth = false) {
   state = floatOrders(state);
   state = resolveCascade(state).state; // merge + escombros + auto-serve visibles (R16.4)
   prunePins(state);
@@ -81,30 +84,51 @@ function step(seed, n) {
 
   const playable = playableIdx(state);
   const board = state.run.board;
-  const forOrder = o && state.run.pool[slot][0] === o.color;
-  // celda objetivo: para el pedido se FIJA por order.id (mapa) para acumular
-  // el color en UNA celda. Vacía primero, luego tope del color, si no
-  // cualquier jugable (el pool-path apila al tope sin check). El STASH nunca
-  // cae en una celda con target fijado y prefiere celdas cuyo tope NO sea su
-  // color (evita runs ≥ DEBRIS_THRESHOLD gigantes).
-  const stashColor = state.run.pool[slot][0];
+  // v2.2 R3.5: placeStack SOLO en celdas VACÍAS. Estrategia del jugador hábil:
+  // NO sembrar basura — (a) crecer racha: vacía junto a tope del MISMO color
+  // (merge R12.1 acumula → auto-serve o umbral de escombros); (b) sembrar el
+  // color del pedido en cualquier vacía; (c) si no hay jugada útil, refrescar
+  // pool / activar baldosa / rotar cola (en ese orden, ahorrando usos).
+  const empty = playable.filter((i) => board[i].stack.length === 0);
   const pinned = new Set(targetByOrder.values());
-  let t;
-  if (forOrder) {
-    t = targetByOrder.get(o.id);
-    if (t === undefined || !playable.includes(t)) {
-      t = playable.find((i) => !pinned.has(i) && board[i].stack.length === 0)
-        ?? playable.find((i) => !pinned.has(i) && topGroup(board[i].stack).color === o.color)
-        ?? playable.find((i) => !pinned.has(i))
-        ?? playable[0];
-      targetByOrder.set(o.id, t);
+  const adjTop = (i, color) => {
+    const ci = board[i];
+    return playable.some((j) => {
+      const c = board[j];
+      if (!c.stack || !c.stack.length || c.stack[c.stack.length - 1] !== color) return false;
+      return HEX_ADJ.some(([dq, dr]) => c.q + dq === ci.q && c.r + dr === ci.r);
+    });
+  };
+  const poolColors = [...new Set(state.run.pool.flat())];
+  const t = growth
+    // (growth) cualquier vacía — colocación cuenta para el roster sin más
+    ? empty.find((i) => !pinned.has(i))
+    // (a) crecer racha del color del pedido (o de cualquier color del pool)
+    : ((o && empty.find((i) => !pinned.has(i) && adjTop(i, o.color)))
+    ?? empty.find((i) => !pinned.has(i) && poolColors.some((c) => adjTop(i, c)))
+    // (b) sembrar el color del pedido
+    ?? (o && state.run.pool[slot][0] === o.color ? empty.find((i) => !pinned.has(i)) : undefined));
+  if (t === undefined) {
+    // (c) sin jugada útil: activar espacio (growth primero) → refresh → nada
+    const dt = state.run.board.findIndex(c => c.dormant && !c.blocked);
+    const skt = state.skills.tables;
+    if (dt >= 0 && skt && skt.owned && skt.uses > 0) {
+      const ra = activateTile(state, dt, rng(seed * 7 + n));
+      if (!ra.error) { state = ra; return true; }
     }
-  } else {
-    t = playable.find((i) => !pinned.has(i) && board[i].stack.length === 0)
-      ?? playable.find((i) => !pinned.has(i) && topGroup(board[i].stack).color !== stashColor)
-      ?? playable.find((i) => !pinned.has(i))
-      ?? playable[0];
+    const sk = state.skills.refreshPool;
+    if (sk && sk.owned && sk.uses > 0) {
+      const rr = useRefreshPool(state, rng(seed * 31 + n));
+      if (!rr.error) { state = rr; return true; }
+    }
+    if (!growth && o && o.color > state.progress.colorsOwned) {
+      // sin espacio y sin usos: si faltaba comprar el color del pedido, comprarlo
+      const rc = buyColor(state);
+      if (!rc.error) { state = unwrap(rc); return true; }
+    }
+    return 'full';  // v2.2: tablero sin jugadas y sin válvulas → cierre legítimo
   }
+  if (o && state.run.pool[slot][0] === o.color) targetByOrder.set(o.id, t);
   const res = placeStack(state, t, slot, rng(seed + n)); // firma v2
   if (res.error) return false;
   state = resolveCascade(unwrap(res)).state;
@@ -113,6 +137,26 @@ function step(seed, n) {
 }
 
 function play(seed) {
+  // v2.2 R14.4/R17.2: el jugador hábil invierte ANTES de abrir (openRun repone
+  // uses = base + usesBought): skills nivel 1 + capacidad permanente de válvulas
+  // (+4 mesas/partida, +3 refresh, +3 skips) para no quedarse hard-stuck.
+  // RETORNA 'victory' | 'full' — el final 'full' (tablero lleno sin jugadas) es
+  // un cierre LEGÍTIMO con la regla v2.2 (pool de 3 vs 7 celdas: puede no haber
+  // jugada útil y no quedar válvulas; R2.3 lo contempla).
+  if (!state.skills.tables.owned) {
+    const rt = buyTablesUp(state); if (!rt.error) state = rt;
+  }
+  if (!state.skills.refreshPool.owned) {
+    const r1 = buySkill(state, 'refreshPool'); if (!r1.error) state = r1;
+  }
+  if (!state.skills.queueSkip.owned) {
+    const r2 = buySkill(state, 'queueSkip'); if (!r2.error) state = r2;
+  }
+  if (state.progress.totalGames === 0) {
+    for (let k = 0; k < 4; k++) { const r = buyTablesUp(state); if (r.error) break; state = r; }
+    for (let k = 0; k < 3; k++) { const r = buyUsesUp(state, 'refreshPool'); if (r.error) break; state = r; }
+    for (let k = 0; k < 3; k++) { const r = buyUsesUp(state, 'queueSkip'); if (r.error) break; state = r; }
+  }
   state = floatOrders(openRun(state, rng(seed)));
   targetByOrder.clear();
   const startRoster = state.run.rosterIndex;
@@ -131,26 +175,48 @@ function play(seed) {
 
   // Fase 1 — crecimiento: colocar pilas hasta que el roster llegue a su techo
   // rosterMax (R13.5: avanza cada UNLOCK_PLACED_PILES=3 pilas hasta la fórmula).
+  // v2.2: basta COLOCAR en vacía (growth); si no hay espacio ni usos → 'full'.
+  let endedFull = false;
   let guard = 0;
   while (state.run.rosterIndex < cap && guard++ < 5000) {
-    assert.ok(step(seed, guard), 'fase crecimiento: siempre debe poder colocar');
+    const gr = step(seed, guard, true);
+    if (gr === 'full') { endedFull = true; break; }
+    assert.ok(gr, 'fase crecimiento: debe poder colocar/activar/refrescar');
+  }
+  if (endedFull) {
+    state = closeRun(state, 'full');
+    assert.equal(state.metaClose.victory, false, 'R2.6: full NO es victoria');
+    console.log(`  => fase 1 sin espacio (cierre 'full' legítimo v2.2, roster ${state.run ? state.progress.colorsOwned : startRoster})`);
+    return 'full';
   }
   assert.equal(state.run.rosterIndex, cap, 'R13.5: el roster debe llegar a su techo (fórmula rosterMax)');
 
-  // Fase 2 — cierre: servir a TODOS los clientes de la cola (victoria R16.4:
-  // clientsServed === TOTAL). Los visibles se auto-sirven en resolveCascade;
-  // si el jugador se atasca, useQueueSkip (R17.1) rota los 3 visibles.
+  // Fase 2 — cierre: servir a TODOS los clientes de la cola (victoria R16.4)
+  // o quedarse sin jugadas → cierre 'full' LEGÍTIMO (v2.2 R2.3: tablero lleno).
   let lastServed = -1, stuck = 0, skips = 0;
   guard = 0;
   while (state.run.clientsServed < TOTAL && guard++ < 20000) {
-    if (!step(seed, guard)) {
+    const sr = step(seed, guard);
+    if (sr === 'full') { endedFull = true; break; }
+    if (!sr) {
       // sin colocación posible: rotar la cola si quedan usos de queueSkip
       if (state.skills.queueSkip && state.skills.queueSkip.owned && state.skills.queueSkip.uses > 0) {
         const r = useQueueSkip(state);
         if (!r.error) { state = r; skips++; stuck = 0; continue; }
       }
-      assert.fail('fase cierre: step no pudo colocar ni rotar la cola');
-    }
+      // v2.2 diagnóstico: dump del estado real en el atasco
+      console.error('STUCK DUMP:', JSON.stringify({
+        served: state.run.clientsServed, drawn: state.run.clientsDrawn,
+        emptyPlayable: state.run.board.filter(c => !c.dormant && !c.blocked && !(c.stack && c.stack.length)).length,
+        dormantFree: state.run.board.filter(c => c.dormant && !c.blocked).length,
+        tables: state.skills.tables,
+        refresh: state.skills.refreshPool,
+        queue: state.skills.queueSkip,
+        queueBack: (state.run.queueBack || []).length,
+        pool: state.run.pool.map(p => p.length),
+        visibles: state.run.activeClients.map(o => ({ c: o.color, q: o.qty })),
+      }));
+      assert.fail('fase cierre: step no pudo colocar ni rotar la cola'); }
     if (state.run.clientsServed === lastServed) {
       if (++stuck > 300) {
         // atasco: rotar la cola (R17.1) para traer clientes servibles
@@ -163,6 +229,16 @@ function play(seed) {
     } else { stuck = 0; lastServed = state.run.clientsServed; }
   }
   const served = state.run.clientsServed;
+  if (endedFull) {
+    // v2.2: final 'full' legítimo — el jugador se quedó sin jugadas (R2.3).
+    // Se cierra SIN victoria, conservando las monedas. El e2e exige que al
+    // menos 1 de los 8 shifts alcance la victoria real (checker abajo).
+    state = closeRun(state, 'full');
+    assert.equal(state.metaClose.reason, 'full');
+    assert.equal(state.metaClose.victory, false, 'R2.6: full NO es victoria');
+    console.log(`  => served ${served}/${TOTAL} (tablero sin jugadas — cierre 'full' legítimo v2.2)`);
+    return 'full';
+  }
   assert.equal(served, TOTAL, 'R16.4: victoria = clientsServed === TOTAL (todos los clientes servidos)');
   assert.equal(state.run.clientsDrawn, TOTAL, 'R16.3: la cola se agota exacta (clientsDrawn===TOTAL)');
   assert.equal(state.run.queueBack.length, 0, 'R17.1: sin devueltos pendientes al cerrar');
@@ -175,11 +251,15 @@ function play(seed) {
   assert.equal(state.metaClose.served, TOTAL, 'R16.4: metaClose.served === clientsServed');
   assert.equal(state.metaClose.total, TOTAL, 'R16.4: metaClose.total === TOTAL efectivo');
   console.log(`  => served ${served}/${TOTAL} · roster ${startRoster}->${cap} · queueSkips ${skips} · coins=${Math.round(state.progress.coins)} ✅ VICTORY`);
+  return 'victory';
 }
 
+let victories = 0;
 for (let i = 0; i < 8; i++) {
-  play(42 + i * 7);
+  if (play(42 + i * 7) === 'victory') victories++;
 }
+console.log(`\nSHIFTS: ${victories}/8 victorias (${8 - victories} cierres 'full' legítimos)`);
+assert.ok(victories >= 1, 'v2.2 e2e: al menos 1 de 8 shifts debe alcanzar la victoria real');
 console.log(`\nFINAL coins=${Math.round(state.progress.coins)} games=${state.progress.totalGames} level=${state.progress.cafeLevel} colorsOwned=${state.progress.colorsOwned}`);
 const json = serializeState(state);
 const identical = JSON.stringify(deserializeState(json)) === JSON.stringify(state);

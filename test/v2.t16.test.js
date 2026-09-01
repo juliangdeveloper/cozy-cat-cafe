@@ -20,7 +20,10 @@ const unwind = (ret, s) => (ret && ret.state) ? ret.state : (ret || s);
 // run fresca con recursos para activar muchas baldosas
 const mkGame = (seed = 1) => {
   const s = G.createGame({ progress: { coins: 1000000, permTiles: 30 } });
-  return unwind(G.openRun(s, rng(seed)), s);
+  const run = unwind(G.openRun(s, rng(seed)), s);
+  // v2.2 R14.3: activateTile es modelo USOS de skills.tables — inyectar usos
+  run.skills.tables = { owned: true, uses: 99, usesBought: 0 };
+  return run;
 };
 const playableIdx = (s) => s.run.board
   .map((c, i) => ({ c, i })).filter((x) => !x.c.dormant && !x.c.blocked).map((x) => x.i);
@@ -134,9 +137,10 @@ test('T16d [R8.4] celda blocked: placeStack {error}, activateTile no la activa, 
 });
 
 // ---------------------------------------------------------------------------
-// T16e — pila pre-colocada: colocable ENCIMA (placeStack sin error) [R8.3, R3.4]
+// T16e — pila pre-colocada: v2.2 placeStack SOLO en espacios VACÍOS => la
+// pre-pila de calamidad NO acepta pilas del pool ({error:'occupied'}).
 // ---------------------------------------------------------------------------
-test('T16e [R8.3,R3.4] celda con pila pre-colocada acepta placeStack encima', () => {
+test('T16e [R8.3,R3.5 v2.2] celda con pila pre-colocada NO acepta placeStack (occupied)', () => {
   need('placeStack'); need('activateTile');
   let done = false;
   for (let seed = 1; seed <= 20 && !done; seed++) {
@@ -144,13 +148,12 @@ test('T16e [R8.3,R3.4] celda con pila pre-colocada acepta placeStack encima', ()
     if (!s.run || !s.run.calamitiesApplied) continue;
     const i = s.run.board.findIndex(c => c.calamityStack && !c.blocked);
     if (i < 0) continue;
-    const before = s.run.board[i].stack.length;
-    assert.ok(before >= 1, 'RED: la pila pre-colocada debe tener >=1 ficha');
-    const res = G.placeStack(s, i);                    // pila del pool (slot auto)
-    assert.ok(!res.error, `RED: placeStack sobre pre-pila debe funcionar, dio ${JSON.stringify(res.error)}`);
-    const after = res.run.board[i].stack.length;
-    assert.ok(after > before, 'RED: la pila debe crecer al colocar encima');
-    assert.equal(res.run.poolPlaced, s.run.poolPlaced + 1, 'RED: colocado cuenta como pila puesta');
+    assert.ok(s.run.board[i].stack.length >= 1, 'RED: la pila pre-colocada debe tener >=1 ficha');
+    const snap = JSON.stringify(s);
+    const res = G.placeStack(s, i);                    // v2.2: pilas solo en VACÍAS
+    assert.ok(res && res.error === 'occupied',
+      `RED: placeStack sobre pre-pila debe dar {error:"occupied"}, dio ${JSON.stringify(res && res.error)}`);
+    assert.equal(JSON.stringify(s), snap, 'RED: occupied no debe mutar el estado');
     done = true;
   }
   assert.ok(done, 'RED: ninguna semilla produjo celda pre-pila colocable');
