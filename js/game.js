@@ -163,10 +163,12 @@ export function createGame(init = {}) {
       // no se usa; precio = CAP_PRICE_BASE * CAP_RATIO^level).
       capacidad: { owned: false, level: 0, price: 120, unlockLevel: 1 },
     },
+    // v2.1: el café arranca VACÍO — todo el idle se compra en la tienda (R9.4):
+    // level 0 => ratePerSec 0 (sin income) hasta comprar la 1ª mejora.
     idle: {
-      workers:  { level: 1, ratePerSec: CONFIG.IDLE_RATE.workers,  cap: CONFIG.IDLE_CAP.workers },
-      fame:     { level: 1, ratePerSec: CONFIG.IDLE_RATE.fame,     cap: CONFIG.IDLE_CAP.fame },
-      machines: { level: 1, ratePerSec: CONFIG.IDLE_RATE.machines, cap: CONFIG.IDLE_CAP.machines },
+      workers:  { level: 0, ratePerSec: 0, cap: 0 },
+      fame:     { level: 0, ratePerSec: 0, cap: 0 },
+      machines: { level: 0, ratePerSec: 0, cap: 0 },
     },
     run: null,
     metaClose: null,
@@ -1122,7 +1124,7 @@ export function buyIdleUpgrade(state, system) {
   const s = clone(state);
   const cur = s.idle[system];
   if (!cur) return { error: 'noSystem' };
-  const price = CONFIG.IDLE_PRICE * cur.level * cur.level;              // R9.4
+  const price = CONFIG.IDLE_PRICE * (cur.level + 1) * (cur.level + 1);  // R9.4 v2.1: level 0 => 1ª compra 50
   if (s.progress.coins < price) return { error: 'noFunds' };
   s.progress.coins -= price;
   const lvl = cur.level + 1;
