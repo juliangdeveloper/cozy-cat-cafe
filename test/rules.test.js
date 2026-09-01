@@ -495,8 +495,17 @@ test('T7.4 pre-pila de calamidad NO acepta pilas del pool (occupied) — v2.2', 
 // ---------------------------------------------------------------------------
 // T8 — idle / offline
 // ---------------------------------------------------------------------------
-test('T8.1 3 sistemas suman online', () => {
-  let s = baseRun(); s.progress.coins = 0;
+test('T8.1 v2.1 idle comprado suma online (café arranca vacío: 0 income sin mejoras)', () => {
+  // v2.1: createGame arranca con idle level 0 (sin income); tras comprar las 3
+  // mejoras (level 1) la suma es 0.5+0.3+0.8 = 1.6/s (R9.1).
+  let s = createGame({ progress: { coins: 1000 } });
+  const before = s.progress.coins;
+  s = tickIdle(s, 10);
+  assert.ok(Math.abs(s.progress.coins - before) < 1e-6, 'sin mejoras el income es 0');
+  s = buyIdleUpgrade(s, 'workers');
+  s = buyIdleUpgrade(s, 'fame');
+  s = buyIdleUpgrade(s, 'machines');
+  s.progress.coins = 0;
   s = tickIdle(s, 10);
   // rates default 0.5/0.3/0.8 = 1.6/s -> 16 coins in 10s
   assert.ok(Math.abs(s.progress.coins - 16) < 1e-6);
@@ -515,12 +524,16 @@ test('T8.2 offline con tope por sistema', () => {
   assert.equal(s.meta.offlineReport.workers, 60);
   assert.ok(s.progress.coins > 0);
 });
-test('T8.3 via 1 nivel: rate/cap suben', () => {
-  let s = richState();
+test('T8.3 v2.1 comprar 1er nivel: rate/cap suben (desde level 0, precio 50*(lv+1)^2)', () => {
+  let s = createGame({ progress: { coins: 100000 } });   // idle level 0 (café vacío)
   s = buyIdleUpgrade(s, 'machines');
-  assert.equal(s.idle.machines.level, 2);
-  assert.equal(s.idle.machines.ratePerSec, 1.6);
-  assert.equal(s.idle.machines.cap, 80);
+  assert.equal(s.idle.machines.level, 1);
+  assert.equal(s.idle.machines.ratePerSec, CONFIG.IDLE_RATE.machines);
+  assert.equal(s.idle.machines.cap, CONFIG.IDLE_CAP.machines);
+  // y la 2ª compra sale más cara (50*4=200 con la nueva curva)
+  const before = s.progress.coins;
+  s = buyIdleUpgrade(s, 'machines');
+  assert.equal(s.progress.coins, before - CONFIG.IDLE_PRICE * 2 * 2);
 });
 
 // ---------------------------------------------------------------------------

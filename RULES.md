@@ -212,7 +212,7 @@ export { createGame, CONFIG,
 - `R9.1` — **Los 3 sistemas generan pasivo a la vez** (suman): workers + fame + machines. → US-33.
 - `R9.2` — **Online** (`tickIdle`): acumula continuamente por `dt` según tasa de cada nivel, sin tope. → US-30/31/32.
 - `R9.3` — **Offline con tope:** al volver, `gained = min(rate*dt, cap(level))` POR sistema. Un solo sistema saturado no frena a los otros. Se muestra modal "While you were away" con `offlineReport` y Collect. → US-34; §8.4 STYLE.
-- `R9.4` — **Subir mejora sube tasa Y tope:** `buyIdleUpgrade(system)` gana `level+=1` (costo `IDLE_PRICE`), subiendo `ratePerSec` y `cap`. → US-35.
+- `R9.4` — **Subir mejora sube tasa Y tope (v2.1):** `buyIdleUpgrade(system)` gana `level+=1` (costo `IDLE_PRICE × (level+1)²` — 1ª compra 50 con level 0), subiendo `ratePerSec` y `cap`. **El café arranca VACÍO** (v2.1: idle level 0, income 0) — todo el decor/idle se compra en la tienda. → US-35.
 - `R9.5` — **Reflejo gráfico por sistema** (gato con babero / platito de propinas / máquina con vapor) es responsabilidad del render; la lógica solo expone niveles/tasas. → US-36 (lógica mínima: que `idle.*.level` sea visible al render).
 
 ### R10. Progresión de colores
@@ -332,9 +332,9 @@ const pay = (q, m=0) => Math.round(5 * q ** (1.25 + 0.05*m));
 - `T7.4` — **celda de calamidad con pila NO bloqueada pero pre-ocupada:** GIVEN calamityStack cell; THEN `stack.length≥1`, `blocked===false`, y `placeStack` aún posible sobre ella (apila encima). [R8.3, R3.4]
 
 ### T8. Idle / offline
-- `T8.1` — **3 sistemas suman online:** GIVEN niveles 1/1/1, dt=10s; WHEN `tickIdle`; THEN `coins += (0.5+0.3+0.8)*10 = 16`. [R9.1, R9.2]
+- `T8.1` — **v2.1 café vacío + 3 sistemas comprados suman online:** GIVEN idle 0/0/0; `tickIdle` → income 0. Tras comprar las 3 mejoras (niveles 1/1/1) y dt=10s: `coins += (0.5+0.3+0.8)*10 = 16`. [R9.1, R9.2, R9.4]
 - `T8.2` — **offline con tope POR sistema:** GIVEN `lastSeenAt = now-100s`; niveles 1/1/1 (caps 60/100/40); THEN gains = `min(0.5*100,60)=50` + `min(0.3*100,100)=30` + `min(0.8*100,40)=40` ⇒ `coins += 120` y `offlineReport.machines===40` (saturado). [R9.3]
-- `T8.3` — **subir mejora sube tasa Y tope:** GIVEN `buyIdleUpgrade('machines')` → nivel 2; THEN `ratePerSec=1.6`, `cap=80`; offline 100s → 80 (>40). [R9.4]
+- `T8.3` — **v2.1 subir mejora sube tasa Y tope desde level 0:** GIVEN idle machines level 0; `buyIdleUpgrade` → nivel 1 (`ratePerSec=0.8`, `cap=40`); 2ª compra cuesta `50×2²=200`. [R9.4]
 - `T8.4` — **un tope no frena a los demás:** GIVEN machines saturado a 40; THEN workers/fame siguen dando su min() hasta su propio tope (50/30 en T8.2). [R9.3]
 
 ### T9. Progresión de colores

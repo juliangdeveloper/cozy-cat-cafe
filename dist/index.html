@@ -65,6 +65,7 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .scene{display:none}.scene.active{display:block}
 .idledecor{display:flex;gap:10px;align-items:flex-end;padding:6px;margin:8px 0;
   background:rgba(182,148,124,.3);border-radius:12px;border:2px dashed var(--wood-dark);flex-wrap:wrap}
+.idleempty{width:100%;text-align:center;font-size:12px;font-weight:700;color:var(--ink-soft);padding:4px 0}
 .dit{display:flex;flex-direction:column;align-items:center;gap:2px}
 .dit .dl{font-size:10px;font-weight:700;color:var(--ink-soft)}
 .dit img,.dit .o{width:44px;height:44px;object-fit:contain}
@@ -135,16 +136,18 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
    formula: tile i gets --lift:-i*step) — same clip-path as .hexbg so a single
    tile covers its hex exactly. */
 .stack{position:absolute;inset:0;z-index:2;pointer-events:none}
-.tile{position:absolute;left:50%;top:50%;translate:-50% calc(-50% + var(--lift,0px));width:var(--cw);height:var(--ch);
-  display:flex;align-items:center;justify-content:center;
-  /* true hexagon border via nested clip-path: the outer layer paints the
-     darker RIM color; the inner ::before hex (inset 2px, same polygon)
-     paints the fill --tc, leaving a perfect 6-sided rim. A box-shadow inset
-     would paint a rectangular frame that clip-path only trims at corners.
-     --tc is the tile color, set inline on each tile (see cellHTML). */
+/* v2.1 — ficha 3D por BISEL (opción 2): .tile NO se clipea; dos capas:
+   ::before = costado/extrusión (hex oscuro desplazado hacia abajo) y
+   <i class=tface> = cara superior (rim oscuro + fill --tc via su ::before).
+   Todas las fichas llevan el mismo bisel → el top deja de verse "plano". */
+.tile{position:absolute;left:50%;top:50%;translate:-50% calc(-50% + var(--lift,0px));width:var(--cw);height:var(--ch)}
+.tile::before{content:"";position:absolute;inset:0;background:color-mix(in srgb,var(--tc),#000 48%);
   clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
-  background:color-mix(in srgb,var(--tc),#000 30%)}
-.tile::before{content:"";position:absolute;inset:2px;background:var(--tc);
+  transform:translateY(calc(var(--hx)*0.1))}
+.tface{position:absolute;inset:0;display:block;transform:translateY(calc(var(--hx)*-0.015));
+  background:color-mix(in srgb,var(--tc),#000 30%);
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+.tface::before{content:"";position:absolute;inset:2px;background:var(--tc);
   clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
 /* top:-16px clears the topmost tile of a full 3-tile stack now that tiles are
    centered on the hex (the lifted top tile pokes above the hex top) */
@@ -208,12 +211,12 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .poolslot.selected{background:var(--highlight);border:2px solid var(--accent)}
 .poolslot.drop{border:2px dashed var(--wood-dark)}
 .tray{position:relative;width:46px;height:100%} /* tiles are absolute, stacked from the bottom like the board */
-.ttile{position:absolute;left:50%;bottom:0;translate:-50% 0;width:46px;height:40px;display:flex;align-items:center;justify-content:center;
-  /* true hexagon border via nested clip-path (rim outside, fill inside) */
+/* v2.1 — ttile 3D por bisel (misma técnica que .tile) */
+.ttile{position:absolute;left:50%;bottom:0;translate:-50% 0;width:46px;height:40px}
+.ttile::before{content:"";position:absolute;inset:0;background:color-mix(in srgb,var(--tc),#000 48%);
   clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
-  background:color-mix(in srgb,var(--tc),#000 30%)}
-.ttile::before{content:"";position:absolute;inset:2px;background:var(--tc);
-  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+  transform:translateY(2.5px)}
+.ttile .tface{transform:translateY(-0.4px)}
 .poolempty{font-size:10px;color:var(--wood-dark);font-weight:700;text-align:center;width:100%;align-self:flex-end;padding-bottom:6px}
 
 /* powers */
@@ -253,6 +256,9 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .ownedbadge{display:inline-block;background:var(--success);color:var(--ink);font-weight:800;border-radius:10px;padding:3px 10px}
 .bonus{display:inline-block;background:var(--danger);color:#fff8ec;font-weight:800;border-radius:10px;padding:3px 10px;
   font-family:var(--font-display)}
+/* v2.1 — tienda única: encabezados de sección (activas / pasivas) */
+.shopsec{font-family:var(--font-display);font-weight:800;font-size:13px;color:var(--ink-soft);
+  letter-spacing:.5px;text-transform:uppercase;margin:12px 0 6px;border-bottom:2px solid var(--wood);padding-bottom:3px}
 .offreps{display:flex;flex-direction:column;gap:5px;font-size:14px;font-weight:700;margin:10px 0}
 .offreps div{display:flex;justify-content:space-between}
 
@@ -363,7 +369,7 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   </div>
 </div></div>
 
-<div id="skillsModal" class="overlay"><div class="modal">
+<div id="skillsModal" class="overlay" style="display:none"><div class="modal" style="display:none">
   <span class="x" data-close="skillsModal">✕</span>
   <h3>🌿 Café Skills</h3>
   <div style="text-align:center;font-size:12px;color:var(--ink-soft);font-weight:700;margin-bottom:8px">
@@ -560,10 +566,12 @@ function createGame(init = {}) {
       // no se usa; precio = CAP_PRICE_BASE * CAP_RATIO^level).
       capacidad: { owned: false, level: 0, price: 120, unlockLevel: 1 },
     },
+    // v2.1: el café arranca VACÍO — todo el idle se compra en la tienda (R9.4):
+    // level 0 => ratePerSec 0 (sin income) hasta comprar la 1ª mejora.
     idle: {
-      workers:  { level: 1, ratePerSec: CONFIG.IDLE_RATE.workers,  cap: CONFIG.IDLE_CAP.workers },
-      fame:     { level: 1, ratePerSec: CONFIG.IDLE_RATE.fame,     cap: CONFIG.IDLE_CAP.fame },
-      machines: { level: 1, ratePerSec: CONFIG.IDLE_RATE.machines, cap: CONFIG.IDLE_CAP.machines },
+      workers:  { level: 0, ratePerSec: 0, cap: 0 },
+      fame:     { level: 0, ratePerSec: 0, cap: 0 },
+      machines: { level: 0, ratePerSec: 0, cap: 0 },
     },
     run: null,
     metaClose: null,
@@ -1519,7 +1527,7 @@ function buyIdleUpgrade(state, system) {
   const s = clone(state);
   const cur = s.idle[system];
   if (!cur) return { error: 'noSystem' };
-  const price = CONFIG.IDLE_PRICE * cur.level * cur.level;              // R9.4
+  const price = CONFIG.IDLE_PRICE * (cur.level + 1) * (cur.level + 1);  // R9.4 v2.1: level 0 => 1ª compra 50
   if (s.progress.coins < price) return { error: 'noFunds' };
   s.progress.coins -= price;
   const lvl = cur.level + 1;
@@ -1740,13 +1748,11 @@ function renderMenu(){
       <div class="stats">Cafés closed: <b>${p.totalGames}</b> · LV <b>${p.cafeLevel}</b> · 🪙 <b>${fmt(p.coins)}</b></div>
       <div style="text-align:center;font-size:11px;color:var(--ink-soft);font-weight:700">☕ Cozy Cat Café ${GAME_VERSION}</div>
       <div style="display:flex;gap:10px">
-        <button class="btn btn-sec" id="btnSkills">🌿 Skills</button>
         <button class="btn btn-sec" id="btnShop">🛒 Shop</button>
         <button class="btn btn-sec" id="btnSave">💾 Save</button>
       </div>
     </div>`;
   $('#btnOpen').onclick = openTheCafe;
-  $('#btnSkills').onclick = showSkills;
   $('#btnShop').onclick = showShop;
   $('#btnSave').onclick = showSave;
 }
@@ -1763,7 +1769,6 @@ function renderRun(){
         <div class="chip sm" id="unlockChip" title="Stacks placed until the next creature (R13.4)">🐾<span id="unlockNum">${(state.run.placedCounter||0)}/${CONFIG.UNLOCK_PLACED_PILES}</span></div>
         <div class="chip sm" id="idleChip" title="Idle income">✨<span id="idleAmt">0</span></div>
         <div class="spacer"></div>
-        <button class="iconbtn" id="btnSkills">🌿</button>
         <button class="iconbtn" id="btnShop">🛒</button>
         <button class="iconbtn" id="btnSave">💾</button>
       </div>
@@ -1775,7 +1780,7 @@ function renderRun(){
       <div class="powerbar" id="powerbar"></div>
       <button class="btn btn-sec" id="btnClose" style="width:100%">🚪 Close café (keep coins)</button>
     </div>`;
-  $('#btnSkills').onclick=showSkills; $('#btnShop').onclick=showShop; $('#btnSave').onclick=showSave;
+  $('#btnShop').onclick=showShop; $('#btnSave').onclick=showSave;
   $('#btnClose').onclick=()=>doClose('manual');
   renderIdle(); renderOrders(); renderBoard(); renderPool(); renderPreview(); renderPowers();
 }
@@ -1784,6 +1789,11 @@ function renderIdle(){
   const wrap=document.getElementById('idleWrap'); if(wrap) wrap.open = window.innerWidth>560;
   const box=$('#idleDecor'); if(!box) return;
   const w=Math.min(state.idle.workers.level,3), f=Math.min(state.idle.fame.level,2), m=Math.min(state.idle.machines.level,2);
+  // v2.1: el café arranca VACÍO — todo el decor/idle se compra en la tienda
+  if(!w&&!f&&!m){
+    box.innerHTML='<div class="idleempty">Empty café — buy staff, fame &amp; machines in the Shop 🛒</div>';
+    return;
+  }
   let h='';
   for(let i=1;i<=w;i++) h+=`<div class="dit">${spr('cat_worker',44)}<span class="dl">worker ${i}</span></div>`;
   h+=`<div class="dit">${spr('idle_tips_plate',40)}<span class="dl">tips</span></div>`;
@@ -1874,7 +1884,7 @@ function cellHTML(cell, idx){
     // v2.0: SIN punto decorativo sobre la ficha (se elimina .dot).
       const step=stackStep();
       stack='<div class="stack">'+cell.stack.map((c,ci)=>
-        `<div class="tile" style="--lift:${-ci*step}px;--tc:var(${tileVar(c)})"></div>`).join('')+
+        `<div class="tile" style="--lift:${-ci*step}px;--tc:var(${tileVar(c)})"><i class="tface"></i></div>`).join('')+
       (cell.stack.length>1?`<span class="badge">${cell.stack.length}</span>`:'')+'</div>';
   }
   return `<div class="${cls}" data-id="${idx}"${tip?` title="${tip}"`:''}><div class="hexbg"></div>${stack}
@@ -1962,7 +1972,7 @@ function renderPool(){
   // (data-slot === posición); al colocar una, las demás NO se corren.
   box.innerHTML = r.pool.map((pile,i)=>{
     let inner = pile&&pile.length ? '<div class="tray">'+pile.map((c,ci)=>
-      `<div class="ttile" style="bottom:${ci*step}px;--tc:var(${tileVar(c)})"></div>`).join('')+'</div>'
+      `<div class="ttile" style="bottom:${ci*step}px;--tc:var(${tileVar(c)})"><i class="tface"></i></div>`).join('')+'</div>'
       : '<div class="poolempty">empty</div>';
     return `<div class="poolslot ${ui.slot===i?'selected':''} ${(!pile||!pile.length)?'drop':''}" data-slot="${i}">${inner}</div>`;
   }).join('');
@@ -2033,7 +2043,7 @@ function renderPowers(){
       if(r.error){ err(r); } else { state=r; toast('Clients sent to the back of the queue 📨'); renderAll(); }
       return;
     }
-    if(!state.skills[skill].owned){ showSkills(); toast('Buy this power first (🌿)'); return; }
+    if(!state.skills[skill].owned){ showShop(); toast('Buy this power in the Shop (🛒)'); return; }
     if(mode==='refresh'){ refreshFlow(); return; }
     ui.mode = ui.mode===mode?null:mode; ui.swapFirst=null;
     $('#hint').textContent = ui.mode==='swap'?'Tap first tile to swap.':(ui.mode==='destroy'?'Tap a tile to destroy its stack.':'');
@@ -2310,68 +2320,16 @@ function doClose(reason){ const res=closeRun(state, reason); state=res; persist(
 // ============================================================================
 // MODALS
 // ============================================================================
-function showSkills(){
-  $('#curLv').textContent = state.progress.cafeLevel;
-  const lvl = state.progress.cafeLevel;
-  // icono: sprite del registry o placeholder (emoji para los nuevos v2.1)
-  const ico = id => SPR.byId[id] ? spr(id,38)
-    : `<div style="width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:24px">${id}</div>`;
-  // v2.1 R17.1/R17.2: skills de USES (usos/partida + mejora "+1 uso")
-  const defs=[
-    ['refreshPool','power_refresh','Refresh pool','Draw 3 new stacks'],
-    ['swapPiles','power_swap','Swap piles','Exchange two stacks'],
-    ['destroyPile','power_destroy','Destroy pile','Clear one stack'],
-    ['queueSkip','📨','Send to back',`sends the 3 visible to the back · ${CONFIG.USES_PER_RUN.queueSkip}+usesBought uses`],
-  ];
-  let h = defs.map(d=>{
-    const s=state.skills[d[0]]; const usesModel = !!CONFIG.USES_PER_RUN[d[0]];
-    const locked = lvl < s.unlockLevel && !s.owned;
-    const main = s.owned
-      ? `<span class="ownedbadge">owned${usesModel?` · ${s.uses} uses/run`:''}</span>`
-      : `<button class="btn btn-sm ${locked?'locked':''}" data-buy="${d[0]}" ${locked?'disabled':''}>${fmt(s.price)}🪙</button>`;
-    // R17.2: fila secundaria "+1 uso esta partida" (solo modelo USES ya owned)
-    let up='';
-    if(usesModel && s.owned){
-      const p = usesUpPrice(state,d[0]);
-      up = `<div class="skillrow" style="border-top:1px dashed var(--wood);margin-top:-2px">
-        <div style="width:38px"></div>
-        <div style="flex:1"><div class="sprop">+1 use this run (${s.uses} → ${s.uses+1})</div></div>
-        <button class="btn btn-sm" data-up="${d[0]}">${fmt(Math.round(p))}🪙</button></div>`;
-    }
-    return `<div class="skillrow">${ico(d[1])}
-      <div style="flex:1"><div class="sname">${d[2]}</div><div class="sprop">LV ${s.unlockLevel}+ · ${d[3]}</div></div>
-      ${main}</div>${up}`;
-  }).join('');
-  // v2.1 R17.3 — capacidad: modelo LEVELS (level 0..80; cola = MIN_CLIENTS+level)
-  const cap=state.skills.capacidad, capLv=cap.level||0,
-        capMax=CONFIG.MAX_CLIENTS-CONFIG.MIN_CLIENTS,
-        capPrice=Math.round(CONFIG.CAP_PRICE_BASE*Math.pow(CONFIG.CAP_RATIO,capLv)),
-        capLocked=lvl<cap.unlockLevel;
-  h += `<div class="skillrow">${ico('🧑‍🍽️')}
-    <div style="flex:1"><div class="sname">Capacity +1 client</div>
-      <div class="sprop">LV ${cap.unlockLevel}+ · level ${capLv}/${capMax} · queue = ${totalClients(state)} clients</div></div>
-    ${capLv>=capMax ? `<span class="ownedbadge">MAX ${capLv}/${capMax}</span>`
-      : `<button class="btn btn-sm ${capLocked?'locked':''}" data-buy="capacidad" ${capLocked?'disabled':''}>${fmt(capPrice)}🪙</button>`}
-  </div>`;
-  $('#skillsBox').innerHTML = h;
-  $$('#skillsBox [data-buy]').forEach(b=>b.addEventListener('click',()=>{
-    const res=buySkill(state,b.dataset.buy);
-    if(res.error){ err(res); } else { state=res; persist(); showSkills(); renderAll(); }
-  }));
-  // v2.1 R17.2: "+1 uso esta partida" → buyUsesUp (acumulado usesBought)
-  $$('#skillsBox [data-up]').forEach(b=>b.addEventListener('click',()=>{
-    const res=buyUsesUp(state,b.dataset.up);
-    if(res.error){ err(res); } else { state=res; persist(); showSkills(); renderAll(); }
-  }));
-  $('#skillsModal').classList.add('show');
-}
+function showSave(){ $('#saveModal').classList.add('show'); }
+
 function showShop(){
   const p=state.progress;
   const price = k => Math.round(CONFIG.EXPAND[k].price(state));
   const multC = p.econ.multLevel>=CONFIG.MULT_MAX ? null : CONFIG.MULT_PRICE_BASE*(p.econ.multLevel+1);
-  const idlePrice = k => CONFIG.IDLE_PRICE * state.idle[k].level * state.idle[k].level;
+  // v2.1: 1ª compra (level 0) cuesta 50; después la curva 50*(level+1)^2
+  const idlePrice = k => CONFIG.IDLE_PRICE * (state.idle[k].level + 1) * (state.idle[k].level + 1);
   const idleRow = k => `<div class="rowcard"><div class="rowinfo"><b>${({workers:'Barista team',fame:'Fame & tips',machines:'Auto machines'})[k]}</b>
-      <span>Lv ${state.idle[k].level} · ${state.idle[k].ratePerSec.toFixed(1)} coins/s</span></div>
+      <span>Lv ${state.idle[k].level} · ${(state.idle[k].ratePerSec||0).toFixed(1)} coins/s${state.idle[k].level?'':` · next ${CONFIG.IDLE_RATE[k]} coins/s`}</span></div>
       <button class="btn btn-sm" data-idle="${k}">${fmt(idlePrice(k))}🪙</button></div>`;
   // v2.1 R13.7 — compra del siguiente color: COLOR_PRICE_BASE*(n-3), n=colorsOwned+1.
   // rosterMax = min(colorsOwned+1, MAX_COLORS): comprar sube el techo → los nuevos
@@ -2396,9 +2354,47 @@ function showShop(){
   const tablesRow = `<div class="rowcard"><div class="rowinfo"><b>Tables per run</b>
     <span>${tables.owned ? `${CONFIG.USES_PER_RUN.tables + tables.usesBought} → +1 per run` : 'unlock: activate dormant tiles each run'}</span></div>
     <button class="btn btn-sm" data-tables="1">${fmt(tPrice)}🪙</button></div>`;
+  // v2.1 — TIENDA ÚNICA: skills ACTIVAS + sus "+1 uso" viven aquí (el modal
+  // Skills desaparece; la lógica buySkill/buyUsesUp no cambia — solo UI).
+  const lvl = p.cafeLevel;
+  const actDefs=[
+    ['refreshPool','power_refresh','Refresh pool','Draw 3 new stacks'],
+    ['swapPiles','power_swap','Swap piles','Exchange two stacks'],
+    ['destroyPile','power_destroy','Destroy pile','Clear one stack'],
+    ['queueSkip','📨','Send to back','rotates the 3 visible clients'],
+  ];
+  const actRows = actDefs.map(d=>{
+    const s=state.skills[d[0]]; const usesModel = !!CONFIG.USES_PER_RUN[d[0]];
+    const locked = lvl < s.unlockLevel && !s.owned;
+    const main = s.owned
+      ? `<span class="ownedbadge">owned${usesModel?` · ${s.uses} uses/run`:''}</span>`
+      : `<button class="btn btn-sm ${locked?'locked':''}" data-buy="${d[0]}" ${locked?'disabled':''}>${fmt(s.price)}🪙</button>`;
+    let up='';
+    if(usesModel && s.owned){
+      const up2 = usesUpPrice(state,d[0]);
+      up = `<div class="rowcard" style="border-top:1px dashed var(--wood);margin-top:-2px;border-radius:0 0 12px 12px">
+        <div class="rowinfo"><b style="font-size:13px">+1 use this run</b><span>${s.uses} → ${s.uses+1} uses/run</span></div>
+        <button class="btn btn-sm" data-up="${d[0]}">${fmt(Math.round(up2))}🪙</button></div>`;
+    }
+    return `<div class="rowcard"><div class="rowinfo"><b>${d[2]}</b><span>LV ${s.unlockLevel}+ · ${d[3]}</span></div>${main}</div>${up}`;
+  }).join('');
+  // capacidad (antes en Skills): LEVELS 0..80
+  const cap=state.skills.capacidad, capLv=cap.level||0,
+        capMax=CONFIG.MAX_CLIENTS-CONFIG.MIN_CLIENTS,
+        capPrice=Math.round(CONFIG.CAP_PRICE_BASE*Math.pow(CONFIG.CAP_RATIO,capLv)),
+        capLocked=lvl<cap.unlockLevel;
+  const capRow = `<div class="rowcard"><div class="rowinfo"><b>Capacity +1 client</b>
+      <span>LV ${cap.unlockLevel}+ · level ${capLv}/${capMax} · queue = ${totalClients(state)} clients</span></div>
+    ${capLv>=capMax ? `<span class="ownedbadge">MAX ${capLv}/${capMax}</span>`
+      : `<button class="btn btn-sm ${capLocked?'locked':''}" data-buy="capacidad" ${capLocked?'disabled':''}>${fmt(capPrice)}🪙</button>`}
+  </div>`;
   $('#shopBox').innerHTML = `
-    ${colorRow}
+    <div class="shopsec">⚡ Active upgrades</div>
+    ${actRows}
+    ${capRow}
     ${tablesRow}
+    <div class="shopsec">☕ Passive upgrades</div>
+    ${colorRow}
     <div class="rowcard"><div class="rowinfo"><b>Extra table</b><span>${p.clients} → ${p.clients+1} cats</span></div>
       <button class="btn btn-sm" data-exp="clients">${fmt(price('clients'))}🪙</button></div>
     <!-- v2 fix (audit): filas "Bigger floor" (R6.2 OBSOLETA-v2, flujo muerto en
@@ -2428,6 +2424,15 @@ function showShop(){
     const res=buyColor(state);
     if(res.error){ err(res); } else { state=res; persist(); renderAll(); showShop(); confetti(); }
   }));
+  // v2.1: skills de la tienda única (antes en Skills): buySkill + mejora de usos
+  $$('#shopBox [data-buy]').forEach(b=>b.addEventListener('click',()=>{
+    const res=buySkill(state,b.dataset.buy);
+    if(res.error){ err(res); } else { state=res; persist(); renderAll(); showShop(); }
+  }));
+  $$('#shopBox [data-up]').forEach(b=>b.addEventListener('click',()=>{
+    const res=buyUsesUp(state,b.dataset.up);
+    if(res.error){ err(res); } else { state=res; persist(); renderAll(); showShop(); }
+  }));
   // v2.2 R14.4: comprar '+1 mesa activable por partida' → buyTablesUp
   $$('#shopBox [data-tables]').forEach(b=>b.addEventListener('click',()=>{
     const res = buyTablesUp(state);
@@ -2435,7 +2440,6 @@ function showShop(){
   }));
   $('#shopModal').classList.add('show');
 }
-function showSave(){ $('#saveModal').classList.add('show'); }
 
 // ============================================================================
 // IDLE LOOP + PERSISTENCE + GLOBAL
@@ -2521,9 +2525,9 @@ async function boot(){
   startLoop();
   window.addEventListener('beforeunload',persist);
 }
-// Release stamp — v2.0: pool 1–7 multicolor, merge paso a paso animado (un tirón por eslabón),
-// pool sin reordenar, sin puntos decorativos, reset de partida en Save.
-const GAME_VERSION = 'v2.0';
+// Release stamp — v2.1: café arranca vacío (idle todo comprable), tienda única
+// (activas + pasivas; modal Skills retirado), fichas 3D por bisel.
+const GAME_VERSION = 'v2.1';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks };
