@@ -41,28 +41,25 @@ const unwind = (ret, fallback) =>
 // ---------------------------------------------------------------------------
 // T11 — Merge y cascada [R12]
 // ---------------------------------------------------------------------------
-test('T11a [R12.1 v2.0] merge paso a paso: placeStack siembra, resolveCascade fusiona (D [1,2,2,2], A vacío)', () => {
+test('T11a [R12.1 v3] merge hexasort: grupo contiguo fusiona; fuente conserva sub-pila; target = no-receptor', () => {
   need('createGame'); need('placeStack'); need('resolveCascade');
-  // GIVEN: estado construido a mano (createGame/openRun + mutación directa del board).
-  // A = vecino con stack [2,2]; D = destino con stack [1].
+  // GIVEN: A = vecino con stack [2,2] (torre existente); D = destino con [1].
+  // placeStack pone [2] en D => grupo contiguo {A,D} tope 2. T1 empata (ambas
+  // ramas score 35) y el tie-break cozy prefiere el NO-receptor => target=A:
+  // la ficha colocada es absorbida por la torre; D conserva su sub-pila [1].
   const s = mkGame();
   const A = s.run.board[0], D = s.run.board[1];
   A.stack = [2, 2];
   D.stack = [1];
-  // v2.0: aísla el merge del auto-serve (autoServe=false) — con autoServe ON un
-  // cliente visible legítimamente consumiría el tope fusionado en la cascada.
   s.skills.serveManual.autoServe = false;
   const placed = G.placeStack(s, 1, 0, [2]);
   const src = unwind(placed, s);
-  // v2.0: placeStack SOLO siembra run.mergeSeeds (sin fusionar inline)
-  assert.deepEqual(src.run.mergeSeeds, [1], 'RED: placeStack debe sembrar mergeSeeds=[1]');
-  assert.deepEqual(src.run.board[0].stack, [2, 2], 'RED: placeStack NO debe fusionar (paso a paso v2.0)');
+  assert.deepEqual(src.run.board[1].stack, [1, 2], 'RED: placeStack apila la pila en D sin fusionar');
+  assert.deepEqual(src.run.board[0].stack, [2, 2], 'RED: placeStack NO muta al vecino');
   const res = G.resolveCascade(src);
   const st = unwind(res, src);
-  // THEN: el tope 2 de A se fusiona en D; A cede su racha COMPLETA y queda VACÍO
-  // (v2.2: sin ficha de reserva — reemplaza el contrato viejo "A conserva [2]").
-  assert.deepEqual(st.run.board[1].stack, [1, 2, 2, 2], 'RED: D.stack debe ser [1,2,2,2] tras la cascada');
-  assert.deepEqual(st.run.board[0].stack, [], 'RED: A debe quedar VACÍO tras ceder su racha (R12.1 v2.2)');
+  assert.deepEqual(st.run.board[0].stack, [2, 2, 2], 'RED: A (no-receptor, torre) debe absorber la racha => [2,2,2]');
+  assert.deepEqual(st.run.board[1].stack, [1], 'RED: D (fuente) conserva su sub-pila [1]');
   assert.ok(res.steps >= 1, 'RED: el merge debe ocurrir en cascada (steps>=1)');
 });
 
@@ -154,17 +151,20 @@ test('T12a [R13.1] pedido sin order.cell es servible desde CUALQUIER celda', () 
 
 test('T12b [R15.2] match determinista: elige tope count mas cercano SIN exceder (luego menor disponible)', () => {
   need('createGame'); need('resolveCascade');
-  // caso 1: topes count 3 (celda 0) y 4 (celda 1) => elige el de 3
+  // v3: topes NO adyacentes (celdas 0 y 7, misma fila) para probar el matching
+  // del serve sin que el barrido global de merge los fusione antes.
+  // caso 1: topes count 3 (celda 0) y 4 (celda 7) => elige el de 3
   const s = mkGame();
   s.run.orders.length = 0;
   s.run.orders.push({ id: 'o12b', color: 2, qty: 3, cell: null, served: false });
   s.run.activeClients = [s.run.orders[0]]; // v2.1-clients: solo visibles se sirven [R16.4]
   s.run.board[0].stack = [2, 2, 2];
-  s.run.board[1].stack = [2, 2, 2, 2];
+  s.run.board[7].stack = [2, 2, 2, 2];
   const res = G.resolveCascade(s);
   const st = unwind(res, s);
   assert.ok(st.run.orders.find(o => o.id === 'o12b').served, 'RED: debe auto-servir');
   assert.equal(st.run.board[0].stack.length, 0, 'RED: debe elegir la celda con tope count 3 (cercano sin exceder)');
+  assert.deepEqual(st.run.board[7].stack, [2, 2, 2, 2], 'RED: la celda no elegida queda intacta');
 
   // caso 2: topes 5 y 6, qty 3 => elige el de 5 (menor disponible)
   const s2 = mkGame();
@@ -172,12 +172,12 @@ test('T12b [R15.2] match determinista: elige tope count mas cercano SIN exceder 
   s2.run.orders.push({ id: 'o12b2', color: 2, qty: 3, cell: null, served: false });
   s2.run.activeClients = [s2.run.orders[0]]; // v2.1-clients: solo visibles se sirven [R16.4]
   s2.run.board[0].stack = [2, 2, 2, 2, 2];
-  s2.run.board[1].stack = [2, 2, 2, 2, 2, 2];
+  s2.run.board[7].stack = [2, 2, 2, 2, 2, 2];
   const res2 = G.resolveCascade(s2);
   const st2 = unwind(res2, s2);
   assert.ok(st2.run.orders.find(o => o.id === 'o12b2').served, 'RED: debe auto-servir');
   assert.equal(st2.run.board[0].stack.length, 2, 'RED: debe elegir la celda con tope count 5 (menor disponible)');
-  assert.equal(st2.run.board[1].stack.length, 6, 'RED: la celda no elegida debe quedar intacta');
+  assert.deepEqual(st2.run.board[7].stack, [2, 2, 2, 2, 2, 2], 'RED: la celda no elegida debe quedar intacta');
 });
 
 test('T12c [R4.3 v2] servir consume EXACTAMENTE qty del tope (excedente queda)', () => {

@@ -418,6 +418,8 @@ import {
   // v2.2 — R14.4: compra permanente 'tables' en tienda
   buyTablesUp,
   HEX_ADJ, topGroup,
+  // v3 — R12.1: motor de merge hexasort original (espejo cascadeLinks)
+  bfsMergeGroups, computeBestChain, r2Target,
   // v2.1 — R16/R17: cola de clientes
   totalClients, runVictory, useQueueSkip,
 } from './js/game.js';
@@ -845,31 +847,33 @@ function serveCellFor(board, order){
 // autoritativo SIEMPRE se adopta de resolveCascade al final (playCascade).
 function cascadeLinks(state){
   const s=structuredClone(state);
-  const links=[]; let magnets=new Set(s.run && Array.isArray(s.run.mergeSeeds) ? s.run.mergeSeeds : []);
-  if (s.run) s.run.mergeSeeds = [];
+  const links=[]; const received=new Set();      // v3: tie-break no-receptor
   for(let guard=0; guard<1000; guard++){
     let acted=false; const served=[], debris=[], merged=[];
-    // (i) merge PASO A PASO: UN tirón por eslabón (espejo de resolveCascade)
-    if(magnets.size>0){
-      const targets=[...magnets].sort((a,b)=>a-b); magnets=new Set(); let pulled=false;
-      for(const i of targets){
-        if(pulled){ magnets.add(i); continue; }      // pendiente: próximo eslabón
-        const cell=s.run.board[i];
-        if(!cell||!cell.stack||!cell.stack.length) continue;
-        const tg=topGroup(cell.stack); if(!tg.color) continue;
-        for(const [dq,dr] of HEX_ADJ){
-          const nb=s.run.board.find(c=>c&&c.q===cell.q+dq&&c.r===cell.r+dr);
-          if(!nb||!nb.stack||!nb.stack.length) continue;
+    // (i) merge HEXASORT ORIGINAL (v3): barrido global — grupos contiguos BFS
+    // (mismo color de tope, ≥2 celdas); UN grupo por eslabón; destino elegido
+    // por T1 (computeBestChain) o R2 (tie-break cozy: preferir no-receptor).
+    // La fuente conserva su sub-pila (solo cede el run del tope).
+    {
+      const groups=bfsMergeGroups(s.run.board);
+      if(groups.length>0){
+        const group=groups[0];
+        const tg=topGroup(s.run.board[group[0]].stack);
+        let target;
+        const plan=computeBestChain(s.run.board);
+        const step=plan.find(p=>p.color===tg.color&&p.source.every(si=>group.includes(si)));
+        if(step&&group.includes(step.target)) target=step.target;
+        else target=r2Target(s.run.board,group,tg.color,received);
+        for(const si of group){
+          if(si===target) continue;
+          const nb=s.run.board[si];
           const ntg=topGroup(nb.stack);
-          if(ntg.color===tg.color){
-            cell.stack=cell.stack.concat(nb.stack.splice(nb.stack.length-ntg.count,ntg.count));
-            magnets.add(i);
-            magnets.add(s.run.board.indexOf(nb));
-            merged.push({from:s.run.board.indexOf(nb),to:i});
-            pulled=true; acted=true;
-            break;                                    // UN tirón por eslabón
-          }
+          s.run.board[target].stack=s.run.board[target].stack
+            .concat(nb.stack.splice(nb.stack.length-ntg.count,ntg.count));
+          received.add(target);
+          merged.push({from:si,to:target});
         }
+        acted=true;
       }
     }
     // (ii) auto-serve: pedidos flotantes (cell===null), si autoServe!==false
@@ -897,7 +901,7 @@ function cascadeLinks(state){
         if(runLen>=CONFIG.DEBRIS_THRESHOLD){
           st.splice(j,runLen);
           s.progress.coins+=CONFIG.DEBRIS_BONUS_PER*runLen;
-          magnets.add(i); debris.push(i); acted=true;
+          debris.push(i); acted=true;
         } else j=k;
       }
     });
@@ -1285,9 +1289,10 @@ async function boot(){
   startLoop();
   window.addEventListener('beforeunload',persist);
 }
-// Release stamp — v2.1: café arranca vacío (idle todo comprable), tienda única
-// (activas + pasivas; modal Skills retirado), fichas 3D por bisel.
-const GAME_VERSION = 'v2.1';
+// Release stamp — v2.2: motor de merge = HEXASORT ORIGINAL (barrido global de
+// grupos contiguos BFS, destino por T1/R2, fuentes conservan sub-pila,
+// tie-break cozy: preferir candidato que NO recibió).
+const GAME_VERSION = 'v2.2';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks };
