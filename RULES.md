@@ -226,8 +226,8 @@ export { createGame, CONFIG,
 - `R10.3` — El tablero crece con la expansión (R6.2) para amortiguar la dificultad de más colores (cozy, sin timer). → US-38. [OBSOLETO v2 — reemplazado por R13.7]
 
 ### R12. Merge y cascada (estilo HexaSort) [v2]
-- `R12.1` — **Al colocar (R3.4):** los TOPEs de vecinos axiales (6 deltas) con color igual al tope resultante de la celda destino se FUSIONAN: el grupo queda como N fichas contiguas en stack; (v2.2) el vecino CEDE su racha completa y queda con `stack: []` (sin ficha de reserva — reemplaza el contrato viejo "conserva sub-pila").
-- `R12.2` — **CASCADA (v2.0 paso a paso):** tras toda mutación de topes (colocar, auto-servir, destrucción umbral, swap) re-evaluar hasta estabilizar; el merge tira de **UN vecino por eslabón** (1º imán por índice ascendente, 1º vecino con tope igual color en orden de deltas; determinista) — cada tirón es un paso visible al jugador; 1 eslabón = `CASCADE_STEP_MS=1600ms` (CONFIG). Orden por eslabón: merge (1 tirón) → auto-servir (ids ascendentes) → destrucción umbral → siguiente eslabón.
+- `R12.1` — **Merge HEXASORT ORIGINAL (v3):** tras toda colocación, barrido GLOBAL: grupos contiguos (BFS, HEX_ADJ) de celdas con el MISMO color de tope y tamaño ≥2 se fusionan. En cada eslabón el destino lo elige `computeBestChain` (T1: mejor secuencia simulada, profundidad 6, cap 20000 nodos) o, si no hay paso aplicable, R2: el candidato que deja MÁS aristas encadenables post-merge. **Tie-break cozy:** preferir candidato que NO haya recibido fichas en esta cascada → torre más baja → menor índice. Las FUENTES ceden solo su racha de tope (run contiguo del mismo color) y conservan su sub-pila real — sin ficha de reserva.
+- `R12.2` — **CASCADA (v3):** tras toda mutación de topes (colocar, auto-servir, destrucción umbral, swap) re-evaluar hasta estabilizar; UN grupo por eslabón (paso visible al jugador); 1 eslabón = `CASCADE_STEP_MS=1600ms` (CONFIG). Orden por eslabón: merge (grupo completo, multi-fuente) → auto-servir (ids ascendentes) → destrucción umbral → siguiente eslabón.
 - `R12.3` — **UMBRAL:** grupo contiguo ≥ `DEBRIS_THRESHOLD=10` fichas (CONFIG) se destruye al estabilizar, bonus `DEBRIS_BONUS_PER=25` × qty (CONFIG ⚖BALANCE).
 - `R12.4` — destroyPile queda **PENDIENTE DE BALANCE** (pierde valor relativo frente a R12.3).
 
@@ -349,7 +349,7 @@ const pay = (q, m=0) => Math.round(5 * q ** (1.25 + 0.05*m));
 - `T10.4` — **export id embebido:** GIVEN state; THEN `meta.exportId` no vacío y estable entre save/load. [R1.1, R1.3]
 
 ### T11. Merge y cascada [v2]
-- `T11.1` — **merge con tope de 2 vecinos (v2.2):** GIVEN celda destino con tope color 2, vecinos axiales A y B con tope color 2; WHEN `placeStack` con pila [2]; THEN el grupo fusionado queda como N fichas contiguas en el stack destino y A/B ceden su racha COMPLETA quedando `stack: []` (sin ficha de reserva). [R12.1]
+- `T11.1` — **merge v3 multi-fuente:** GIVEN celdas contiguas A=[2,2] y B=[2] (torres con tope 2); WHEN la cascada resuelve el grupo; THEN un candidato se lleva AMBAS rachas (multi-fuente) y las fuentes conservan su sub-pila (ceden solo el run del tope). [R12.1]
 - `T11.2` — **no merge si color difiere:** GIVEN vecinos con tope color ≠ tope destino; WHEN colocar; THEN stacks de vecinos intactos. [R12.1]
 - `T11.3` — **orden determinista de eslabón:** GIVEN una colocación que dispara merge + pedidos servibles + grupo ≥ umbral; THEN al estabilizar el eslabón se ejecuta en orden: merge → auto-servir (ids ascendentes) → destrucción umbral; nunca antes. [R12.2]
 - `T11.4` — **cascada itera hasta estabilizar:** GIVEN merge que deja un nuevo tope servible; THEN se evalúa el siguiente eslabón tras `CASCADE_STEP_MS` y la cascada termina solo sin mutaciones pendientes. [R12.2]

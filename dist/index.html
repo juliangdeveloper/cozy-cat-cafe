@@ -888,16 +888,167 @@ function topGroup(stack) {
 }
 
 // ---------------------------------------------------------------------------
-// R12.1 v2.0 — merge PASO A PASO: placeStack ya NO fusiona inline; siembra
-// run.mergeSeeds=[celda] y resolveCascade tira de UN vecino por eslabón
-// (orden determinista: imanes por índice ascendente, vecinos en orden HEX_ADJ,
-// gana el 1º con tope igual color). El vecino cede su racha completa y queda
-// con stack: [] (v2.2). Así cada tirón es visible como un paso animado.
+// R12.1 v3 — MOTOR DE MERGE HEXASORT ORIGINAL (port de hexasort-party-v2):
+// barrido global de grupos contiguos (BFS) con el mismo color de tope (≥2
+// celdas); el destino de cada eslabón lo elige computeBestChain (T1: DFS
+// simulada profundidad 6, cap 20000 nodos) o el fallback R2 (simula el
+// post-merge de cada candidato y gana el que deja MÁS aristas encadenables;
+// tie-break cozy: preferir candidato que NO haya recibido fichas en esta
+// cascada → menor torre → menor índice). Las fuentes ceden su racha (run
+// contiguo del tope) y conservan su sub-pila real — sin ficha de reserva.
+// Cozy pacing: UN grupo por eslabón (cada merge es un paso visible).
 // ---------------------------------------------------------------------------
-function seedMerge(s, cell) {
-  if (!s.run) return;
-  const idx = s.run.board.indexOf(cell);
-  if (idx >= 0) s.run.mergeSeeds = [idx];
+function bfsMergeGroups(board) {
+  const groups = [];
+  const seen = new Set();
+  for (let i = 0; i < board.length; i++) {
+    if (seen.has(i)) continue;
+    const tg = topGroup(board[i].stack);
+    if (!tg.color) continue;
+    const comp = [i]; seen.add(i); const q = [i];
+    while (q.length) {
+      const ci = q.pop();
+      const cc = board[ci];
+      for (const [dq, dr] of HEX_ADJ) {
+        const ni = board.findIndex((c) => c && c.q === cc.q + dq && c.r === cc.r + dr);
+        if (ni < 0 || seen.has(ni)) continue;
+        if (topGroup(board[ni].stack).color === tg.color) { seen.add(ni); comp.push(ni); q.push(ni); }
+      }
+    }
+    if (comp.length >= 2) groups.push(comp.sort((a, b) => a - b));
+  }
+  groups.sort((a, b) => b.length - a.length);   // grupos grandes primero (determinista)
+  return groups;
+}
+
+// T1 (port computeBestChain): mejor secuencia de merges simulada (DFS prof. 6,
+// cap 20000 nodos). Score de hoja: -gruposActivos*1000 + top3 runs + depth*5.
+function computeBestChain(board) {
+  const MAXD = 6;
+  const stacks = board.map((c) => [...(c.stack || [])]);
+  let nodes = 0, bestSeq = null, bestScore = -Infinity;
+  const topOf = (st) => (st.length ? st[st.length - 1] : 0);
+  const runOf = (st) => {
+    if (!st.length) return 0;
+    const t = st[st.length - 1]; let n = 0;
+    for (let i = st.length - 1; i >= 0 && st[i] === t; i--) n++;
+    return n;
+  };
+  const neighbors = (i) => {
+    const out = [];
+    const cc = board[i];
+    for (const [dq, dr] of HEX_ADJ) {
+      const ni = board.findIndex((c) => c && c.q === cc.q + dq && c.r === cc.r + dr);
+      if (ni >= 0) out.push(ni);
+    }
+    return out;
+  };
+  function groupsOf(st) {
+    const groups = []; const seen = new Set();
+    for (let i = 0; i < st.length; i++) {
+      if (seen.has(i)) continue;
+      const t = topOf(st[i]);
+      if (!t) continue;
+      const comp = [i]; seen.add(i); const q = [i];
+      while (q.length) {
+        const ci = q.pop();
+        for (const ni of neighbors(ci)) {
+          if (!seen.has(ni) && topOf(st[ni]) === t) { seen.add(ni); comp.push(ni); q.push(ni); }
+        }
+      }
+      if (comp.length >= 2) groups.push(comp.sort((a, b) => a - b));
+    }
+    groups.sort((a, b) => b.length - a.length);
+    return groups.slice(0, 8);   // branch factor acotado
+  }
+  function applyMove(st, group, target) {
+    const next = st.map((s2) => [...s2]);
+    for (const gi of group) {
+      if (gi === target) continue;
+      const n = runOf(next[gi]);
+      for (let z = 0; z < n; z++) next[target].push(next[gi].pop());
+    }
+    return next;
+  }
+  function countActiveGroups(st) {
+    let g = 0; const seen = new Set();
+    for (let i = 0; i < st.length; i++) {
+      if (seen.has(i)) continue;
+      const t = topOf(st[i]);
+      if (!t) continue;
+      const comp = [i]; seen.add(i); const q = [i];
+      while (q.length) {
+        const ci = q.pop();
+        for (const ni of neighbors(ci)) {
+          if (!seen.has(ni) && topOf(st[ni]) === t) { seen.add(ni); comp.push(ni); q.push(ni); }
+        }
+      }
+      if (comp.length >= 2) g++;
+    }
+    return g;
+  }
+  function evalState(st, depth) {
+    const runs = [];
+    for (let i = 0; i < st.length; i++) { const r = runOf(st[i]); if (r > 0) runs.push(r); }
+    runs.sort((a, b) => b - a);
+    const r1 = runs[0] || 0, r2 = runs[1] || 0, r3 = runs[2] || 0;
+    return -countActiveGroups(st) * 1000 + (r1 * 10 + r2 * 5 + r3) + depth * 5;
+  }
+  function dfs(st, depth, moves) {
+    if (++nodes > 20000) return;
+    const sc = evalState(st, depth);
+    if (sc > bestScore) { bestScore = sc; bestSeq = moves.slice(); }
+    if (depth >= MAXD) return;
+    const groups = groupsOf(st);
+    for (const g of groups) {
+      const color = topOf(st[g[0]]);
+      for (const t of g) {
+        moves.push({ color, source: g.filter((x) => x !== t), target: t });
+        dfs(applyMove(st, g, t), depth + 1, moves);
+        moves.pop();
+        if (nodes > 20000) return;
+      }
+    }
+  }
+  dfs(stacks, 0, []);
+  return bestSeq || [];
+}
+
+// R2 (fallback): destino = candidato que deja MÁS aristas encadenables post-merge;
+// tie-break cozy: 1º candidato que NO haya recibido en esta cascada, 2º torre
+// más baja, 3º menor índice (determinista).
+function r2Target(board, group, color, received) {
+  let best = -1, bestChain = -1, bestReceived = true, bestSize = Infinity;
+  for (const gi of group) {
+    // tops post-merge: las fuentes pierden su run, los candidatos conservan el suyo
+    const post = new Map();
+    for (const g2 of group) {
+      const rem = board[g2].stack.filter((h) => h !== color);
+      post.set(g2, rem.length ? rem[rem.length - 1] : 0);
+    }
+    let chain = 0; const seenE = new Set();
+    for (const g2 of group) {
+      if (!post.get(g2)) continue;
+      const gc = board[g2];
+      for (const [dq, dr] of HEX_ADJ) {
+        const ni = board.findIndex((c) => c && c.q === gc.q + dq && c.r === gc.r + dr);
+        if (ni < 0) continue;
+        const k = g2 < ni ? g2 + '-' + ni : ni + '-' + g2;
+        if (seenE.has(k)) continue; seenE.add(k);
+        const nt = post.has(ni) ? post.get(ni) : topGroup(board[ni].stack).color;
+        if (nt && nt === post.get(g2)) chain++;
+      }
+    }
+    const sz = board[gi].stack.length;
+    const rec = received.has(gi);
+    if (best < 0 || chain > bestChain
+      || (chain === bestChain && bestReceived && !rec)
+      || (chain === bestChain && rec === bestReceived && sz < bestSize)
+      || (chain === bestChain && rec === bestReceived && sz === bestSize && gi < best)) {
+      best = gi; bestChain = chain; bestReceived = rec; bestSize = sz;
+    }
+  }
+  return best;
 }
 
 // ---------------------------------------------------------------------------
@@ -941,8 +1092,7 @@ function placeStack(state, cellId, slot, rngOrStack) {
       return { error: (cell.stack && cell.stack.length) ? 'occupied' : 'noMerge', state: s };
     }
     cell.stack = cell.stack.concat(pileArr);          // R3.4 apila al tope
-    seedMerge(s, cell);                               // v2.0 R12.1: merge en cascada paso a paso
-    return s;
+    return s;                                         // v3: barrido global en resolveCascade
   }
   const rng = rngOrStack;
   if (cell.dormant) return { error: 'dormant' };        // v2 R14.2 no colocable
@@ -984,8 +1134,7 @@ function placeStack(state, cellId, slot, rngOrStack) {
     }
     s.run.poolPlaced = 0;
   }
-  seedMerge(s, cell);                                    // v2.0 R12.1: merge en cascada paso a paso
-  return s;
+  return s;                                              // v3: barrido global en resolveCascade
 }
 
 function buildPick(rng, n, cu) {
@@ -1155,40 +1304,37 @@ function rngFallback() { return Math.random; }
 function resolveCascade(state) {
   const s = clone(state);
   let steps = 0;
-  // "imanes": celdas cuyo stack cambió dentro de ESTA cascada y que atraen el
-  // merge de sus vecinos. Arranca con run.mergeSeeds (siembra de placeStack,
-  // v2.0) => el primer eslabón tira desde la celda recién colocada.
-  let magnets = new Set(s.run && Array.isArray(s.run.mergeSeeds) ? s.run.mergeSeeds : []);
-  if (s.run) s.run.mergeSeeds = [];                        // consumidas
+  // received: celdas que ya RECIBIERON fichas en esta cascada (tie-break cozy
+  // de R2: preferir candidato que NO haya recibido — pedido del usuario)
+  const received = new Set();
   for (let guard = 0; guard < 1000; guard++) {
     let acted = false;
-    // (i) merge PASO A PASO [R12.1 v2.0]: UN vecino por eslabón — el 1º imán
-    // (índice ascendente) con el 1º vecino (orden HEX_ADJ) de tope igual color
-    // tira la racha completa del vecino (que queda vacío). Determinista.
-    if (magnets.size > 0) {
-      const targets = [...magnets].sort((a, b) => a - b);
-      magnets = new Set();
-      let pulled = false;
-      for (const i of targets) {
-        if (pulled) { magnets.add(i); continue; }    // pendiente: próximo eslabón
-        const cell = s.run.board[i];
-        if (!cell || !cell.stack || !cell.stack.length) continue;
-        const tg = topGroup(cell.stack);
-        if (!tg.color) continue;
-        for (const [dq, dr] of HEX_ADJ) {
-          const nb = s.run.board.find((c) => c && c.q === cell.q + dq && c.r === cell.r + dr);
-          if (!nb || !nb.stack || !nb.stack.length) continue;
+    // (i) merge HEXASORT ORIGINAL (R12.1 v3): barrido global — BFS de grupos
+    // contiguos con mismo color de tope (≥2 celdas); UN grupo por eslabón
+    // (paso a paso v2.0). Destino elegido por T1 (computeBestChain: mejor
+    // secuencia simulada prof. 6) o R2 (más aristas encadenables post-merge;
+    // tie-break: no-receptor → torre menor → índice). Las fuentes ceden su
+    // racha (run del tope) y conservan su sub-pila real.
+    if (s.run) {
+      const groups = bfsMergeGroups(s.run.board);
+      if (groups.length > 0) {
+        const group = groups[0];
+        const tg = topGroup(s.run.board[group[0]].stack);
+        let target;
+        const plan = computeBestChain(s.run.board);              // T1
+        const step = plan.find((p) => p.color === tg.color
+          && p.source.every((si) => group.includes(si)));
+        if (step && group.includes(step.target)) target = step.target;
+        else target = r2Target(s.run.board, group, tg.color, received); // R2
+        for (const si of group) {
+          if (si === target) continue;
+          const nb = s.run.board[si];
           const ntg = topGroup(nb.stack);
-          if (ntg.color === tg.color) {
-            cell.stack = cell.stack.concat(nb.stack.splice(nb.stack.length - ntg.count, ntg.count));
-            magnets.add(i);                          // sigue atraendo (nuevo tope)
-            magnets.add(s.run.board.indexOf(nb));    // el vecino vacío puede recibir
-            pulled = true;
-            acted = true;
-            break;                                   // UN tirón por eslabón
-          }
+          s.run.board[target].stack = s.run.board[target].stack
+            .concat(nb.stack.splice(nb.stack.length - ntg.count, ntg.count));
+          received.add(target);
         }
-        // si este imán no tiró, queda agotado (sin vecino de tope igual ahora)
+        acted = true;
       }
     }
     // (ii) auto-servir: SOLO los clientes VISIBLES (v2.1 R16.4: activeClients,
@@ -1233,8 +1379,7 @@ function resolveCascade(state) {
         if (runLen >= CONFIG.DEBRIS_THRESHOLD) {
           st.splice(j, runLen);
           s.progress.coins += CONFIG.DEBRIS_BONUS_PER * runLen;
-          magnets.add(i);
-          acted = true;
+          acted = true;   // v3: sin imanes — el barrido global del próximo eslabón lo cubre
         } else {
           j = k;
         }
@@ -2085,31 +2230,33 @@ function serveCellFor(board, order){
 // autoritativo SIEMPRE se adopta de resolveCascade al final (playCascade).
 function cascadeLinks(state){
   const s=structuredClone(state);
-  const links=[]; let magnets=new Set(s.run && Array.isArray(s.run.mergeSeeds) ? s.run.mergeSeeds : []);
-  if (s.run) s.run.mergeSeeds = [];
+  const links=[]; const received=new Set();      // v3: tie-break no-receptor
   for(let guard=0; guard<1000; guard++){
     let acted=false; const served=[], debris=[], merged=[];
-    // (i) merge PASO A PASO: UN tirón por eslabón (espejo de resolveCascade)
-    if(magnets.size>0){
-      const targets=[...magnets].sort((a,b)=>a-b); magnets=new Set(); let pulled=false;
-      for(const i of targets){
-        if(pulled){ magnets.add(i); continue; }      // pendiente: próximo eslabón
-        const cell=s.run.board[i];
-        if(!cell||!cell.stack||!cell.stack.length) continue;
-        const tg=topGroup(cell.stack); if(!tg.color) continue;
-        for(const [dq,dr] of HEX_ADJ){
-          const nb=s.run.board.find(c=>c&&c.q===cell.q+dq&&c.r===cell.r+dr);
-          if(!nb||!nb.stack||!nb.stack.length) continue;
+    // (i) merge HEXASORT ORIGINAL (v3): barrido global — grupos contiguos BFS
+    // (mismo color de tope, ≥2 celdas); UN grupo por eslabón; destino elegido
+    // por T1 (computeBestChain) o R2 (tie-break cozy: preferir no-receptor).
+    // La fuente conserva su sub-pila (solo cede el run del tope).
+    {
+      const groups=bfsMergeGroups(s.run.board);
+      if(groups.length>0){
+        const group=groups[0];
+        const tg=topGroup(s.run.board[group[0]].stack);
+        let target;
+        const plan=computeBestChain(s.run.board);
+        const step=plan.find(p=>p.color===tg.color&&p.source.every(si=>group.includes(si)));
+        if(step&&group.includes(step.target)) target=step.target;
+        else target=r2Target(s.run.board,group,tg.color,received);
+        for(const si of group){
+          if(si===target) continue;
+          const nb=s.run.board[si];
           const ntg=topGroup(nb.stack);
-          if(ntg.color===tg.color){
-            cell.stack=cell.stack.concat(nb.stack.splice(nb.stack.length-ntg.count,ntg.count));
-            magnets.add(i);
-            magnets.add(s.run.board.indexOf(nb));
-            merged.push({from:s.run.board.indexOf(nb),to:i});
-            pulled=true; acted=true;
-            break;                                    // UN tirón por eslabón
-          }
+          s.run.board[target].stack=s.run.board[target].stack
+            .concat(nb.stack.splice(nb.stack.length-ntg.count,ntg.count));
+          received.add(target);
+          merged.push({from:si,to:target});
         }
+        acted=true;
       }
     }
     // (ii) auto-serve: pedidos flotantes (cell===null), si autoServe!==false
@@ -2137,7 +2284,7 @@ function cascadeLinks(state){
         if(runLen>=CONFIG.DEBRIS_THRESHOLD){
           st.splice(j,runLen);
           s.progress.coins+=CONFIG.DEBRIS_BONUS_PER*runLen;
-          magnets.add(i); debris.push(i); acted=true;
+          debris.push(i); acted=true;
         } else j=k;
       }
     });
@@ -2525,9 +2672,10 @@ async function boot(){
   startLoop();
   window.addEventListener('beforeunload',persist);
 }
-// Release stamp — v2.1: café arranca vacío (idle todo comprable), tienda única
-// (activas + pasivas; modal Skills retirado), fichas 3D por bisel.
-const GAME_VERSION = 'v2.1';
+// Release stamp — v2.2: motor de merge = HEXASORT ORIGINAL (barrido global de
+// grupos contiguos BFS, destino por T1/R2, fuentes conservan sub-pila,
+// tie-break cozy: preferir candidato que NO recibió).
+const GAME_VERSION = 'v2.2';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks };

@@ -52,11 +52,11 @@ test('T18b [R3.5 v2.2] placeStack (pool) sobre celda ocupada => {error:"occupied
 });
 
 // ---------------------------------------------------------------------------
-// T18c — Merge deja la celda vecina VACÍA [R12.1 v2.2] (reemplaza T11a)
-// A=[2,2] vecino; D=[1] destino; coloco [2] explícito:
-//  D = [1,2,2,2], A = [] (cede su racha completa, SIN ficha de reserva).
+// T18c — Fuente conserva su sub-pila [R12.1 v3] (motor hexasort original):
+// A=[2,2] torre; D=[1] recibe la colocación [2] => grupo {A,D}; tie-break
+// no-receptor => target=A: A=[2,2,2], D conserva [1].
 // ---------------------------------------------------------------------------
-test('T18c [R12.1 v2.0] merge paso a paso: vecino cede racha completa y queda VACÍO tras la cascada', () => {
+test('T18c [R12.1 v3] fuente conserva sub-pila; la colocada es absorbida por la torre (no-receptor)', () => {
   need('placeStack'); need('resolveCascade');
   const s = mkGame(1);
   s.skills.serveManual.autoServe = false;   // aísla el merge: sin auto-serve
@@ -67,8 +67,8 @@ test('T18c [R12.1 v2.0] merge paso a paso: vecino cede racha completa y queda VA
   const src = unwind(ret, s);
   const res = G.resolveCascade(src);
   const st = unwind(res, src);
-  assert.deepEqual(st.run.board[1].stack, [1, 2, 2, 2], 'RED: D.stack debe ser [1,2,2,2] tras la cascada');
-  assert.deepEqual(st.run.board[0].stack, [], 'RED: A debe quedar VACÍO tras ceder su racha (R12.1 v2.2)');
+  assert.deepEqual(st.run.board[0].stack, [2, 2, 2], 'RED: A (no-receptor) absorbe la racha => [2,2,2]');
+  assert.deepEqual(st.run.board[1].stack, [1], 'RED: D (fuente) conserva su sub-pila [1]');
 });
 
 // ---------------------------------------------------------------------------
