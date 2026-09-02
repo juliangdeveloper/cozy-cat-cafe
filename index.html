@@ -530,6 +530,16 @@ const ERRT={ noFunds:'Not enough coins', blocked:'That tile is locked', locked:'
   noKind:'Unknown expansion', noSystem:'Unknown system', maxed:'Maxed out',
   maxUses:'Max uses per run reached (5)' };   // v2.4 tope de usos por skill
 const err = r => toast(ERRT[(r&&r.error)||''] || (r&&r.error)||'');
+// v2.4.1 — pasadas de estabilización "apenas entre": resuelve cascadas pendientes
+// (clientes recién entrados con tope servible) con animación, hasta estabilizar.
+async function settlePasses(){
+  for(let guard=0; guard<5; guard++){
+    const nxt=resolveCascade(state);
+    if(nxt.steps===0) break;
+    await playCascade(state,nxt.state);
+  }
+  renderAll(); checkServedAll();
+}
 function persist(){ state.meta.lastSavedAt = Date.now(); localStorage.setItem(KEY, serializeState(state)); }
 function renderAll(){ persist(); state.run ? renderRun() : renderMenu(); }
 
@@ -844,7 +854,11 @@ function renderPowers(){
     }
     if(mode==='queueskip'){                   // v2.1 R17.1: los 3 visibles al fondo
       const r=useQueueSkip(state);
-      if(r.error){ err(r); } else { state=r; toast('Clients sent to the back of the queue 📨'); renderAll(); }
+      if(r.error){ err(r); } else {
+        state=r; toast('Clients sent to the back of the queue 📨'); renderAll();
+        // v2.4.1 "apenas entre": los 3 que ENTRAR pueden llegar servibles (animado)
+        settlePasses();
+      }
       return;
     }
     if(!state.skills[skill].owned){ showShop(); toast('Buy this power in the Shop (🛒)'); return; }
@@ -1128,7 +1142,10 @@ async function placeFlow(cell,slot){
   if(fin.steps===0){                             // estable: render directo, sin delays
     state=fin.state; renderAll(); checkFull(); checkServedAll(); return;
   }
-  await playCascade(res,fin.state);              // anima eslabones (1600ms c/u)
+  await playCascade(res,fin.state);              // anima eslabones (600ms c/u)
+  // v2.4.1 "apenas entre": los clientes que entraron en el refill FINAL de la
+  // cascada con tope ya servible toman su pedido de INMEDIATO (animado)
+  await settlePasses();
   renderAll(); checkFull(); checkServedAll();
 }
 // 2-step serve: a client was already chosen (ui.servingOrder); tapping any pile
@@ -1184,6 +1201,9 @@ function openTheCafe(){
   ui.slot=false; ui.mode=null; ui.servingOrder=null; ui.placeTile=false;
   ui.previewSeed=Math.floor(Math.random()*2147483647);   // semilla del preview ESTA run
   normalizeOrders(state);                                 // v2 R15.2: pedidos flotantes
+  // v2.4.1 "apenas entre": los 3 visibles iniciales pueden llegar con tope ya
+  // servible — pasadas de estabilización animadas (vuelo de fichas al cliente).
+  settlePasses();
   persist(); renderAll();
 }
 function doClose(reason){ const res=closeRun(state, reason); state=res; persist();
@@ -1398,9 +1418,10 @@ async function boot(){
   startLoop();
   window.addEventListener('beforeunload',persist);
 }
-// v2.4: economía usos con tope 5/partida (tables = tablero−7), badge = run
-// del tope, powerbar wrap, vuelo de fichas centralizado (merge + serve).
-const GAME_VERSION = 'v2.4';
+// v2.4.1: economía usos con tope 5/partida (tables = tablero−7), badge = run
+// del tope, powerbar wrap, vuelo de fichas centralizado (merge + serve),
+// "apenas entre": pasadas de estabilización tras refill/open/queue-skip.
+const GAME_VERSION = 'v2.4.1';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks };
