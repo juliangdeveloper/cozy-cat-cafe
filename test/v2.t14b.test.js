@@ -77,8 +77,7 @@ test('T14h [R14.2] tras openRun: 7 jugables (núcleo 2-3-2) y 25 dormant', () =>
 //  * sin usos => {error:'noUses'} sin mutar; sin owned => {error:'locked'}.
 // ---------------------------------------------------------------------------
 test('T14i [R14.3 v2.2] activateTile: consume 1 uso de tables, NO cobra coins', () => {
-  need('activateTile'); need('runTilePrice'); needCfg('USES_PER_RUN');
-  assert.equal(G.CONFIG.USES_PER_RUN.tables, 1, 'RED: CONFIG.USES_PER_RUN.tables===1 (base por partida)');
+  need('activateTile'); need('runTilePrice');
   const s = mkGame(1);
   s.skills.tables = { owned: true, uses: 2, usesBought: 0 };
   const cell = s.run.board.find(c => c.dormant && !c.blocked);
@@ -118,13 +117,13 @@ test('T14k [R14.3 v2.2] activateTile sin la skill => {error:"locked"} sin mutar'
   assert.equal(st.run.board.find(c => c.id === cell.id).dormant, true, 'RED: locked no debe activar');
 });
 
-test('T14l [R17.2] openRun repone tables.uses = USES_PER_RUN.tables + usesBought', () => {
-  need('openRun'); needCfg('USES_PER_RUN');
+test('T14l [R17.2 v2.3] openRun repone tables.uses = usesBought', () => {
+  need('openRun');
   const s = G.createGame({ progress: { coins: 10000 } });
   s.skills.tables = { owned: true, uses: 0, usesBought: 2 };
   const st = unwind(G.openRun(s, rng(5)), s);
-  assert.equal(st.skills.tables.uses, G.CONFIG.USES_PER_RUN.tables + 2,
-    'RED: openRun debe repone uses = base + usesBought (R17.2)');
+  assert.equal(st.skills.tables.uses, 2,
+    'RED: openRun debe repone uses = usesBought (R17.2 v2.3, sin base)');
 });
 
 // ---------------------------------------------------------------------------

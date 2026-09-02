@@ -168,22 +168,21 @@ test('T17d [R17.3] buySkill(capacidad): TOTAL 21, precio exponencial creciente, 
 // ---------------------------------------------------------------------------
 test('T17e [R17.1] queueSkip: 3 visibles al fondo de la cola, entran 3 nuevos; re-entran FIFO', () => {
   need('useQueueSkip'); need('buySkill'); need('serveOrder');
-  needCfg('USES_PER_RUN');
-  assert.equal(G.CONFIG.USES_PER_RUN.queueSkip, 2, 'RED: USES_PER_RUN.queueSkip===2 [R17.1]');
   // {error} si !owned
   const sNo = mkGame(3);
   const r0 = G.useQueueSkip(sNo);
   assert.ok(r0 && r0.error, `RED: queueSkip sin owned → {error}, dio ${JSON.stringify(r0)}`);
-  // comprar (unlock cafeLevel 1) → uses = USES_PER_RUN.queueSkip
+  // comprar (v2.3: la compra ES el 1er uso) → uses=1; openRun repone uses=usesBought
   let s = G.createGame({ progress: { coins: 1e9 } });
   s = unwind(G.buySkill(s, 'queueSkip'), s);
   assert.equal(s.skills.queueSkip.owned, true, 'RED: buySkill(queueSkip) → owned=true');
+  assert.equal(s.skills.queueSkip.uses, 1, 'RED: v2.3 compra = 1 uso');
   s = unwind(G.openRun(s, rng(3)), s);
-  assert.equal(s.skills.queueSkip.uses, G.CONFIG.USES_PER_RUN.queueSkip,
-    'RED: openRun repone uses de queueSkip [R7.4/R17.1]');
+  assert.equal(s.skills.queueSkip.uses, 1,
+    'RED: openRun repone uses = usesBought [R7.4/R17.1 v2.3]');
   const oldIds = s.run.activeClients.map(c => c.id);
   const st = unwind(G.useQueueSkip(s), s);
-  assert.equal(st.skills.queueSkip.uses, G.CONFIG.USES_PER_RUN.queueSkip - 1,
+  assert.equal(st.skills.queueSkip.uses, 0,
     'RED: usar queueSkip decrementa uses en 1 [R17.1]');
   assert.equal(st.run.activeClients.length, 3, 'RED: siguen 3 visibles tras queueSkip');
   const newIds = st.run.activeClients.map(c => c.id);
@@ -209,11 +208,11 @@ test('T17e [R17.1] queueSkip: 3 visibles al fondo de la cola, entran 3 nuevos; r
 });
 
 // ---------------------------------------------------------------------------
-// T17f — [R17.2] buyUsesUp: +1 uso por partida en skills modelo 'uses';
+// T17f — [R17.2 v2.3] buyUsesUp: +1 uso por partida en skills modelo 'uses';
 // precio USES_UP_BASE * USES_UP_RATIO^compras (exponencial, sin tope);
-// openRun repone uses = USES_PER_RUN + usesBought.
+// openRun repone uses = usesBought (v2.3: sin base gratis).
 // ---------------------------------------------------------------------------
-test('T17f [R17.2] buyUsesUp: usesBought+1, openRun uses=USES_PER_RUN+usesBought, precio exponencial', () => {
+test('T17f [R17.2 v2.3] buyUsesUp: usesBought+1, openRun uses=usesBought, precio exponencial', () => {
   need('buyUsesUp'); need('buySkill'); need('openRun');
   needCfg('USES_UP_BASE'); needCfg('USES_UP_RATIO');
   assert.equal(G.CONFIG.USES_UP_BASE, 60, 'RED: CONFIG.USES_UP_BASE===60 [R17.2]');
@@ -221,22 +220,23 @@ test('T17f [R17.2] buyUsesUp: usesBought+1, openRun uses=USES_PER_RUN+usesBought
   let s = G.createGame({ progress: { coins: 1e9 } });
   s.progress.cafeLevel = 6;                        // unlock destroyPile (5)
   s = unwind(G.buySkill(s, 'destroyPile'), s);
-  assert.equal(s.skills.destroyPile.usesBought, 0, 'RED: usesBought nace 0 [R17.2]');
+  assert.equal(s.skills.destroyPile.usesBought, 1, 'RED: v2.3 la compra ya cuenta como 1 uso');
   const c0 = s.progress.coins;
   const st = unwind(G.buyUsesUp(s, 'destroyPile'), s);
-  assert.equal(st.skills.destroyPile.usesBought, 1, 'RED: buyUsesUp → usesBought+1 [R17.2]');
-  assert.equal(st.progress.coins, c0 - G.CONFIG.USES_UP_BASE, 'RED: 1a mejora cuesta USES_UP_BASE=60');
+  assert.equal(st.skills.destroyPile.usesBought, 2, 'RED: buyUsesUp → usesBought+1 [R17.2]');
+  assert.ok(Math.abs((c0 - st.progress.coins) - G.CONFIG.USES_UP_BASE * G.CONFIG.USES_UP_RATIO ** 1) < 1e-2,
+    'RED: buyUsesUp cuesta 60*1.6^usesBought=96 (usesBought ya es 1 tras la compra)');
   const c1 = st.progress.coins;
   const st2 = unwind(G.buyUsesUp(st, 'destroyPile'), st);
-  assert.equal(st2.skills.destroyPile.usesBought, 2, 'RED: 2a mejora → usesBought 2');
+  assert.equal(st2.skills.destroyPile.usesBought, 3, 'RED: 2a mejora → usesBought 3 (1 compra + 2 mejoras)');
   // v2.1-clients: tolerancia 1e-2 — convención "sin redondeo" (igual que
   // permTilePrice): delta float vs precio exponencial difiere ~1e-4 con coins grandes.
-  assert.ok(Math.abs((c1 - st2.progress.coins) - G.CONFIG.USES_UP_BASE * G.CONFIG.USES_UP_RATIO) < 1e-2,
-    'RED: precio exponencial creciente: 60*1.6=96 en la 2a compra [R17.2]');
-  // tras openRun: uses = USES_PER_RUN + usesBought
+  assert.ok(Math.abs((c1 - st2.progress.coins) - G.CONFIG.USES_UP_BASE * G.CONFIG.USES_UP_RATIO ** 2) < 1e-2,
+    'RED: precio exponencial creciente: 60*1.6^2=153.6 en la 2a mejora [R17.2]');
+  // tras openRun: uses = usesBought (v2.3, sin base)
   const st3 = unwind(G.openRun(st2, rng(5)), st2);
-  assert.equal(st3.skills.destroyPile.uses, G.CONFIG.USES_PER_RUN.destroyPile + 2,
-    'RED: openRun repone uses = USES_PER_RUN + usesBought [R17.2]');
+  assert.equal(st3.skills.destroyPile.uses, 3,
+    'RED: openRun repone uses = usesBought (1 compra + 2 mejoras) [R17.2 v2.3]');
   // guards: sin owned → {error}; skill sin modelo uses → {error}
   const s4 = mkGame(4);
   assert.ok(G.buyUsesUp(s4, 'swapPiles').error, 'RED: buyUsesUp sin owned → {error}');

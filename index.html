@@ -1117,7 +1117,7 @@ function showShop(){
   const tables = state.skills.tables || { owned: false, usesBought: 0 };
   const tPrice = Math.round(permTilePrice(state));
   const tablesRow = `<div class="rowcard"><div class="rowinfo"><b>Tables per run</b>
-    <span>${tables.owned ? `${CONFIG.USES_PER_RUN.tables + tables.usesBought} → +1 per run` : 'unlock: activate dormant tiles each run'}</span></div>
+    <span>${tables.owned ? `${tables.usesBought} → +1 per run` : 'unlock: activate dormant tiles each run'}</span></div>
     <button class="btn btn-sm" data-tables="1">${fmt(tPrice)}🪙</button></div>`;
   // v2.1 — TIENDA ÚNICA: skills ACTIVAS + sus "+1 uso" viven aquí (el modal
   // Skills desaparece; la lógica buySkill/buyUsesUp no cambia — solo UI).
@@ -1129,19 +1129,15 @@ function showShop(){
     ['queueSkip','📨','Send to back','rotates the 3 visible clients'],
   ];
   const actRows = actDefs.map(d=>{
-    const s=state.skills[d[0]]; const usesModel = !!CONFIG.USES_PER_RUN[d[0]];
+    const s=state.skills[d[0]]; const usesModel = CONFIG.USES_SKILLS.includes(d[0]);
     const locked = lvl < s.unlockLevel && !s.owned;
-    const main = s.owned
-      ? `<span class="ownedbadge">owned${usesModel?` · ${s.uses} uses/run`:''}</span>`
-      : `<button class="btn btn-sm ${locked?'locked':''}" data-buy="${d[0]}" ${locked?'disabled':''}>${fmt(s.price)}🪙</button>`;
-    let up='';
-    if(usesModel && s.owned){
-      const up2 = usesUpPrice(state,d[0]);
-      up = `<div class="rowcard" style="border-top:1px dashed var(--wood);margin-top:-2px;border-radius:0 0 12px 12px">
-        <div class="rowinfo"><b style="font-size:13px">+1 use this run</b><span>${s.uses} → ${s.uses+1} uses/run</span></div>
-        <button class="btn btn-sm" data-up="${d[0]}">${fmt(Math.round(up2))}🪙</button></div>`;
-    }
-    return `<div class="rowcard"><div class="rowinfo"><b>${d[2]}</b><span>LV ${s.unlockLevel}+ · ${d[3]}</span></div>${main}</div>${up}`;
+    // v2.3 R7.2: un solo botón — 1ª compra desbloquea (incluye 1 uso), la
+    // recompra suma +1 uso/partida. Precio siguiente = price * 1.35^usesBought.
+    const nextP = usesModel ? Math.round(s.price * Math.pow(1.35, s.usesBought||0)) : s.price;
+    const badge = s.owned && usesModel ? `<span class="ownedbadge">${s.uses||0} uses/run</span>` : '';
+    const main = `<button class="btn btn-sm ${locked?'locked':''}" data-buy="${d[0]}" ${locked?'disabled':''}>${fmt(nextP)}🪙</button>`;
+    return `<div class="rowcard"><div class="rowinfo"><b>${d[2]}</b><span>LV ${s.unlockLevel}+ · ${d[3]}</span></div>
+      <div style="display:flex;gap:6px;align-items:center">${badge}${main}</div></div>`;
   }).join('');
   // capacidad (antes en Skills): LEVELS 0..80
   const cap=state.skills.capacidad, capLv=cap.level||0,
@@ -1290,10 +1286,8 @@ async function boot(){
   startLoop();
   window.addEventListener('beforeunload',persist);
 }
-// v2.2.1: motor de merge = HEXASORT ORIGINAL (barrido global de grupos
-// contiguos BFS, destino por T1/R2, fuentes conservan sub-pila,
-// tie-break R2: preferir candidato que SÍ recibió — mergeTarget original).
-const GAME_VERSION = 'v2.2.1';
+// v2.3: motor + economía usos (todo skill activo se compra por uso)
+const GAME_VERSION = 'v2.3';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks };

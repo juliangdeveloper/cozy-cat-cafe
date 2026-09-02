@@ -106,8 +106,7 @@ test('T14b [R14.2] tras openRun: 7 jugables y 25 dormant/blocked', () => {
 // compra permanente de la tienda, buyTablesUp).
 // ---------------------------------------------------------------------------
 test('T14c [R14.3 v2.2] activateTile: celda dormant -> activa, consume 1 uso de tables, coins SIN cambio', () => {
-  need('activateTile'); need('runTilePrice'); needCfg('USES_PER_RUN');
-  assert.equal(G.CONFIG.USES_PER_RUN.tables, 1, 'RED: CONFIG.USES_PER_RUN.tables===1 (base por partida)');
+  need('activateTile'); need('runTilePrice');
   const s = mkGame(1);
   s.skills.tables = { owned: true, uses: 2, usesBought: 0 };   // GIVEN skill con 2 usos
   const cell = dormantCell(s);
@@ -184,10 +183,10 @@ test('T14f [R14.4 v2.2] buyTablesUp NO activa la celda; tras openRun (uses repue
   assert.ok(target, 'RED: la celda comprada debe seguir en run.board');
   assert.equal(target.dormant, true,
     'RED: la compra permanente NO activa ninguna celda (sigue dormant) [R14.4]');
-  // openRun repone los usos por partida (base + usesBought) y enable activateTile
+  // openRun repone los usos por partida (= usesBought, v2.3 sin base) y enable activateTile
   const st2 = unwind(G.openRun(st, mulberry32(7)), st);
-  assert.equal(st2.skills.tables.uses, G.CONFIG.USES_PER_RUN.tables + (st.skills.tables.usesBought || 0),
-    'RED: openRun debe repone uses = USES_PER_RUN.tables + usesBought [R17.2]');
+  assert.equal(st2.skills.tables.uses, (st.skills.tables.usesBought || 0),
+    'RED: openRun debe repone uses = usesBought [R17.2 v2.3]');
   const ret = G.activateTile(st2, cell.id);
   assert.ok(!ret.error, `RED: con usos disponibles activateTile debe funcionar, dio ${JSON.stringify(ret && ret.error)}`);
   const st3 = unwind(ret, st2);

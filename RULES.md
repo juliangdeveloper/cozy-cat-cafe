@@ -171,8 +171,8 @@ export { createGame, CONFIG,
 ```
 - `R7.1` — **Nivel del café desbloquea nodos:** `destroyPile` requiere `cafeLevel≥5`, `swapPiles≥3`, `refreshPool≥1`. `cafeLevel = totalGames+1` (sube con nº de partidas, R2.5). En el árbol, un nodo con nivel insuficiente = **bloqueado** (candado, no clicable). → US-20, US-21.
 - `R7.2` — **El nivel NO tiene reflejo visual en la escena**; solo se muestra en la UI del árbol (LV chip). La escena NO cambia por subir de nivel, solo cambia al **comprar** un poder (R7.3). → US-22.
-- `R7.3` — **Compra:** `buySkill(power)` exige `cafeLevel ≥ unlockLevel` Y `coins ≥ price`. Al comprar: `owned=true` (reflejo gráfico: nodo activo + arte del poder en la escena) y `uses = USES_PER_RUN`. → US-17/18/19, US-23.
-- `R7.4` — **Usos por partida:** `uses` decrementa al usar; **no puede usar si `uses===0`** ni si `!owned`. Al reabrir (`openRun`) **se reponen los `uses`** de todos los poderes poseídos. Estado visible: contador de usos / badge candado-comprado (render). → US-24. [v2: solo aplica a skills modelo 'uses' — ver R15.1]
+- `R7.3` — **Compra (v2.3 = todo usos):** `buySkill(power)` exige `cafeLevel ≥ unlockLevel` Y `coins ≥ precio siguiente = price × 1.35^usesBought`. La 1ª compra desbloquea y **ES el 1er uso** (`usesBought: 0→1`, `owned=true`); recomprar = +1 uso por partida (acumulativo, sin tope). → US-17/18/19, US-23.
+- `R7.4` — **Usos por partida (v2.3, sin base gratis):** `uses = usesBought` (0 si nunca compraste — la skill ni existe para la partida). `uses` decrementa al usar; **no puede usar si `uses===0`** ni si `!owned`. Al reabrir (`openRun`) **se reponen `uses = usesBought`**. Estado visible: badge "N uses/run" + botón de precio siguiente en tienda. → US-24. [v2: solo aplica a skills modelo 'uses' — ver R15.1]
 - `R7.5` — **DESTROY PILE** (más caro, `price=250`): `useDestroyPile(state, cellId)` — **vacía la pila de una celda** cualquiera (quita todo su `stack`, libera espacio), marca `uses -= 1`. Celda bloqueada (R8.4) no destruible. → US-17.
 - `R7.6` — **SWAP PILES** (medio, `price=120`): `useSwapPiles(state, cellA, cellB)` — **intercambia los `stack` completos** de 2 celdas (o 1 pila de pool ↔ 1 celda). Marca `uses -= 1`. No toca bloqueadas. → US-18.
 - `R7.7` — **REFRESH POOL** (barato, `price=40`): `useRefreshPool(state)` — **descarta el pool actual y genera otras 3 pilas** nuevas (no gasta colocaciones) con `rng`. Marca `uses -= 1`, `poolPlaced=0`. → US-19.
@@ -243,7 +243,7 @@ export { createGame, CONFIG,
 ### R14. Tablero dual rectangular 8×4 pointy 32 [v2.2] (modifica R6.2, R8)
 - `R14.1` — Tablero SIEMPRE dibujado completo: RECTÁNGULO pointy de 4 filas axiales × 8 celdas = 32 (v2.2, contorno rectangular tipo marco de Catan con offset de panal; en columna plegada `q+floor(r/2)` las 4 filas comparten patrón consecutivo). No jugable = visible apagada (estilo lock). (v2.0/v2.1: panal [7,9,9,7], reemplazado.)
 - `R14.2` — Jugable al inicio = núcleo 2-3-2 (7). [v2.2] La capacidad de activar por partida la da la skill `tables` (modelo USES, R14.3); `permTiles` queda como contador histórico de compras. [v2] R6.2 (`boardCells += 3`) queda OBSOLETA.
-- `R14.3` — [v2.2] Activate por USOS: skill `tables` (modelo USES R7.4/R17.2) — 1 uso base por partida + `usesBought`; `openRun` repone `uses = USES_PER_RUN.tables + usesBought`. Tocar baldosa apagada consume 1 uso y la activa ESA partida. SIN costo de monedas por activación (`runTilePrice ≡ 0`; RUN_TILE_BASE OBSOLETO-v2.2).
+- `R14.3` — [v2.3] Activate por USOS: skill `tables` (modelo USES R7.4) — **cero base gratis**; cada uso/partida se compra con `buyTablesUp` (que además sube el techo permTiles); `openRun` repone `uses = usesBought`. Tocar baldosa apagada consume 1 uso y la activa ESA partida. SIN costo de monedas por activación (`runTilePrice ≡ 0`; RUN_TILE_BASE OBSOLETO-v2.2).
 - `R14.4` — [v2.2] Compra permanente en TIENDA (`buyTablesUp`, fila "Tables per run"): `permTilePrice = TABLES_PERM_BASE(200) × 1.35^permTiles` ⚖BALANCE → `permTiles += 1` (techo histórico) Y `skills.tables.usesBought += 1` (+1 mesa activable por partida; se repone en cada openRun). La 1ª compra marca `tables.owned`. NO activa ninguna celda (la activación es siempre temporal).
 - `R14.5` — Calamidades (R8): rango se calcula sobre celdas JUGABLES, no sobre 32. [v2] R8.1 se reinterpreta: calamidades entran cuando las celdas JUGABLES (núcleo 7 + activadas) > 15. El rango lo/hi se calcula sobre jugables, no sobre 32. → US-53.
 
@@ -317,7 +317,7 @@ const pay = (q, m=0) => Math.round(5 * q ** (1.25 + 0.05*m));
 
 ### T6. Poderes / árbol
 - `T6.1` — **desbloqueo por nivel (candado):** GIVEN cafeLevel 2; THEN `swapPiles`/`destroyPile` NO comprables (`{error:'locked'}`) y `refreshPool` sí. CONFIG: swap needs 3, destroy needs 5. [R7.1]
-- `T6.2` — **comprar exige nivel+saldo:** GIVEN nivel 1 y coins 100; THEN `buySkill('destroyPile')` → `{error}`; tras `totalGames` suficientes y coins, `owned=true` y `uses=USES_PER_RUN`. [R7.1, R7.3]
+- `T6.2` — **comprar exige nivel+saldo (v2.3):** GIVEN nivel 1 y coins 100; THEN `buySkill('destroyPile')` → `{error}`; tras `totalGames` suficientes y coins, `owned=true` y `uses=usesBought=1` (la compra ES el 1er uso); recompra = +1 uso con precio `price×1.35^usesBought`. [R7.1, R7.3]
 - `T6.3` — **DESTROY PILE vacía pila:** GIVEN destructor owned, uses≥1, celda con `stack:[2,2,2]`; WHEN `useDestroyPile(c)`; THEN `stack===[]` y `uses-=1`. [R7.5]
 - `T6.4` — **DESTROY PILE no afecta celda bloqueada:** THEN `{error}`, `uses` intacto. [R7.5, R8.4]
 - `T6.5` — **SWAP PILES intercambia stacks:** GIVEN A:`[1,1]`, B:`[2]`; WHEN `useSwapPiles(A,B)`; THEN A:`[2]`, B:`[1,1]`, `uses-=1`. [R7.6]
