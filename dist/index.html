@@ -14,6 +14,7 @@
   --accent:#f6a7c1; --accent-2:#ffb2c1; --highlight:#fff5b2;
   --tile-mint:#7fd6a4; --tile-blue:#7cc4f5; --tile-pink:#ff8fa3; --tile-blush:#ffab72;
   --tile-lavender:#c49ade; --tile-cream:#f0d46e;
+  --tile-denim:#2c6eb0; --tile-teal:#1f8f81; --tile-pine:#14532d; --tile-orchid:#9932cc; /* v2.6.1 colores 7..10 */
   --ink:#794835; --ink-soft:#a06e52; --success:#a8e1d4; --danger:#c96a5a;
   --lock:#a0928a; --shadow:rgba(121,72,53,.25);
   --font-display:'Baloo 2',system-ui,'Segoe UI',sans-serif;
@@ -1869,10 +1870,10 @@ function brandExportId(state, ms) {
 // ---- APP (DOM + browser lifecycle) -------------------------------
 
 // ===========================================================================
-// Cozy Cat Café × HexaSort — BUNDLE AUTOCONTENIDO (generado por build.js).
-// Inlina la lógica pura (js/game.js) y embebe cada sprite como datos.
-// Sin carga de módulos externa ni solicitudes de red: se abre por doble clic
-// protocolo local (doble clic). Se conserva el fallback G7 (placeholder) para arte faltante.
+// Cozy Cat Café × HexaSort — APP (DOM + browser lifecycle only).
+// Pure GAME LOGIC is IMPORTED from ./js/game.js (headless-testable).
+// Sprites come from the sprite map; any MISSING sprite is generated as a code
+// placeholder (solid palette tile) so the game runs 100% without art (G7).
 // ===========================================================================
 let state = null;
 const KEY = 'cozy-cat-cafe.save.v1';
@@ -1881,7 +1882,8 @@ const ui = { slot:false, mode:null, swapFirst:null, servingOrder:null, placeTile
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const fmt = n => Math.max(0, Math.floor(n||0)).toLocaleString('en-US');
-const TILE_CSS = {1:'--tile-mint',2:'--tile-blue',3:'--tile-pink',4:'--tile-blush',5:'--tile-lavender',6:'--tile-cream'};
+const TILE_CSS = {1:'--tile-mint',2:'--tile-blue',3:'--tile-pink',4:'--tile-blush',5:'--tile-lavender',6:'--tile-cream',
+  7:'--tile-denim',8:'--tile-teal',9:'--tile-pine',10:'--tile-orchid'}; // v2.6.1: 7..10 existian en game.js pero caian al fallback mint
 const tileVar = c => TILE_CSS[c]||'--tile-mint';
 
 // ---------------- sprite registry + placeholder fallback --------------------
@@ -2059,7 +2061,8 @@ function renderOrders(){
     renderOrders(); renderBoard();
   }));
 }
-function colorName(c){ return {1:'peppermint',2:'sky',3:'rose',4:'blush',5:'lavender',6:'vanilla'}[c]||'tile'; }
+function colorName(c){ return {1:'peppermint',2:'sky',3:'rose',4:'blush',5:'lavender',6:'vanilla',
+  7:'denim',8:'teal',9:'pine',10:'orchid'}[c]||'tile'; }
 // an order is "ready" when ANY non-blocked cell currently holds the exact top run
 function orderIsReady(o){
   const r=state.run; if(!r) return false;
@@ -2846,10 +2849,10 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40, tables 80×1.25;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.6.0';
+const GAME_VERSION = 'v2.6.1';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
-window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks };
+window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };
 window.addEventListener('load', boot);
 
 </script>
