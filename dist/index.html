@@ -2541,10 +2541,21 @@ function activateFlow(id){
 function destroyFlow(id){ const r=useDestroyPile(state,id);
   if(r.error){ err(r); } else { const el=$(`[data-id="${id}"]`); if(el) floatOn(el,'💥'); state=r; toast('Stack cleared!'); }
   ui.mode=null; renderAll(); }
-function swapFlow(id){ if(ui.swapFirst===null){ ui.swapFirst=id; toast('Now tap the second tile.'); return; }
-  const res=useSwapPiles(state,ui.swapFirst,id);
-  if(res.error){ err(res); } else { state=res; toast('Swapped!'); }
-  ui.mode=null; ui.swapFirst=null; renderAll(); }
+async function swapFlow(id){ if(ui.swapFirst===null){ ui.swapFirst=id; toast('Now tap the second tile.'); return; }
+  const a=ui.swapFirst;
+  const res=useSwapPiles(state,a,id);
+  ui.mode=null; ui.swapFirst=null;
+  if(res.error){ err(res); renderAll(); return; }
+  state=res; toast('Swapped!');
+  const elA=$(`[data-id="${a}"]`), elB=$(`[data-id="${id}"]`);
+  if(elA) floatOn(elA,'🔄'); if(elB) floatOn(elB,'🔄');
+  // v2.6 R12.2: el swap muta topes => dispara la cascada (espejo de placeFlow);
+  // antes solo re-renderizaba y el merge pendiente quedaba congelado en pantalla.
+  const fin=resolveCascade(state);
+  if(fin.steps===0){ state=fin.state; renderAll(); checkFull(); checkServedAll(); return; }
+  await playCascade(res,fin.state);
+  await settlePasses();                          // v2.4.1: clientes "apenas entre"
+  renderAll(); checkFull(); checkServedAll(); }
 async function placeFlow(cell,slot){
   if(ui.anim) return;                            // cascada en curso: input bloqueado
   const res=placeStack(state,cell,slot);
@@ -2835,7 +2846,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40, tables 80×1.25;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.5';
+const GAME_VERSION = 'v2.6.0';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks };

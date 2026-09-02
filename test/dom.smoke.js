@@ -58,7 +58,11 @@ const importBlock = [
  'buySkill','buyMultiplier','useDestroyPile','useSwapPiles','useRefreshPool','buyExpansion',
  'buyIdleUpgrade','tickIdle','applyOffline','colorsUnlocked','serializeState','deserializeState',
  'importSave','mulberry32','ROSTER','resolveCascade','activateTile','runTilePrice',
- 'toggleServe','previewPool','pay','HEX_ADJ','topGroup'].join(', ');
+ 'buyColor','buyUsesUp','usesUpPrice',                       // v2.1 R13.7/R17
+ 'permTilePrice','toggleServe','previewPool','pay','buyTablesUp', // v2.2 R14.4
+ 'topRunCount','bfsMergeGroups','computeBestChain','r2Target',   // v2.2/v3 espejo
+ 'totalClients','runVictory','useQueueSkip',                 // v2.1 R16/R17
+ 'HEX_ADJ','topGroup'].join(', ');
 const header = `import {${importBlock}} from '../js/game.js';\n`;
 const appCode = m[1];
 const appBody = appCode.replace(/import \{[\s\S]*?from '\.\/js\/game\.js';/, '');
@@ -98,10 +102,10 @@ try {
         } else {
           results.noPlaceable = true;
         }
-    // skills modal
-    document.getElementById('btnSkills').click(); await sleep(20);
-    results.skillsOpens = document.getElementById('skillsModal').classList.contains('show');
-    document.getElementById('skillsModal').classList.remove('show');
+    // v2.1: única tienda 🛒 (el modal 🌿 Skills se eliminó) — abrir y cerrar
+    document.getElementById('btnShop').click(); await sleep(20);
+    results.shopOpens = document.getElementById('shopModal').classList.contains('show');
+    document.getElementById('shopModal').classList.remove('show');
     // close café
     document.getElementById('btnClose').click(); await sleep(20);
     results.closeOpens = document.getElementById('closeModal').classList.contains('show');
