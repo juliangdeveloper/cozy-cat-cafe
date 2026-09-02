@@ -141,13 +141,14 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
    <i class=tface> = cara superior (rim oscuro + fill --tc via su ::before).
    Todas las fichas llevan el mismo bisel → el top deja de verse "plano". */
 .tile{position:absolute;left:50%;top:50%;translate:-50% calc(-50% + var(--lift,0px));width:var(--cw);height:var(--ch)}
-.tile::before{content:"";position:absolute;inset:0;background:color-mix(in srgb,var(--tc),#000 48%);
+.tile::before{content:"";position:absolute;inset:0;background:color-mix(in srgb,var(--tc),#000 30%);
   clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
-  transform:translateY(calc(var(--hx)*0.1))}
+  transform:translateY(calc(var(--hx)*0.055))}
 .tface{position:absolute;inset:0;display:block;transform:translateY(calc(var(--hx)*-0.015));
-  background:color-mix(in srgb,var(--tc),#000 30%);
+  background:color-mix(in srgb,var(--tc),#000 22%);
   clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
-.tface::before{content:"";position:absolute;inset:2px;background:var(--tc);
+.tface::before{content:"";position:absolute;inset:1.5px;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--tc),#fff 16%),var(--tc) 55%);
   clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
 /* top:-16px clears the topmost tile of a full 3-tile stack now that tiles are
    centered on the hex (the lifted top tile pokes above the hex top) */
@@ -213,10 +214,10 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .tray{position:relative;width:46px;height:100%} /* tiles are absolute, stacked from the bottom like the board */
 /* v2.1 — ttile 3D por bisel (misma técnica que .tile) */
 .ttile{position:absolute;left:50%;bottom:0;translate:-50% 0;width:46px;height:40px}
-.ttile::before{content:"";position:absolute;inset:0;background:color-mix(in srgb,var(--tc),#000 48%);
+.ttile::before{content:"";position:absolute;inset:0;background:color-mix(in srgb,var(--tc),#000 30%);
   clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
-  transform:translateY(2.5px)}
-.ttile .tface{transform:translateY(-0.4px)}
+  transform:translateY(calc(var(--hx)*0.055))}
+.ttile .tface{transform:translateY(calc(var(--hx)*-0.015))}
 .poolempty{font-size:10px;color:var(--wood-dark);font-weight:700;text-align:center;width:100%;align-self:flex-end;padding-bottom:6px}
 
 /* powers */
@@ -1015,10 +1016,11 @@ function computeBestChain(board) {
 }
 
 // R2 (fallback): destino = candidato que deja MÁS aristas encadenables post-merge;
-// tie-break cozy: 1º candidato que NO haya recibido en esta cascada, 2º torre
-// más baja, 3º menor índice (determinista).
+// tie-break v2.2.1 (flip pedido por el usuario): 1º candidato que SÍ recibió
+// en esta cascada (último receptor, fiel al mergeTarget del original),
+// 2º torre más baja, 3º menor índice (determinista).
 function r2Target(board, group, color, received) {
-  let best = -1, bestChain = -1, bestReceived = true, bestSize = Infinity;
+  let best = -1, bestChain = -1, bestReceived = false, bestSize = Infinity;
   for (const gi of group) {
     // tops post-merge: las fuentes pierden su run, los candidatos conservan el suyo
     const post = new Map();
@@ -1042,7 +1044,7 @@ function r2Target(board, group, color, received) {
     const sz = board[gi].stack.length;
     const rec = received.has(gi);
     if (best < 0 || chain > bestChain
-      || (chain === bestChain && bestReceived && !rec)
+      || (chain === bestChain && !bestReceived && rec)
       || (chain === bestChain && rec === bestReceived && sz < bestSize)
       || (chain === bestChain && rec === bestReceived && sz === bestSize && gi < best)) {
       best = gi; bestChain = chain; bestReceived = rec; bestSize = sz;
@@ -2672,10 +2674,10 @@ async function boot(){
   startLoop();
   window.addEventListener('beforeunload',persist);
 }
-// Release stamp — v2.2: motor de merge = HEXASORT ORIGINAL (barrido global de
-// grupos contiguos BFS, destino por T1/R2, fuentes conservan sub-pila,
-// tie-break cozy: preferir candidato que NO recibió).
-const GAME_VERSION = 'v2.2';
+// v2.2.1: motor de merge = HEXASORT ORIGINAL (barrido global de grupos
+// contiguos BFS, destino por T1/R2, fuentes conservan sub-pila,
+// tie-break R2: preferir candidato que SÍ recibió — mergeTarget original).
+const GAME_VERSION = 'v2.2.1';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks };
