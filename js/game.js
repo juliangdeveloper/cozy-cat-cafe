@@ -612,10 +612,11 @@ export function computeBestChain(board) {
 }
 
 // R2 (fallback): destino = candidato que deja MÁS aristas encadenables post-merge;
-// tie-break cozy: 1º candidato que NO haya recibido en esta cascada, 2º torre
-// más baja, 3º menor índice (determinista).
+// tie-break v2.2.1 (flip pedido por el usuario): 1º candidato que SÍ recibió
+// en esta cascada (último receptor, fiel al mergeTarget del original),
+// 2º torre más baja, 3º menor índice (determinista).
 export function r2Target(board, group, color, received) {
-  let best = -1, bestChain = -1, bestReceived = true, bestSize = Infinity;
+  let best = -1, bestChain = -1, bestReceived = false, bestSize = Infinity;
   for (const gi of group) {
     // tops post-merge: las fuentes pierden su run, los candidatos conservan el suyo
     const post = new Map();
@@ -639,7 +640,7 @@ export function r2Target(board, group, color, received) {
     const sz = board[gi].stack.length;
     const rec = received.has(gi);
     if (best < 0 || chain > bestChain
-      || (chain === bestChain && bestReceived && !rec)
+      || (chain === bestChain && !bestReceived && rec)
       || (chain === bestChain && rec === bestReceived && sz < bestSize)
       || (chain === bestChain && rec === bestReceived && sz === bestSize && gi < best)) {
       best = gi; bestChain = chain; bestReceived = rec; bestSize = sz;
