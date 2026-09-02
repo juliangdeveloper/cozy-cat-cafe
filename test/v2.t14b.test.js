@@ -132,10 +132,10 @@ test('T14l [R17.2 v2.3] openRun repone tables.uses = usesBought', () => {
 //    precio = PERM_TILE_BASE * 1.35^permTiles (sin redondeo, igual que antes).
 //  * comprar NO activa ninguna celda (la activación es temporal por partida).
 // ---------------------------------------------------------------------------
-test('T14m [R14.4 v2.2] buyTablesUp: permTiles+1, usesBought+1, coins -= PERM_TILE_BASE*1.35^permTiles', () => {
+test('T14m [R14.4 v2.5] buyTablesUp: permTiles+1, usesBought+1, coins -= TABLES_PERM_BASE*RATIO^permTiles', () => {
   need('buyTablesUp'); need('permTilePrice'); needCfg('PERM_TILE_BASE'); needCfg('TABLES_PERM_RATIO');
-  assert.equal(G.CONFIG.TABLES_PERM_BASE, 200, 'RED: CONFIG.TABLES_PERM_BASE===200');
-  assert.equal(G.CONFIG.TABLES_PERM_RATIO, 1.35, 'RED: CONFIG.TABLES_PERM_RATIO===1.35');
+  assert.equal(G.CONFIG.TABLES_PERM_BASE, 80, 'RED: v2.5 dial TABLES_PERM_BASE===80');
+  assert.equal(G.CONFIG.TABLES_PERM_RATIO, 1.25, 'RED: v2.5 dial TABLES_PERM_RATIO===1.25');
   const s = G.createGame({ progress: { coins: 100000 } });
   s.skills.tables = { owned: false, uses: 0, usesBought: 0 };
   s.progress.permTiles = 1;
@@ -145,8 +145,8 @@ test('T14m [R14.4 v2.2] buyTablesUp: permTiles+1, usesBought+1, coins -= PERM_TI
   assert.equal(st.skills.tables.usesBought, 1, 'RED: buyTablesUp debe subir usesBought (mesas por partida)');
   assert.equal(st.skills.tables.owned, true, 'RED: comprar la 1ª vez marca tables como owned');
   assert.ok(Math.abs((st.progress.coins - 100000) + price) < 1e-6, 'RED: coins debe descontar permTilePrice exacto');
-  assert.equal(G.permTilePrice(st), G.CONFIG.PERM_TILE_BASE * 1.35 ** st.progress.permTiles,
-    'RED: permTilePrice = PERM_TILE_BASE * 1.35^permTiles [R14.4]');
+  assert.equal(G.permTilePrice(st), G.CONFIG.TABLES_PERM_BASE * G.CONFIG.TABLES_PERM_RATIO ** st.progress.permTiles,
+    'RED: permTilePrice = TABLES_PERM_BASE * RATIO^permTiles [R14.4 v2.5]');
 });
 
 test('T14n [R14.4 v2.2] buyTablesUp sin saldo => {error:"noFunds"} sin mutar; comprar NO activa celdas', () => {
