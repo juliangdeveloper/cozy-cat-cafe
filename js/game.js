@@ -20,6 +20,8 @@ export const CONFIG = {
   CALAMITY_THRESHOLD: 15,           // R8.1 only if boardCells > 15
   BLOCK_PROB: 0.5,                  // R8.3 ~50% blocked / ~50% prestockated
   USES_SKILLS: ['destroyPile', 'swapPiles', 'refreshPool', 'queueSkip', 'tables'], // v2.3 R7.2: skills modelo USOS (v2.3 = cero base gratis, cada uso se compra)
+  MAX_USES_PER_SKILL: 5,            // v2.4: tope de usos por partida en destroy/swap/refresh/queueSkip (tables NO: su capa = baldosas dormant)
+  TABLES_CAP_FROM_BOARD: true,      // v2.4: techo de buyTablesUp = celdas del tablero − núcleo 7
   PRODUCTS_PER_COLOR: 3,            // R10.1 [OBSOLETO v2 — reemplazado por R13.7]
   IDLE_RATE: { workers: 0.5, fame: 0.3, machines: 0.8 }, // R9.1
   IDLE_CAP:  { workers: 60,  fame: 100,  machines: 40 },  // R9.3 caps
@@ -815,6 +817,11 @@ export function buyTablesUp(state) {
   const s = clone(state);
   if (s.progress.permTiles == null) s.progress.permTiles = 1;
   if (!s.skills.tables) s.skills.tables = { owned: false, uses: 0, usesBought: 0 };
+  // v2.4: el techo de mesas/partida depende del TAMAÑO DEL TABLERO —
+  // celdas totales − núcleo 7 (nunca tiene sentido comprar más activables
+  // que baldosas apagadas existan). Con 32 celdas: tope 25.
+  const boardCap = (s.run && Array.isArray(s.run.board) ? s.run.board.length : 32) - 7;
+  if ((s.skills.tables.usesBought || 0) >= boardCap) return { error: 'maxUses', state: s };
   const price = permTilePrice(s);
   if (s.progress.coins < price) return { error: 'noFunds', state: s };
   s.progress.permTiles += 1;                                    // techo permanente
@@ -993,6 +1000,14 @@ export function resolveCascade(state) {
   return { state: s, steps };
 }
 
+export function topRunCount(stack) {
+  if (!stack || !stack.length) return 0;
+  const t = stack[stack.length - 1];
+  let n = 0;
+  for (let i = stack.length - 1; i >= 0 && stack[i] === t; i--) n++;
+  return n;
+}
+
 // ---------------------------------------------------------------------------
 // isServeReady(state, cellId) — el tope de ESA celda cumple ALGÚN pedido
 // pendiente (R15.2: la celda queda "servible" para el serve manual).
@@ -1107,8 +1122,12 @@ export function buySkill(state, power) {
   // uses = usesBought. Precio = price * 1.35^usesBought (compras acumuladas).
   {
     const sk2 = s.skills[power];
+    // v2.4: tope de usos/partida = MAX_USES_PER_SKILL (5) para destroy/swap/
+    // refresh/queueSkip; 'tables' sin ese tope (su capa real = baldosas dormant).
+    const cap = power === 'tables' ? Infinity : CONFIG.MAX_USES_PER_SKILL;
     const cost = Math.round(sk2.price * Math.pow(1.35, sk2.usesBought || 0));
     if (s.progress.cafeLevel < sk2.unlockLevel) return { error: 'locked' };  // R7.1
+    if ((sk2.usesBought || 0) >= cap) return { error: 'maxUses' };           // v2.4
     if (s.progress.coins < cost) return { error: 'noFunds' };                // R7.3
     s.progress.coins -= cost;
     sk2.usesBought = (sk2.usesBought || 0) + 1;   // la compra ES un uso
@@ -1157,6 +1176,9 @@ export function buyUsesUp(state, power) {
   const sk = state && state.skills && state.skills[power];
   if (!sk) return { error: 'noSkill' };
   if (!CONFIG.USES_SKILLS.includes(power)) return { error: 'noUsesModel' };  // solo modelo 'uses'
+  // v2.4: mismo tope que buySkill (5 por partida; tables sin tope 5)
+  const cap = power === 'tables' ? Infinity : CONFIG.MAX_USES_PER_SKILL;
+  if ((sk.usesBought || 0) >= cap) return { error: 'maxUses' };
   const s = clone(state);
   const cur = s.skills[power];
   if (!cur.owned) return { error: 'locked' };                        // R7.1: mejora lo comprado
@@ -1234,7 +1256,11 @@ export function useRefreshPool(state, rng) {
   const guard = ensureOwnedUses(state, 'refreshPool');
   if (guard) return guard;
   const s = clone(state);
-  s.run.pool = Array.from({ length: 3 }, () => pile(rng || Math.random, s.progress.colorsUnlocked)); // R7.7 + R3.1
+  // v2.4 FIX: el refresh monocolor era un bug — usaba progress.colorsUnlocked
+  // (v1, =1 al inicio) en vez de poolMaxColor(rosterIndex, colorsOwned) como
+  // openRun. Ahora genera EXACTAMENTE como el pool inicial (v2Pile multicolor).
+  const cu = poolMaxColor(s.run.rosterIndex, s.progress.colorsOwned);
+  s.run.pool = Array.from({ length: 3 }, () => v2Pile(rng || Math.random, cu)); // R7.7 + R3.1 v2.4
   s.run.poolPlaced = 0;                                                   // R7.7
   s.skills.refreshPool.uses -= 1;
   return s;

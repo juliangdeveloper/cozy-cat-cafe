@@ -78,6 +78,9 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   padding:6px;box-shadow:0 3px 0 var(--shadow);text-align:center;cursor:pointer}
 .order-card.served{opacity:.5}
 .order-card.ready{background:var(--highlight);animation:pulse 1.2s infinite}
+/* v2.4: pop del cliente mientras su pedido vuela hasta él */
+.order-card.grabbing{animation:grabPop .8s cubic-bezier(.4,0,.2,1)}
+@keyframes grabPop{0%{transform:scale(1)}40%{transform:scale(1.12);box-shadow:0 0 14px var(--highlight)}100%{transform:scale(1)}}
 .order-card.selected{border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-2),0 3px 0 var(--shadow)}
 .order-card.selected .bubble{background:var(--accent-2)}
 .seltag{color:var(--ink);font-weight:900;font-size:14px;line-height:1;animation:breathe 1s ease-in-out infinite}
@@ -189,6 +192,15 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .board.shake{animation:shake .45s cubic-bezier(.4,0,.2,1)}
 @keyframes shake{0%,100%{transform:translate(0,0)}20%{transform:translate(-7px,3px)}
   40%{transform:translate(6px,-4px)}60%{transform:translate(-4px,2px)}80%{transform:translate(3px,-1px)}}
+/* v2.4 — vuelo de ficha (centralizado, reúso: cascada de merge y cliente que
+   toma su pedido): mini-hex volando de un punto a otro del board */
+.flyhex{position:absolute;z-index:40;width:18px;height:15px;pointer-events:none;
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
+  background:var(--fc,var(--tile-blue));animation:flyhex .8s cubic-bezier(.5,.05,.4,1) forwards}
+@keyframes flyhex{
+  0%{left:var(--x1);top:var(--y1);transform:translate(-50%,-50%) scale(1.2);opacity:1}
+  70%{opacity:1}
+  100%{left:var(--x2);top:var(--y2);transform:translate(-50%,-50%) scale(.55);opacity:0}}
 
 /* v2 preview de pizarra (R15.1): fila de N próximas tandas (3 pilas c/u) */
 .preview{display:flex;gap:10px;padding:8px 10px;background:var(--wood);border:2px solid var(--ink);
@@ -221,8 +233,8 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .poolempty{font-size:10px;color:var(--wood-dark);font-weight:700;text-align:center;width:100%;align-self:flex-end;padding-bottom:6px}
 
 /* powers */
-.powerbar{display:flex;gap:8px;margin:12px 0}
-.pow{flex:1;min-height:50px;display:flex;align-items:center;justify-content:center;gap:5px;background:var(--panel);
+.powerbar{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0} /* v2.4 wrap: 6+ skills SIEMPRE en pantalla (móvil 2 filas de 3) */
+.pow{flex:1 1 calc(33% - 8px);min-height:50px;display:flex;align-items:center;justify-content:center;gap:5px;background:var(--panel);
   border:2px solid var(--ink);border-radius:12px;cursor:pointer;font-weight:800;font-size:12px;
   box-shadow:0 3px 0 var(--wood-dark);position:relative;padding:4px}
 .pow img,.pow .o{width:22px;height:22px}
@@ -276,7 +288,7 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 @keyframes conf{0%{opacity:1;transform:translate(0,0) rotate(0)}60%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(720deg)}}
 
 @media(min-width:720px){#app{max-width:680px}.powerbar{flex-wrap:nowrap}}
-/* v2.2: tablero RECTÁNGULO 8×4 pointy (32 celdas, 4 filas de 8) — extensión
+/* v2.4: tablero RECTÁNGULO 8×4 pointy (32 celdas, 4 filas de 8) — extensión
    real del panal ≈ 16.7hx (8 columnas √3·hx + offset de fila impar 0.866·hx,
    con margen). El criterio es "máximo hx que quepa": hx = floor((vw-20)/16.7),
    donde 20 = 6px padding #app (x2, móvil) + 4px padding .board-wrap (x2).
@@ -288,13 +300,38 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
      vw >= 350  -> 17   (17*16.7=284 <= 300, vw 320)
      vw <  350  -> 14
    (hx fraccional imposible: el pitch del panal exige enteros) */
-:root{ --hx:22px; }                          /* 22*16.7=367 <= 370 (vw 390) */
-@media(min-width:761px){:root{--hx:39px}}    /* 39*16.7=651 <= 660 */
-@media(max-width:432px){:root{--hx:23px}}    /* 23*16.7=384 <= 394 (vw 414) */
-@media(max-width:404px){:root{--hx:22px}}
-@media(max-width:377px){:root{--hx:20px}}    /* 334 <= 340 (vw 360) */
-@media(max-width:349px){:root{--hx:17px}}    /* 284 <= 300 (vw 320) */
-@media(max-width:319px){:root{--hx:14px}}
+/* v2.4 +20% fichas: extensión REAL del panal 8×4 pointy medida por renderBoard:
+   boxW = hx·(7·1.732 + 0.866 + 2) = 15.0·hx (las filas impares sobresalen a la
+   derecha 0.866·hx). hx_max = floor((vw − 20) / 15.0); 20 = padding #app (12)
+   + padding .board-wrap (8). Máximo honesto en vw 390 => 25px (+14% lineal,
+   +29% de área por ficha vs v2.2 que usaba 22 con extensión sobre-dimensionada).
+   ESCALERA (verificada con audit DOM, sin overflow a los costados):
+     vw >= 761  -> 44   (44·15.0=660 <= 741)
+     vw >= 433  -> 28   (28·15.0=420 <= 421)
+     vw >= 405  -> 26   (26·15.0=390 <= 393)
+     vw >= 387  -> 25   (25·15.0=375 <= 375)
+     vw >= 372  -> 24   (24·15.0=360 <= 360)
+     vw >= 357  -> 23   (23·15.0=345 <= 345)
+     vw >= 342  -> 22
+     vw >= 327  -> 21
+     vw >= 312  -> 20
+     vw >= 297  -> 19
+     vw >= 282  -> 18
+     vw <  282  -> 17
+   (hx fraccional imposible: el pitch del panal exige enteros) */
+:root{ --hx:25px; }                          /* v2.4: 25·15.0=375 <= 378 (vw 390) */
+@media(min-width:761px){:root{--hx:44px}}    /* 44·15.0=660 <= 741 */
+@media(max-width:720px){:root{--hx:28px}}    /* 28·15.0=420 <= 421 (vw 433+) */
+@media(max-width:432px){:root{--hx:26px}}    /* 26·15.0=390 <= 393 (vw 405+) */
+@media(max-width:404px){:root{--hx:25px}}
+@media(max-width:386px){:root{--hx:24px}}    /* 360 <= 360 (vw 372+) */
+@media(max-width:371px){:root{--hx:23px}}
+@media(max-width:356px){:root{--hx:22px}}
+@media(max-width:341px){:root{--hx:21px}}
+@media(max-width:326px){:root{--hx:20px}}
+@media(max-width:311px){:root{--hx:19px}}
+@media(max-width:296px){:root{--hx:18px}}
+@media(max-width:281px){:root{--hx:17px}}
 
 /* ============================================================
    MOBILE-FIRST (<=560px): board-first, powerbar sticky inferior,
@@ -424,6 +461,8 @@ const CONFIG = {
   CALAMITY_THRESHOLD: 15,           // R8.1 only if boardCells > 15
   BLOCK_PROB: 0.5,                  // R8.3 ~50% blocked / ~50% prestockated
   USES_SKILLS: ['destroyPile', 'swapPiles', 'refreshPool', 'queueSkip', 'tables'], // v2.3 R7.2: skills modelo USOS (v2.3 = cero base gratis, cada uso se compra)
+  MAX_USES_PER_SKILL: 5,            // v2.4: tope de usos por partida en destroy/swap/refresh/queueSkip (tables NO: su capa = baldosas dormant)
+  TABLES_CAP_FROM_BOARD: true,      // v2.4: techo de buyTablesUp = celdas del tablero − núcleo 7
   PRODUCTS_PER_COLOR: 3,            // R10.1 [OBSOLETO v2 — reemplazado por R13.7]
   IDLE_RATE: { workers: 0.5, fame: 0.3, machines: 0.8 }, // R9.1
   IDLE_CAP:  { workers: 60,  fame: 100,  machines: 40 },  // R9.3 caps
@@ -1219,6 +1258,11 @@ function buyTablesUp(state) {
   const s = clone(state);
   if (s.progress.permTiles == null) s.progress.permTiles = 1;
   if (!s.skills.tables) s.skills.tables = { owned: false, uses: 0, usesBought: 0 };
+  // v2.4: el techo de mesas/partida depende del TAMAÑO DEL TABLERO —
+  // celdas totales − núcleo 7 (nunca tiene sentido comprar más activables
+  // que baldosas apagadas existan). Con 32 celdas: tope 25.
+  const boardCap = (s.run && Array.isArray(s.run.board) ? s.run.board.length : 32) - 7;
+  if ((s.skills.tables.usesBought || 0) >= boardCap) return { error: 'maxUses', state: s };
   const price = permTilePrice(s);
   if (s.progress.coins < price) return { error: 'noFunds', state: s };
   s.progress.permTiles += 1;                                    // techo permanente
@@ -1397,6 +1441,14 @@ function resolveCascade(state) {
   return { state: s, steps };
 }
 
+function topRunCount(stack) {
+  if (!stack || !stack.length) return 0;
+  const t = stack[stack.length - 1];
+  let n = 0;
+  for (let i = stack.length - 1; i >= 0 && stack[i] === t; i--) n++;
+  return n;
+}
+
 // ---------------------------------------------------------------------------
 // isServeReady(state, cellId) — el tope de ESA celda cumple ALGÚN pedido
 // pendiente (R15.2: la celda queda "servible" para el serve manual).
@@ -1511,8 +1563,12 @@ function buySkill(state, power) {
   // uses = usesBought. Precio = price * 1.35^usesBought (compras acumuladas).
   {
     const sk2 = s.skills[power];
+    // v2.4: tope de usos/partida = MAX_USES_PER_SKILL (5) para destroy/swap/
+    // refresh/queueSkip; 'tables' sin ese tope (su capa real = baldosas dormant).
+    const cap = power === 'tables' ? Infinity : CONFIG.MAX_USES_PER_SKILL;
     const cost = Math.round(sk2.price * Math.pow(1.35, sk2.usesBought || 0));
     if (s.progress.cafeLevel < sk2.unlockLevel) return { error: 'locked' };  // R7.1
+    if ((sk2.usesBought || 0) >= cap) return { error: 'maxUses' };           // v2.4
     if (s.progress.coins < cost) return { error: 'noFunds' };                // R7.3
     s.progress.coins -= cost;
     sk2.usesBought = (sk2.usesBought || 0) + 1;   // la compra ES un uso
@@ -1561,6 +1617,9 @@ function buyUsesUp(state, power) {
   const sk = state && state.skills && state.skills[power];
   if (!sk) return { error: 'noSkill' };
   if (!CONFIG.USES_SKILLS.includes(power)) return { error: 'noUsesModel' };  // solo modelo 'uses'
+  // v2.4: mismo tope que buySkill (5 por partida; tables sin tope 5)
+  const cap = power === 'tables' ? Infinity : CONFIG.MAX_USES_PER_SKILL;
+  if ((sk.usesBought || 0) >= cap) return { error: 'maxUses' };
   const s = clone(state);
   const cur = s.skills[power];
   if (!cur.owned) return { error: 'locked' };                        // R7.1: mejora lo comprado
@@ -1638,7 +1697,11 @@ function useRefreshPool(state, rng) {
   const guard = ensureOwnedUses(state, 'refreshPool');
   if (guard) return guard;
   const s = clone(state);
-  s.run.pool = Array.from({ length: 3 }, () => pile(rng || Math.random, s.progress.colorsUnlocked)); // R7.7 + R3.1
+  // v2.4 FIX: el refresh monocolor era un bug — usaba progress.colorsUnlocked
+  // (v1, =1 al inicio) en vez de poolMaxColor(rosterIndex, colorsOwned) como
+  // openRun. Ahora genera EXACTAMENTE como el pool inicial (v2Pile multicolor).
+  const cu = poolMaxColor(s.run.rosterIndex, s.progress.colorsOwned);
+  s.run.pool = Array.from({ length: 3 }, () => v2Pile(rng || Math.random, cu)); // R7.7 + R3.1 v2.4
   s.run.poolPlaced = 0;                                                   // R7.7
   s.skills.refreshPool.uses -= 1;
   return s;
@@ -1878,7 +1941,8 @@ const ERRT={ noFunds:'Not enough coins', blocked:'That tile is locked', locked:'
   occupied:'That tile is occupied — place on an empty tile',
   noUses:'No uses left this café', notReady:'Those pieces don\'t match it / wrong color', emptyPool:'Nothing to place',
   emptySlot:'Tray slot is empty', noOrder:'No order there', noCell:'No tile there', same:'Pick two different tiles', owned:'Already owned',
-  noKind:'Unknown expansion', noSystem:'Unknown system', maxed:'Maxed out' };
+  noKind:'Unknown expansion', noSystem:'Unknown system', maxed:'Maxed out',
+  maxUses:'Max uses per run reached (5)' };   // v2.4 tope de usos por skill
 const err = r => toast(ERRT[(r&&r.error)||''] || (r&&r.error)||'');
 function persist(){ state.meta.lastSavedAt = Date.now(); localStorage.setItem(KEY, serializeState(state)); }
 function renderAll(){ persist(); state.run ? renderRun() : renderMenu(); }
@@ -2034,9 +2098,12 @@ function cellHTML(cell, idx){
     // --lift:-i*step (a growing `top:Npx` would fill downward from the ceiling).
     // v2.0: SIN punto decorativo sobre la ficha (se elimina .dot).
       const step=stackStep();
+      // v2.4: el badge muestra la RUN del tope (fichas contiguas del mismo color),
+      // no la altura de la pila — coincide con lo que se fusiona/sirve.
+      const runN=topRunCount(cell.stack);
       stack='<div class="stack">'+cell.stack.map((c,ci)=>
         `<div class="tile" style="--lift:${-ci*step}px;--tc:var(${tileVar(c)})"><i class="tface"></i></div>`).join('')+
-      (cell.stack.length>1?`<span class="badge">${cell.stack.length}</span>`:'')+'</div>';
+      (runN>1?`<span class="badge">${runN}</span>`:'')+'</div>';
   }
   return `<div class="${cls}" data-id="${idx}"${tip?` title="${tip}"`:''}><div class="hexbg"></div>${stack}
     ${cell.blocked?'<div class="lockovl"><span>🔒</span></div>':''}
@@ -2266,6 +2333,7 @@ function cascadeLinks(state){
       }
     }
     // (ii) auto-serve: pedidos flotantes (cell===null), si autoServe!==false
+    // v2.4: el tirón del cliente se marca para volarlo (flyToClient en playCascade)
     const auto=!(s.skills&&s.skills.serveManual&&s.skills.serveManual.autoServe===false);
     if(auto&&Array.isArray(s.run.orders)){
       for(const order of s.run.orders){
@@ -2276,7 +2344,7 @@ function cascadeLinks(state){
         cell.stack.splice(cell.stack.length-order.qty,order.qty);   // exacto
         order.served=true;
         const amount=pay(order,s.economy.multLevel);                // R5.1
-        s.progress.coins+=amount; served.push({cell:idx,amount});
+        s.progress.coins+=amount; served.push({cell:idx,amount,order});  // v2.4: order para flyToClient
         acted=true;
       }
     }
@@ -2306,6 +2374,62 @@ function floatOrders(servedList){
     if(el) floatOn(el,'+'+fmt(amount)+' 🪙');
   });
 }
+// v2.4 — vuelo de fichas ENTRE celdas del board (helper centralizado):
+// se reúsa en la cascada (merge) y en el serve (ficha → cliente). Ancla al
+// .board (position:relative), coordenadas en px del centro de cada celda.
+function flyHexes(fromIds,toId,color,qty){
+  const board=$('#board'); if(!board) return;
+  const to=document.querySelector(`#board .cell[data-id="${toId}"]`);
+  if(!to) return;
+  const bR=board.getBoundingClientRect();
+  const tR=to.getBoundingClientRect();
+  const x2=tR.left-bR.left+tR.width/2, y2=tR.top-bR.top+tR.height/2;
+  const c=tileVar(color);
+  const n=Math.max(1,Math.min(qty||1,6));
+  for(let i=0;i<n;i++){
+    const from=document.querySelector(`#board .cell[data-id="${fromIds[i%fromIds.length]}"]`);
+    if(!from) continue;
+    const fR=from.getBoundingClientRect();
+    const x1=fR.left-bR.left+fR.width/2, y1=fR.top-bR.top+fR.height/2;
+    setTimeout(()=>{
+      const e=document.createElement('div');
+      e.className='flyhex';
+      e.style.setProperty('--x1',x1+'px'); e.style.setProperty('--y1',y1+'px');
+      e.style.setProperty('--x2',x2+'px'); e.style.setProperty('--y2',y2+'px');
+      e.style.setProperty('--fc',`var(${c})`);
+      board.appendChild(e);
+      setTimeout(()=>e.remove(),850);
+    }, i*70);   // vuelan en tandas escalonadas
+  }
+}
+// v2.4 — cliente que TOMA su pedido: N fichas del tope vuelan del stack al
+// cliente (misma animación que el merge, centralizada) + pop del cliente.
+function flyToClient(order,cellId){
+  const board=$('#board'); if(!board) return;
+  const cell=document.querySelector(`#board .cell[data-id="${cellId}"]`);
+  const card=document.querySelector(`.order-card[data-oid="${order.id}"]`);
+  if(!cell||!card) return;
+  const bR=board.getBoundingClientRect();
+  const cR=cell.getBoundingClientRect(), kR=card.getBoundingClientRect();
+  const x1=cR.left-bR.left+cR.width/2, y1=cR.top-bR.top+cR.height/2;
+  // el cliente vive FUERA del board => volar hacia la esquina superior (dir de la fila de pedidos)
+  const x2=kR.left-bR.left+kR.width/2, y2=kR.top-bR.top+kR.height/2;
+  const c=tileVar(order.color);
+  const n=Math.max(1,Math.min(order.qty||1,6));
+  for(let i=0;i<n;i++){
+    setTimeout(()=>{
+      const e=document.createElement('div');
+      e.className='flyhex';
+      e.style.setProperty('--x1',x1+'px'); e.style.setProperty('--y1',y1+'px');
+      e.style.setProperty('--x2',x2+'px'); e.style.setProperty('--y2',y2+'px');
+      e.style.setProperty('--fc',`var(${c})`);
+      board.appendChild(e);
+      setTimeout(()=>e.remove(),850);
+    }, i*140);  // una ficha por nivel del pedido, bien legible
+  }
+  card.classList.add('grabbing');
+  setTimeout(()=>card.classList.remove('grabbing'),800);
+}
 // updateCoins — monedas + chip de desbloqueo (placedCounter/3) EN VIVO,
 // entre eslabones de la cascada (sin re-render completo ni persist).
 function updateCoins(){
@@ -2324,7 +2448,7 @@ async function playCascade(base,authoritative){
   try{
     for(const L of links){
       state=L.snap;
-      renderOrders(); renderBoard(); renderPool(); updateCoins();
+      renderOrders(); renderBoard(); renderPool(); updateCoins(); renderPowers();  // v2.4: usos siempre frescos
       floatOrders(L.served);
       // anillo+pop en celdas afectadas por el eslabón (.cell.casc)
       [...L.served.map(x=>x.cell),...L.debris,...(L.merged||[]).flatMap(m=>[m.from,m.to])].forEach(i=>{
@@ -2338,6 +2462,11 @@ async function playCascade(base,authoritative){
           const ar=document.createElement('div'); ar.className='mergearrow'; ar.textContent='⤵';
           dst.appendChild(ar); }
       });
+      // v2.4: fichas volando origen→destino (misma animación que el serve)
+      (L.merged||[]).forEach(m=>{ const tg=topGroup(L.snap.run.board[m.from].stack);
+        if(tg.color) flyHexes([m.from],m.to,tg.color,Math.min(tg.count,3)); });
+      // v2.4: el cliente VUELA su pedido desde la pila (foco del jugador)
+      (L.served||[]).forEach(x=>{ if(x.order) flyToClient(x.order,x.cell); });
       if(L.debris.length){                       // destrucción por umbral: shake + confetti
         L.debris.forEach(i=>{ const el=$(`#board .cell[data-id="${i}"]`); if(el) floatOn(el,'💥'); });
         if(bEl){ bEl.classList.add('shake'); setTimeout(()=>{ if(bEl) bEl.classList.remove('shake'); },480); }
@@ -2443,8 +2572,17 @@ function placeTileFlow(pos){
 function serveOrderFlow(o,cellId){ const res=serveOrder(state,o,cellId);
   if(res && res.error){ err(res); renderAll(); return; }
   const got=res.progress.coins-state.progress.coins; const el=$(`[data-id="${cellId}"]`);
-  state=res; ui.servingOrder=null; if(el) floatOn(el,'+'+fmt(got)); confetti(); renderAll();
-  if(state.run && state.run.orders.every(x=>x.served)) doClose('allServed'); }
+  // v2.4: ANIMACIÓN ENFOCADA — las fichas del pedido vuelan de la pila al
+  // cliente (misma animación que el merge); el estado se adopta tras el vuelo
+  // para que el jugador vea que no se le desaparecieron fichas.
+  ui.anim=true;
+  flyToClient(o,cellId);
+  setTimeout(()=>{
+    state=res; ui.servingOrder=null; ui.anim=false;
+    if(el) floatOn(el,'+'+fmt(got)); confetti(); renderAll();
+    if(state.run && state.run.orders.every(x=>x.served)) doClose('allServed');
+  }, Math.min(o.qty,6)*140+500);
+}
 function checkFull(){ const r=state.run; if(!r) return;
   const free=r.board.filter(b=>!b.blocked && b.stack.length===0);
   const any=r.orders.some(o=>!o.served);
@@ -2674,8 +2812,9 @@ async function boot(){
   startLoop();
   window.addEventListener('beforeunload',persist);
 }
-// v2.3: motor + economía usos (todo skill activo se compra por uso)
-const GAME_VERSION = 'v2.3';
+// v2.4: economía usos con tope 5/partida (tables = tablero−7), badge = run
+// del tope, powerbar wrap, vuelo de fichas centralizado (merge + serve).
+const GAME_VERSION = 'v2.4';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks };

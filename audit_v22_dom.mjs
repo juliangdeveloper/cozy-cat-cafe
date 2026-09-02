@@ -59,7 +59,7 @@ await page.evaluate(() => {
     || document.querySelector(`#board .cell[data-id="${window.__x}"]`);
   el.click();
 });
-await sleep(900);
+await sleep(280);   // v2.4: eslabón = 600ms; sondear ANTES del re-render que borra las marcas
 const anim = await page.evaluate(() => ({
   arrows: document.querySelectorAll('.mergearrow').length,
   rings: document.querySelectorAll('.cell.casc').length }));
