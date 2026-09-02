@@ -139,16 +139,15 @@ test('T15d [R15.1] previewPool: level 0 -> null/[]; level N -> N tandas; puro (s
 // progress.totalGames=50 (cafeLevel alto) ANTES de comprar, para saltar ese
 // gate y testear solo el modelo de uses.
 // ---------------------------------------------------------------------------
-test('T15e [R7.4 v2] destroyPile usa USES_PER_RUN y se decrementa al usar; toggle/levels sin uses', () => {
+test('T15e [R7.4 v2.3] destroyPile modelo uses: compra=1 uso, decrementa al usar; toggle/levels sin uses', () => {
   need('buySkill');
   need('useDestroyPile');
-  needCfg('USES_PER_RUN');
   const s = mkGame(); // totalGames=50/cafeLevel alto: gate R7.4 ya sorteado
   const st = unwind(G.buySkill(s, 'destroyPile'), s);
   assert.ok(st.skills && st.skills.destroyPile && st.skills.destroyPile.owned === true,
     `RED: buySkill('destroyPile') debe dejar owned=true (ret=${JSON.stringify(st)}) [R7.4]`);
-  assert.equal(st.skills.destroyPile.uses, G.CONFIG.USES_PER_RUN.destroyPile,
-    'RED: destroyPile comprado debe iniciar con uses=CONFIG.USES_PER_RUN.destroyPile [R7.4]');
+  assert.equal(st.skills.destroyPile.uses, 1,
+    'RED: v2.3 la compra ES el 1er uso (uses=1) [R7.2 v2.3]');
   // usar la skill -> uses-1 (sobre una celda válida del board de run)
   let s2 = st;
   if (typeof G.openRun === 'function') s2 = unwind(G.openRun(st, rng(1)), st);
@@ -162,8 +161,8 @@ test('T15e [R7.4 v2] destroyPile usa USES_PER_RUN y se decrementa al usar; toggl
   if (st3 && st3.error === 'noCell') st3 = G.useDestroyPile(s2, board.indexOf(cell));
   assert.ok(st3 && st3.skills,
     `RED: useDestroyPile debe retornar state (ret=${JSON.stringify(st3)}) [R7.4]`);
-  assert.equal(st3.skills.destroyPile.uses, G.CONFIG.USES_PER_RUN.destroyPile - 1,
-    'RED: usar destroyPile debe decrementar uses en 1 [R7.4]');
+  assert.equal(st3.skills.destroyPile.uses, 0,
+    'RED: usar destroyPile debe decrementar uses en 1 (1→0, v2.3) [R7.4]');
   // serveManual (toggle) y previewPool (levels) NUNCA tienen/tocan uses
   const st4 = unwind(G.buySkill(st3, 'serveManual'), st3);
   assert.ok(st4.skills && st4.skills.serveManual && st4.skills.serveManual.owned === true,

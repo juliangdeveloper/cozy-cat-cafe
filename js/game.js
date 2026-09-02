@@ -19,7 +19,7 @@ export const CONFIG = {
   CALAMITY_MAX_FRAC: 1 / 3,         // R8.2 hi
   CALAMITY_THRESHOLD: 15,           // R8.1 only if boardCells > 15
   BLOCK_PROB: 0.5,                  // R8.3 ~50% blocked / ~50% prestockated
-  USES_PER_RUN: { destroyPile: 3, swapPiles: 3, refreshPool: 2, queueSkip: 2, tables: 1 }, // R7 USES_PER_RUN (+ R17.1 queueSkip, + v2.2 tables R14.3)
+  USES_SKILLS: ['destroyPile', 'swapPiles', 'refreshPool', 'queueSkip', 'tables'], // v2.3 R7.2: skills modelo USOS (v2.3 = cero base gratis, cada uso se compra)
   PRODUCTS_PER_COLOR: 3,            // R10.1 [OBSOLETO v2 — reemplazado por R13.7]
   IDLE_RATE: { workers: 0.5, fame: 0.3, machines: 0.8 }, // R9.1
   IDLE_CAP:  { workers: 60,  fame: 100,  machines: 40 },  // R9.3 caps
@@ -144,9 +144,9 @@ export function createGame(init = {}) {
     },
     economy: { multLevel: 0 },
     skills: {
-      destroyPile: { owned: false, uses: 0, price: 250, unlockLevel: 5 },
-      swapPiles:   { owned: false, uses: 0, price: 120, unlockLevel: 3 },
-      refreshPool: { owned: false, uses: 0, price: 40,  unlockLevel: 1 },
+      destroyPile: { owned: false, uses: 0, usesBought: 0, price: 250, unlockLevel: 5 },
+      swapPiles:   { owned: false, uses: 0, usesBought: 0, price: 120, unlockLevel: 3 },
+      refreshPool: { owned: false, uses: 0, usesBought: 0, price: 40,  unlockLevel: 1 },
       // v2 R15.1 — serveManual: modelo TOGGLE (owned + autoServe, SIN uses);
       // previewPool: modelo LEVELS (owned + level 0..3, SIN uses).
       serveManual: { owned: false, autoServe: true, price: 150, unlockLevel: 1 },
@@ -456,10 +456,10 @@ export function openRun(state, rng) {
   };
   // R16.4: dibujar los 3 VISIBLES iniciales (llegada perezosa, no pre-genera)
   refillClients(s, rng || Math.random);
-  for (const key of Object.keys(CONFIG.USES_PER_RUN)) {
+  for (const key of CONFIG.USES_SKILLS) {
     if (s.skills[key] && s.skills[key].owned) {
-      // v2.1 R17.2: usos por partida = USES_PER_RUN + usos mejorados comprados
-      s.skills[key].uses = CONFIG.USES_PER_RUN[key] + (s.skills[key].usesBought || 0); // R7.4/R17.2
+      // v2.3 R7.4: cero base gratis — usos por partida = SOLO los comprados
+      s.skills[key].uses = s.skills[key].usesBought || 0; // R7.4/R17.2 v2.3
     }
   }
   // R8/R14.5: generación única de calamidades (con el núcleo 7 jugable es
@@ -1101,17 +1101,21 @@ export function buySkill(state, power) {
     s.skills.capacidad.level = level + 1;
     return s;
   }
-  // v1 — skills de USES (destroyPile / swapPiles / refreshPool / queueSkip)
-  if (sk.owned) return { error: 'owned' };
-  if (s.progress.cafeLevel < sk.unlockLevel) return { error: 'locked' }; // R7.1
-  if (s.progress.coins < sk.price) return { error: 'noFunds' };          // R7.3
-  s.progress.coins -= sk.price;
-  s.skills[power].owned = true;
-  // v2.1 R17.2: usesBought nace 0 (acumulado de mejoras de usos)
-  s.skills[power].usesBought = s.skills[power].usesBought || 0;      // R17.2
-  // v2.1 R17.2: usos iniciales incluyen las mejoras de usos ya compradas
-  s.skills[power].uses = CONFIG.USES_PER_RUN[power] + (s.skills[power].usesBought || 0); // R7.3/R17.2
-  return s;
+  // v2.3 R7.2 — skills modelo USOS (destroyPile/swapPiles/refreshPool/queueSkip):
+  // CADA uso se compra (sin base gratis): la 1ª compra desbloquea y ES el 1er
+  // uso (usesBought 0→1); recomprar = +1 uso por partida. openRun repone
+  // uses = usesBought. Precio = price * 1.35^usesBought (compras acumuladas).
+  {
+    const sk2 = s.skills[power];
+    const cost = Math.round(sk2.price * Math.pow(1.35, sk2.usesBought || 0));
+    if (s.progress.cafeLevel < sk2.unlockLevel) return { error: 'locked' };  // R7.1
+    if (s.progress.coins < cost) return { error: 'noFunds' };                // R7.3
+    s.progress.coins -= cost;
+    sk2.usesBought = (sk2.usesBought || 0) + 1;   // la compra ES un uso
+    sk2.owned = true;
+    sk2.uses = sk2.usesBought;                    // repuesto inmediato
+    return s;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1139,7 +1143,7 @@ export function useQueueSkip(state) {
 // (destroyPile/swapPiles/refreshPool/queueSkip) puede subir +1 uso por partida.
 // Precio = USES_UP_BASE * USES_UP_RATIO^comprasDelSkill (exponencial, sin
 // tope — auto-limita). Estructura state.skills[p].usesBought (acumulado).
-// openRun repone uses = USES_PER_RUN[p] + usesBought.
+// openRun repone uses = usesBought (v2.3: cada uso se compra, sin base).
 // ---------------------------------------------------------------------------
 export function usesUpPrice(state, power) {
   return CONFIG.USES_UP_BASE * Math.pow(CONFIG.USES_UP_RATIO, buysOf(state, power));
@@ -1152,7 +1156,7 @@ function buysOf(state, power) {
 export function buyUsesUp(state, power) {
   const sk = state && state.skills && state.skills[power];
   if (!sk) return { error: 'noSkill' };
-  if (!CONFIG.USES_PER_RUN[power]) return { error: 'noUsesModel' };  // solo modelo 'uses'
+  if (!CONFIG.USES_SKILLS.includes(power)) return { error: 'noUsesModel' };  // solo modelo 'uses'
   const s = clone(state);
   const cur = s.skills[power];
   if (!cur.owned) return { error: 'locked' };                        // R7.1: mejora lo comprado

@@ -347,12 +347,18 @@ test('T6.1 desbloqueo por nivel', () => {
   assert.equal(buySkill(s, 'destroyPile').error, 'locked');   // needs 5
   assert.ok(!buySkill(s, 'refreshPool').error);               // needs 1
 });
-test('T6.2 compra exige nivel + saldo', () => {
+test('T6.2 compra exige nivel + saldo (v2.3: compra = 1 uso, uses=usesBought=1)', () => {
   let s = createGame({ progress: { coins: 100000, totalGames: 5 } });
   s.progress.cafeLevel = 6;
   s = buySkill(s, 'destroyPile');
   assert.equal(s.skills.destroyPile.owned, true);
-  assert.equal(s.skills.destroyPile.uses, CONFIG.USES_PER_RUN.destroyPile);
+  assert.equal(s.skills.destroyPile.uses, 1);          // v2.3: la compra ES el 1er uso
+  assert.equal(s.skills.destroyPile.usesBought, 1);
+  // recomprar = +1 uso por partida, precio exponencial 250*1.35^1
+  const before = s.progress.coins;
+  s = buySkill(s, 'destroyPile');
+  assert.equal(s.skills.destroyPile.usesBought, 2);
+  assert.ok(before - s.progress.coins === Math.round(250 * 1.35));
 });
 test('T6.2b compra sin saldo => noFunds', () => {
   assert.equal(buySkill(createGame(), 'refreshPool').error, 'noFunds');
@@ -392,13 +398,14 @@ test('T6.7 sin owned/usos => error', () => {
   assert.ok(useDestroyPile(s, 0).error);
   assert.ok(useRefreshPool(s).error);
 });
-test('T6.8 usos se reponen al reabrir', () => {
+test('T6.8 usos se reponen al reabrir (v2.3: uses = usesBought, sin base)', () => {
   let s = createGame({ progress: { coins: 100000, totalGames: 6 } });
   s.progress.cafeLevel = 6; // unlock destroyPile
-  s = buySkill(s, 'destroyPile');
+  s = buySkill(s, 'destroyPile');          // usesBought=1
+  s = buySkill(s, 'destroyPile');          // usesBought=2
   s.skills.destroyPile.uses = 0;
   s = openRun(s, rng(1));
-  assert.equal(s.skills.destroyPile.uses, CONFIG.USES_PER_RUN.destroyPile);
+  assert.equal(s.skills.destroyPile.uses, 2);   // = usesBought (v2.3)
 });
 
 // ---------------------------------------------------------------------------
