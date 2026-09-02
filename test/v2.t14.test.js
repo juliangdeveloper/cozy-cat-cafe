@@ -164,9 +164,9 @@ test('T14e [R14.4 v2.2] buyTablesUp: permTiles+1, usesBought+1, owned; precio PE
   assert.equal(st.skills.tables.owned, true, 'RED: la 1ª compra debe marcar skills.tables.owned=true');
   assert.ok(Math.abs((coins0 - st.progress.coins) - price) < 1e-6,
     'RED: coins debe descontar exactamente permTilePrice [R14.4]');
-  // fórmula con el estado ya mutado: PERM_TILE_BASE * 1.35^permTiles
-  assert.equal(G.permTilePrice(st), G.CONFIG.PERM_TILE_BASE * 1.35 ** st.progress.permTiles,
-    'RED: permTilePrice = PERM_TILE_BASE * 1.35^permTiles [R14.4]');
+  // fórmula con el estado ya mutado: TABLES_PERM_BASE * TABLES_PERM_RATIO^permTiles (v2.5 dial)
+  assert.equal(G.permTilePrice(st), G.CONFIG.TABLES_PERM_BASE * G.CONFIG.TABLES_PERM_RATIO ** st.progress.permTiles,
+    'RED: permTilePrice = TABLES_PERM_BASE * RATIO^permTiles [R14.4 v2.5]');
 });
 
 // ---------------------------------------------------------------------------

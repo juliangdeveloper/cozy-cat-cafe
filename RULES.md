@@ -244,7 +244,7 @@ export { createGame, CONFIG,
 - `R14.1` — Tablero SIEMPRE dibujado completo: RECTÁNGULO pointy de 4 filas axiales × 8 celdas = 32 (v2.2, contorno rectangular tipo marco de Catan con offset de panal; en columna plegada `q+floor(r/2)` las 4 filas comparten patrón consecutivo). No jugable = visible apagada (estilo lock). (v2.0/v2.1: panal [7,9,9,7], reemplazado.)
 - `R14.2` — Jugable al inicio = núcleo 2-3-2 (7). [v2.2] La capacidad de activar por partida la da la skill `tables` (modelo USES, R14.3); `permTiles` queda como contador histórico de compras. [v2] R6.2 (`boardCells += 3`) queda OBSOLETA.
 - `R14.3` — [v2.3] Activate por USOS: skill `tables` (modelo USES R7.4) — **cero base gratis**; cada uso/partida se compra con `buyTablesUp` (que además sube el techo permTiles); `openRun` repone `uses = usesBought`. Tocar baldosa apagada consume 1 uso y la activa ESA partida. SIN costo de monedas por activación (`runTilePrice ≡ 0`; RUN_TILE_BASE OBSOLETO-v2.2).
-- `R14.4` — [v2.2] Compra permanente en TIENDA (`buyTablesUp`, fila "Tables per run"): `permTilePrice = TABLES_PERM_BASE(200) × 1.35^permTiles` ⚖BALANCE → `permTiles += 1` (techo histórico) Y `skills.tables.usesBought += 1` (+1 mesa activable por partida; se repone en cada openRun). La 1ª compra marca `tables.owned`. NO activa ninguna celda (la activación es siempre temporal). **v2.4:** techo = `celdas del tablero − 7` (25 con 32); alcanzar el tope ⇒ `{error:'maxUses'}`.
+- `R14.4` — [v2.5 dial] Compra permanente en TIENDA (`buyTablesUp`, fila "Tables per run"): `permTilePrice = TABLES_PERM_BASE(80) × 1.25^permTiles` (BALANCE_REPORT.md §6 — 100% ≈ 30h) → `permTiles += 1` (techo histórico) Y `skills.tables.usesBought += 1` (+1 mesa activable por partida; se repone en cada openRun). La 1ª compra marca `tables.owned`. NO activa ninguna celda (la activación es siempre temporal). **v2.4:** techo = `celdas del tablero − 7` (25 con 32); alcanzar el tope ⇒ `{error:'maxUses'}`.
 - `R14.5` — Calamidades (R8): rango se calcula sobre celdas JUGABLES, no sobre 32. [v2] R8.1 se reinterpreta: calamidades entran cuando las celdas JUGABLES (núcleo 7 + activadas) > 15. El rango lo/hi se calcula sobre jugables, no sobre 32. → US-53.
 
 ### R15. Skills v2 [v2] (amplía R7)
@@ -253,7 +253,7 @@ export { createGame, CONFIG,
 - `R15.3` — Pedido render: ítem dibujado (taza/pastel) construido con fichas del color; mecánicamente fichas del color.
 
 ### R16. Cola de clientes [v2.1]
-- `R16.1` — TOTAL_CLIENTS = 20 + skills.capacidad.level (CONFIG MIN_CLIENTS=20, MAX_CLIENTS=100; capacidad max level 80). ⚖BALANCE
+- `R16.1` — TOTAL_CLIENTS = 20 + skills.capacidad.level (CONFIG MIN_CLIENTS=20, **MAX_CLIENTS=60 v2.5 dial**; capacidad max level 40). ⚖BALANCE (BALANCE_REPORT.md — antes 100/80: curva sumaba 9.16×10¹² coins, imposible)
 - `R16.2` — Los clientes son pedidos flotantes `{id, color, qty 2-4, served}`. El roster define tipos disponibles: `rosterMax = colorsOwned < 10 ? colorsOwned+1 : 10` (R13.5).
 - `R16.3` — Llegada PEREZOSA: la cola NO se pre-genera; al servir un visible se dibuja el siguiente (`drawClient`, uniforme 1..rosterIndex). Contadores `clientsDrawn` / `clientsServed`; `queueBack` FIFO se consume antes de dibujar nuevos.
 - `R16.4` — VISIBLES = 3 (`activeClients`): solo ellos son servibles (auto o manual). Al servir uno entra el siguiente si `clientsDrawn < TOTAL_CLIENTS`. Victoria ⇔ `clientsServed === TOTAL_CLIENTS` (`runVictory`). Al final de la cola los visibles se agotan 3→2→1→0 (no sobre-dibujar).
@@ -262,7 +262,7 @@ export { createGame, CONFIG,
 ### R17. Skills de cola y mejoras de usos [v2.1]
 - `R17.1` — **queueSkip "Enviar a la cola"** (modelo uses, USES_PER_RUN.queueSkip=2, unlock cafeLevel 1): los 3 visibles vuelven al fondo de la cola (queueBack) y entran 3 nuevos. `{error}` si !owned o uses===0.
 - `R17.2` — **Mejora de usos**: cada skill modelo uses puede subir +1 uso por partida: `buyUsesUp`, precio `USES_UP_BASE × USES_UP_RATIO^usesBought` (CONFIG 60, 1.6 ⚖BALANCE). openRun: `uses = USES_PER_RUN + usesBought`. Sin tope.
-- `R17.3` — **capacidad** (modelo levels): `CAP_PRICE_BASE × CAP_RATIO^level` (CONFIG 120, 1.35 ⚖BALANCE), max 80. TOTAL efectivo = 20 + level.
+- `R17.3` — **capacidad** (modelo levels): `CAP_PRICE_BASE × CAP_RATIO^level` (CONFIG **60, 1.145** — v2.5 dial 30h), max 40. TOTAL efectivo = 20 + level.
 
 ---
 
@@ -368,7 +368,7 @@ const pay = (q, m=0) => Math.round(5 * q ** (1.25 + 0.05*m));
 - `T13.1` — **tablero fijo 32 celdas:** GIVEN `generateBoard`; THEN 32 celdas en RECTÁNGULO pointy 4 filas × 8 (v2.2; axial, columnas plegadas consecutivas compartidas), todas presentes en `board` (no jugables con flag lock). [R14.1]
 - `T13.2` — **[v2.2] activate sin usos → noUses:** GIVEN `skills.tables.uses===0`; WHEN activar una baldosa apagada; THEN `{error:'noUses'}` y nada cambia. [R14.3]
 - `T13.3` — **[v2.2] activar consume 1 uso, sin coins:** GIVEN `skills.tables.uses===2`; WHEN activar; THEN `uses===1`, `runTilesActivated+1`, coins sin cambio (`runTilePrice ≡ 0`). [R14.3]
-- `T13.4` — **precio exponencial m (buyTablesUp):** GIVEN `permTiles=2`; THEN `permTilePrice = TABLES_PERM_BASE(200) × 1.35^2`; comprar sube permTiles Y usesBought. [R14.4]
+- `T13.4` — **precio exponencial m (buyTablesUp, v2.5 dial):** GIVEN `permTiles=2`; THEN `permTilePrice = TABLES_PERM_BASE(80) × 1.25^2`; comprar sube permTiles Y usesBought. [R14.4]
 - `T13.5` — **permanente habilita techo, activación es temporal:** GIVEN compra permanente de baldosa B; THEN `permTiles += 1` y B sigue apagada al abrir la siguiente run (solo activable temporalmente). [R14.4]
 - `T13.6` — **calamidades sobre jugables:** GIVEN tablero 32 con 23 jugables; THEN el rango de calamidades se calcula sobre 23 (jugables), no sobre 32. [R14.5, R8.2]
 

@@ -477,8 +477,8 @@ const CONFIG = {
   COLOR_PRICE_BASE: 150,            // R13.7 precio color = BASE * (n-3), n = colorsOwned tras comprar
   RUN_TILE_BASE: 40,                // R14.3 [OBSOLETO v2.2 — queda solo por compat de tests viejos; runTilePrice≡0]
   PERM_TILE_BASE: 200,              // R14.4 v2.2: alias de TABLES_PERM_BASE (mismo valor)
-  TABLES_PERM_BASE: 200,            // v2.2 R14.4 precio compra permanente 'tables' = BASE * RATIO^permTiles
-  TABLES_PERM_RATIO: 1.35,          // v2.2 R14.4
+  TABLES_PERM_BASE: 80,             // v2.5 R14.4 precio compra permanente 'tables' = BASE * RATIO^permTiles (antes 200×1.35 — 1.04M coins)
+  TABLES_PERM_RATIO: 1.25,          // v2.5 R14.4 (dial balance, BALANCE_REPORT.md §6)
   MAX_COLORS: 10,                   // R13.7 10 colores / criaturas en orden de desbloqueo (R13.2)
   DEBRIS_THRESHOLD: 10,             // v2 escombros: umbral para entrar en tablero
   DEBRIS_BONUS_PER: 25,             // v2 escombros: bonus por escombro limpiado
@@ -486,11 +486,11 @@ const CONFIG = {
   PREVIEW_PRICE: 80,                // v2 R15.1 precio previewPool = PREVIEW_PRICE * level
   // v2.1 — R16 cola de clientes / R17 skills de cola ⚖BALANCE
   MIN_CLIENTS: 20,                  // R16.1 TOTAL_CLIENTS base = 20 + capacidad.level
-  MAX_CLIENTS: 100,                 // R16.1 tope (capacidad max level = 80)
+  MAX_CLIENTS: 60,                  // R16.1 v2.5: tope (capacidad max level = 40; antes 100/80 — curva rota, BALANCE_REPORT.md)
   USES_UP_BASE: 60,                 // R17.2 mejora de usos: precio = BASE * RATIO^compras
   USES_UP_RATIO: 1.6,               // R17.2 (exponencial auto-limita, sin tope)
-  CAP_PRICE_BASE: 120,              // R17.3 capacidad: precio = BASE * RATIO^level
-  CAP_RATIO: 1.35,                  // R17.3
+  CAP_PRICE_BASE: 60,               // v2.5 R17.3 capacidad: precio = BASE * RATIO^level (antes 120×1.35 — 9.16e12 coins, imposible)
+  CAP_RATIO: 1.145,                 // v2.5 R17.3 dial balance: 100% ≈ 30h en jugador medio (BALANCE_REPORT.md §6)
 };
 
 // ---------------------------------------------------------------------------
@@ -2832,10 +2832,10 @@ async function boot(){
   startLoop();
   window.addEventListener('beforeunload',persist);
 }
-// v2.4.1: economía usos con tope 5/partida (tables = tablero−7), badge = run
-// del tope, powerbar wrap, vuelo de fichas centralizado (merge + serve),
-// "apenas entre": pasadas de estabilización tras refill/open/queue-skip.
-const GAME_VERSION = 'v2.4.1';
+// v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40, tables 80×1.25;
+// economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
+// vuelo de fichas centralizado, "apenas entre" con settlePasses.
+const GAME_VERSION = 'v2.5';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks };

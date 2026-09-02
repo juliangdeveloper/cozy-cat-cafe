@@ -39,7 +39,7 @@ test('T17a [R16.1-R16.3] openRun: rosterIndex 5, activeClients 3, clientsDrawn 3
   need('createGame'); need('openRun'); need('totalClients'); need('runVictory');
   needCfg('MIN_CLIENTS'); needCfg('MAX_CLIENTS');
   assert.equal(G.CONFIG.MIN_CLIENTS, 20, 'RED: CONFIG.MIN_CLIENTS===20 [R16.1]');
-  assert.equal(G.CONFIG.MAX_CLIENTS, 100, 'RED: CONFIG.MAX_CLIENTS===100 [R16.1]');
+  assert.equal(G.CONFIG.MAX_CLIENTS, 60, 'RED: v2.5 dial CONFIG.MAX_CLIENTS===60 (BALANCE_REPORT.md)');
   const s = mkGame(1);
   const run = s.run;
   assert.ok(run, 'RED: openRun debe dejar state.run');
@@ -122,19 +122,19 @@ test('T17c [R16.4] servir 1 visible → clientsDrawn 3→4, activeClients se ref
 // T17d — [R17.3] capacidad: modelo levels; TOTAL = 20 + level (tope 100);
 // precio CAP_PRICE_BASE * CAP_RATIO^level creciente; level 80 → {error:'max'}.
 // ---------------------------------------------------------------------------
-test('T17d [R17.3] buySkill(capacidad): TOTAL 21, precio exponencial creciente, level 80 → {error:"max"}', () => {
+test('T17d [R17.3 v2.5] buySkill(capacidad): TOTAL 21, precio exponencial, level 40 → {error:"max"}', () => {
   need('buySkill'); need('totalClients');
   needCfg('CAP_PRICE_BASE'); needCfg('CAP_RATIO');
-  assert.equal(G.CONFIG.CAP_PRICE_BASE, 120, 'RED: CONFIG.CAP_PRICE_BASE===120 [R17.3]');
-  assert.equal(G.CONFIG.CAP_RATIO, 1.35, 'RED: CONFIG.CAP_RATIO===1.35 [R17.3]');
+  assert.equal(G.CONFIG.CAP_PRICE_BASE, 60, 'RED: v2.5 dial CAP_PRICE_BASE===60 (BALANCE_REPORT.md)');
+  assert.equal(G.CONFIG.CAP_RATIO, 1.145, 'RED: v2.5 dial CAP_RATIO===1.145 (30h en jugador medio)');
   const s = G.createGame({ progress: { coins: 1e13 } });
   assert.equal(G.totalClients(s), 20, 'RED: TOTAL efectivo = 20 con capacidad level 0 [R16.1]');
-  // 1a compra: precio CAP_PRICE_BASE * CAP_RATIO^0 = 120; TOTAL 21
+  // 1a compra: precio CAP_PRICE_BASE * CAP_RATIO^0 = 60; TOTAL 21
   const st1 = unwind(G.buySkill(s, 'capacidad'), s);
   assert.ok(st1.skills.capacidad && st1.skills.capacidad.owned === true,
     `RED: buySkill('capacidad') debe dejar owned=true, dio ${JSON.stringify(st1.skills && st1.skills.capacidad)}`);
   assert.equal(st1.skills.capacidad.level, 1, 'RED: 1a compra → level 1 [R17.3]');
-  assert.equal(st1.progress.coins, 1e13 - 120, 'RED: precio level0 = CAP_PRICE_BASE * CAP_RATIO^0 = 120');
+  assert.equal(st1.progress.coins, 1e13 - 60, 'RED: precio level0 = CAP_PRICE_BASE * CAP_RATIO^0 = 60');
   assert.equal(G.totalClients(st1), 21, 'RED: TOTAL efectivo = 20 + level [R16.1/R17.3]');
   // precios crecientes (exponencial por level)
   let cur = st1;
@@ -152,13 +152,13 @@ test('T17d [R17.3] buySkill(capacidad): TOTAL 21, precio exponencial creciente, 
       `RED: precio compra ${i + 2} = CAP_PRICE_BASE*CAP_RATIO^${lvl}=${expected}, pagó ${delta} [R17.3]`);
   }
   assert.ok(cur.skills.capacidad.level === 4, 'RED: 4 compras → level 4');
-  // level 80 (tope) → {error:'max'}; TOTAL efectivo tope = MAX_CLIENTS = 100
+  // level 40 (tope v2.5) → {error:'max'}; TOTAL efectivo tope = MAX_CLIENTS = 60
   const sMax = mkGame(1, 1e15);
-  sMax.skills.capacidad = { owned: true, level: 80 };
-  assert.equal(G.totalClients(sMax), 100, 'RED: TOTAL efectivo tope = MAX_CLIENTS=100 [R16.1]');
+  sMax.skills.capacidad = { owned: true, level: 40 };
+  assert.equal(G.totalClients(sMax), 60, 'RED: TOTAL efectivo tope = MAX_CLIENTS=60 [R16.1 v2.5]');
   const rMax = G.buySkill(sMax, 'capacidad');
   assert.ok(rMax && rMax.error === 'max',
-    `RED: capacidad en level 80 → {error:'max'}, dio ${JSON.stringify(rMax)} [R17.3]`);
+    `RED: capacidad en level 40 → {error:'max'}, dio ${JSON.stringify(rMax)} [R17.3]`);
 });
 
 // ---------------------------------------------------------------------------
