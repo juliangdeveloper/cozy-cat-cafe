@@ -227,7 +227,7 @@ export { createGame, CONFIG,
 
 ### R12. Merge y cascada (estilo HexaSort) [v2]
 - `R12.1` — **Merge HEXASORT ORIGINAL (v3):** tras toda colocación, barrido GLOBAL: grupos contiguos (BFS, HEX_ADJ) de celdas con el MISMO color de tope y tamaño ≥2 se fusionan. En cada eslabón el destino lo elige `computeBestChain` (T1: mejor secuencia simulada, profundidad 6, cap 20000 nodos) o, si no hay paso aplicable, R2: el candidato que deja MÁS aristas encadenables post-merge. **Tie-break R2 (v2.2.1):** preferir candidato que SÍ haya recibido fichas en esta cascada (último receptor, fiel al `mergeTarget` del original) → torre más baja → menor índice. Las FUENTES ceden solo su racha de tope (run contiguo del mismo color) y conservan su sub-pila real — sin ficha de reserva.
-- `R12.2` — **CASCADA (v3):** tras toda mutación de topes (colocar, auto-servir, destrucción umbral, swap) re-evaluar hasta estabilizar; UN grupo por eslabón (paso visible al jugador); 1 eslabón = `CASCADE_STEP_MS=1600ms` (CONFIG). Orden por eslabón: merge (grupo completo, multi-fuente) → auto-servir (ids ascendentes) → destrucción umbral → siguiente eslabón.
+- `R12.2` — **CASCADA (v3):** tras toda mutación de topes (colocar, auto-servir, destrucción umbral, swap) re-evaluar hasta estabilizar; UN grupo por eslabón (paso visible al jugador); 1 eslabón = `CASCADE_STEP_MS=600ms` (CONFIG, v2.2.1 — antes 1600). Orden por eslabón: merge (grupo completo, multi-fuente) → auto-servir (ids ascendentes) → destrucción umbral → siguiente eslabón.
 - `R12.3` — **UMBRAL:** grupo contiguo ≥ `DEBRIS_THRESHOLD=10` fichas (CONFIG) se destruye al estabilizar, bonus `DEBRIS_BONUS_PER=25` × qty (CONFIG ⚖BALANCE).
 - `R12.4` — destroyPile queda **PENDIENTE DE BALANCE** (pierde valor relativo frente a R12.3).
 

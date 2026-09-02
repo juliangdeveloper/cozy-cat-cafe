@@ -39,7 +39,7 @@ export const CONFIG = {
   MAX_COLORS: 10,                   // R13.7 10 colores / criaturas en orden de desbloqueo (R13.2)
   DEBRIS_THRESHOLD: 10,             // v2 escombros: umbral para entrar en tablero
   DEBRIS_BONUS_PER: 25,             // v2 escombros: bonus por escombro limpiado
-  CASCADE_STEP_MS: 1600,            // v2 cascada: ms entre pasos (merge en cadena)
+  CASCADE_STEP_MS: 600,             // v2.2.1: ms entre eslabones (antes 1600 — muy lento para seguir el orden)
   PREVIEW_PRICE: 80,                // v2 R15.1 precio previewPool = PREVIEW_PRICE * level
   // v2.1 — R16 cola de clientes / R17 skills de cola ⚖BALANCE
   MIN_CLIENTS: 20,                  // R16.1 TOTAL_CLIENTS base = 20 + capacidad.level
