@@ -79,7 +79,7 @@ for (let t = 0; t < 32; t++) {                      // ~8s
   });
   if (fin.pend === 0 && fin.four && fin.swapped) break;
 }
-if (!/^v2\.6/.test(fin.ver)) fails.push(`version ${fin.ver} (esperada v2.6.x)`);
+if (!/^v2\.[6-9]/.test(fin.ver)) fails.push(`version ${fin.ver} (esperada v2.6+)`);
 if (!fin.swapped) fails.push('el swap no movio las pilas (X no quedo con [2])');
 if (fin.pend !== 0) fails.push(`R12.2 VIOLADA: tras swap quedan merges pendientes (steps=${fin.pend})`);
 if (!fin.four) fails.push('no hay stack fusionado de 4 fichas verdes tras el swap');
