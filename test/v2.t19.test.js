@@ -24,7 +24,7 @@ test('T19a [v2.4] CONFIG: MAX_USES_PER_SKILL=5 y USES_SKILLS completo', () => {
   needCfg('MAX_USES_PER_SKILL'); needCfg('USES_SKILLS');
   assert.equal(G.CONFIG.MAX_USES_PER_SKILL, 5, 'RED: tope de usos = 5 por partida');
   assert.deepEqual(G.CONFIG.USES_SKILLS,
-    ['destroyPile', 'swapPiles', 'refreshPool', 'queueSkip', 'tables']);
+    ['destroyPile', 'swapPiles', 'refreshPool', 'queueSkip', 'tables', 'unlockLocks']); // v2.8 += unlockLocks
 });
 
 test('T19b [v2.4] buySkill respeta tope 5: 5 compras OK, la 6ª => maxUses', () => {

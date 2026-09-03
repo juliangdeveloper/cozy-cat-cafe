@@ -178,6 +178,7 @@ export { createGame, CONFIG,
 - `R7.7` — **REFRESH POOL** (barato, `price=40`): `useRefreshPool(state)` — **descarta el pool actual y genera otras 3 pilas** nuevas (no gasta colocaciones) con `rng`. Marca `uses -= 1`, `poolPlaced=0`. **v2.4 FIX:** genera EXACTAMENTE como `openRun` — `v2Pile` multicolor con `poolMaxColor(rosterIndex, colorsOwned)` (antes usaba `pile(colorsUnlocked)` v1 => monocolor). → US-19.
 
 > R7.8 — **Cualquier uso sin `owned` o con `uses===0` → `{error}`**, no muta. → US-24.
+- `R7.9` — **UNLOCK LOCKS [v2.8]** (`price=250`, `unlockLevel=5`, modelo usos R7.4 con tope MAX_USES=5): `useUnlockLocks(state, cellId)` — **desbloquea UNA celda `blocked` de calamidad** y REVELA su pila oculta (`hiddenStack` → `stack`; R8.4 v2.8). Marca `uses -= 1`. Errores: celda inexistente `{error:'noCell'}`, celda no bloqueada `{error:'notBlocked'}`, sin owned/uses → guard R7.8 (convención: el guard de compra corre ANTES que la validación de celda). La cascada tras revelar la dispara el APP (R12.2). → US-17b.
 
 ### R8. Calamidades (tablero > 15 hex)
 ```js
@@ -195,9 +196,10 @@ export { createGame, CONFIG,
 ```
 - `R8.1` — **Solo entran si `boardCells > 15`.** A 15 o menos, `calamities = 0`. → US-25. [v2: ver R14.5 — se evalúa sobre jugables]
 - `R8.2` — **Cantidad entre 1/3 y 1/5 del tablero, variable:** `count ∈ [floor(n/3), ceil(n/5)]` (i.e. lo=ceil(n/5), hi=floor(n/3)), aleatorio según `rng` → cada partida distinta. → US-25, US-28.
-- `R8.3` — **Celdas con pilas pre-colocadas:** ~50% de las calamidades son celdas con una pila aleatoria ya encima (desafío de inicio); señal `--danger` (render). → US-26; §4.8 STYLE.
-- `R8.4` — **Celdas bloqueadas:** el resto son celdas `blocked=true` (candado, no clicables, no place/destroy/swap). Ocultan espacio utilizable. → US-27; §4.8 STYLE.
-- `R8.5` — **Bonus al cerrar** ya definido en R5.3 (badge `--danger` "Bonus +N"). → US-29.
+- `R8.3` — **Celdas con pilas pre-colocadas [v2.8]:** ~50% de las calamidades NO-dormant son celdas con una pila aleatoria ya encima — **se CONCATENA sobre la pila existente** (nunca sobrescribe) y muta topes → el APP dispara cascada (R12.2). SIN marcador visual (ni rombo ni anillo): se ve 100% normal. → US-26.
+- `R8.4` — **Celdas bloqueadas [v2.8]:** el resto son celdas `blocked=true` (candado, no place/destroy/swap) **con pila OCULTA** `cell.hiddenStack` (1..3 fichas del pool desbloqueado): no participa en merge/serve/place hasta desbloquearse. El APP puede desbloquearlas con la skill `unlockLocks` (R7.8): revela `hiddenStack` → `stack` y dispara cascada. Ocultan espacio utilizable. → US-27.
+- `R8.4b` — **[v2.8] Calamidades en cualquier celda (32):** al cruzar el umbral, el pool de selección son TODAS las celdas sin calamidad previa (jugable, dormant o blocked). En DORMANT la calamidad queda OCULTA (`hiddenStack`, sin `blocked`): se revela al activar la baldosa con `activateTile` (+cascada). El umbral y el rango (R8.1/R8.2) siguen contando SOLO jugables. → US-27b.
+- `R8.5` — **Bonus al cerrar** ya definido en R5.3 (`run.calamities × CALAMITY_BONUS_PER`, cuenta TODAS las calamidades incluidas las ocultas). → US-29.
 
 ### R9. Idle / offline
 ```js

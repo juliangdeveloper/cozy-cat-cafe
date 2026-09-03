@@ -56,6 +56,7 @@ globalThis.clearTimeout  = global.clearTimeout.bind(global);
 const importBlock = [
  'createGame','CONFIG','placeStack','serveOrder','closeRun','openRun',
  'buySkill','buyMultiplier','useDestroyPile','useSwapPiles','useRefreshPool','buyExpansion',
+ 'useUnlockLocks',                                           // v2.8 R7.8
  'buyIdleUpgrade','tickIdle','applyOffline','colorsUnlocked','serializeState','deserializeState',
  'importSave','mulberry32','ROSTER','resolveCascade','activateTile','runTilePrice',
  'buyColor','buyUsesUp','usesUpPrice',                       // v2.1 R13.7/R17

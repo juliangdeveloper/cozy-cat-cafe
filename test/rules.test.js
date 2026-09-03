@@ -461,7 +461,7 @@ test('T7.2 count en [lo,hi] y variable (v2: rango sobre jugables)', () => {
   assert.ok(seen.size >= 2, `debe observarse variabilidad, hubo ${[...seen].join(',')}`);
 });
 // T7.3 — ≈50% blocked / ≈50% pre-pila; cada calamidad es blocked XOR calamityStack
-test('T7.3 conteo brutal: blocked XOR pre-pila, mezcla ~50/50 entre semillas', () => {
+test('T7.3 conteo brutal: tipos v2.8 (blocked-oculta / pila visible / dormant-oculta)', () => {
   const { act, open } = T7();
   let blocked = 0, pre = 0;
   for (let seed = 1; seed <= 40; seed++) {
@@ -469,11 +469,20 @@ test('T7.3 conteo brutal: blocked XOR pre-pila, mezcla ~50/50 entre semillas', (
     if (!s.run.calamitiesApplied) continue;
     for (const c of s.run.board) {
       if (!c.calamity) continue;
-      if (c.blocked) { assert.equal(c.calamityStack, false, 'blocked XOR pre-pila'); blocked++; }
-      else { assert.ok(c.stack.length >= 1, 'pre-pila => stack>=1'); assert.equal(c.blocked, false); pre++; }
+      if (c.blocked) { // v2.8: candado con pila oculta (hiddenStack), stack vacío
+        assert.equal(c.calamityStack, false, 'blocked => sin pila visible');
+        assert.ok(Array.isArray(c.hiddenStack) && c.hiddenStack.length >= 1, 'v2.8: candado lleva hiddenStack');
+        assert.equal(c.stack.length, 0, 'v2.8: candado sin stack visible');
+        blocked++;
+      } else if (c.dormant) { // v2.8: dormant con pila oculta revelable
+        assert.equal(c.stack.length, 0, 'dormant sin stack visible');
+        assert.ok(Array.isArray(c.hiddenStack) && c.hiddenStack.length >= 1, 'dormant => hiddenStack');
+      } else { // pila visible (jugable)
+        assert.ok(c.stack.length >= 1, 'pre-pila => stack>=1'); assert.equal(c.blocked, false); pre++;
+      }
     }
   }
-  assert.ok(blocked > 0 && pre > 0, 'ambos tipos deben aparecer');
+  assert.ok(blocked > 0 && pre > 0, 'ambos tipos visibles deben aparecer');
   const frac = blocked / (blocked + pre);
   assert.ok(frac >= 0.3 && frac <= 0.7, `fracción blocked=${frac.toFixed(2)} fuera de [0.3,0.7]`);
 });

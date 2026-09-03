@@ -19,7 +19,7 @@ export const CONFIG = {
   CALAMITY_MAX_FRAC: 1 / 3,         // R8.2 hi
   CALAMITY_THRESHOLD: 15,           // R8.1 only if boardCells > 15
   BLOCK_PROB: 0.5,                  // R8.3 ~50% blocked / ~50% prestockated
-  USES_SKILLS: ['destroyPile', 'swapPiles', 'refreshPool', 'queueSkip', 'tables'], // v2.3 R7.2: skills modelo USOS (v2.3 = cero base gratis, cada uso se compra)
+  USES_SKILLS: ['destroyPile', 'swapPiles', 'refreshPool', 'queueSkip', 'tables', 'unlockLocks'], // v2.3 R7.2: skills modelo USOS (v2.8 += unlockLocks R7.8)
   MAX_USES_PER_SKILL: 5,            // v2.4: tope de usos por partida en destroy/swap/refresh/queueSkip (tables NO: su capa = baldosas dormant)
   TABLES_CAP_FROM_BOARD: true,      // v2.4: techo de buyTablesUp = celdas del tablero − núcleo 7
   PRODUCTS_PER_COLOR: 3,            // R10.1 [OBSOLETO v2 — reemplazado por R13.7]
@@ -160,6 +160,9 @@ export function createGame(init = {}) {
       // repuesto por openRun). La compra permanente vive en la TIENDA
       // (buyTablesUp); price:0 aquí para que buySkill nunca lo venda.
       tables: { owned: false, uses: 0, usesBought: 0, unlockLevel: 1, price: 0 },
+      // v2.8 R7.8 — unlockLocks ("Unlock"): modelo USES (tope MAX_USES 5/partida);
+      // desbloquea UN candado de calamidad y REVELA su pila oculta (R8.4 v2).
+      unlockLocks: { owned: false, uses: 0, usesBought: 0, price: 250, unlockLevel: 5 },
       // v2.1 R17.3 — capacidad: modelo LEVELS (level 0..80); TOTAL_CLIENTS =
       // MIN_CLIENTS + level (R16.1). Precio por fórmula CAP_PRICE (sk.price
       // no se usa; precio = CAP_PRICE_BASE * CAP_RATIO^level).
@@ -315,24 +318,37 @@ export function applyCalamities(state, rng) {
   if (!s.run || !Array.isArray(s.run.board)) return s;
   if (s.run.calamitiesApplied) return s;                    // una sola vez por partida
   const r = rng || Math.random;
-  const playable = s.run.board.filter((c) => c && !c.dormant && !c.blocked);
-  const n = playable.length;
-  if (n <= CONFIG.CALAMITY_THRESHOLD) return s;             // R8.1/R14.5 solo jugables > 15
-  const lo = Math.ceil(n * CONFIG.CALAMITY_MIN_FRAC);       // R8.2 lo
-  const hi = Math.max(Math.floor(n * CONFIG.CALAMITY_MAX_FRAC), lo); // R8.2 hi
+  // v2.8 R8.1: el UMBRAL y el RANGO siguen contando JUGABLES (>15), pero el
+  // pool de SELECCIÓN son TODAS las celdas (jugable/dormant/blocked) sin
+  // calamidad previa — las dormant reciben pila oculta revelable.
+  const jugables = s.run.board.filter((c) => c && !c.dormant && !c.blocked).length;
+  if (jugables <= CONFIG.CALAMITY_THRESHOLD) return s;      // R8.1/R14.5 solo jugables > 15
+  const lo = Math.ceil(jugables * CONFIG.CALAMITY_MIN_FRAC);       // R8.2 lo
+  const hi = Math.max(Math.floor(jugables * CONFIG.CALAMITY_MAX_FRAC), lo); // R8.2 hi
   const count = rngInt(r, lo, hi);                          // cantidad variable
   // color del pool para pilas pre-colocadas: uniforme entre desbloqueados
   const cu = poolMaxColor(s.run.rosterIndex, s.progress.colorsOwned);
-  const idxs = pickDistinct(r, n, count);                   // celdas jugables distintas
+  const pool = s.run.board.filter((c) => c && !c.calamity); // v2.8: 32 celdas elegibles
+  const idxs = pickDistinct(r, pool.length, count);         // celdas distintas
   for (const i of idxs) {
-    const cell = playable[i];
+    const cell = pool[i];
     cell.calamity = true;
-    if (r() < CONFIG.BLOCK_PROB) {                          // R8.4 ~50% bloqueada
+    if (cell.dormant) {                                     // v2.8: dormant => pila oculta revelable al activar
+      const color = rngInt(r, 1, cu);
+      cell.hiddenStack = Array.from({ length: rngInt(r, 1, 3) }, () => color);
+      cell.calamityStack = false;
+      continue;
+    }
+    if (r() < CONFIG.BLOCK_PROB) {                          // R8.4 v2: bloqueada con pila OCULTA
       cell.blocked = true;
       cell.calamityStack = false;
-    } else {                                                // R8.3 ~50% pila pre-colocada
       const color = rngInt(r, 1, cu);
-      cell.stack = Array.from({ length: rngInt(r, 1, 3) }, () => color);
+      cell.hiddenStack = Array.from({ length: rngInt(r, 1, 3) }, () => color);
+      cell.stack = [];
+    } else {                                                // R8.3 v2: pila pre-colocada ENCUIMA de lo existente
+      const color = rngInt(r, 1, cu);
+      const add = Array.from({ length: rngInt(r, 1, 3) }, () => color);
+      cell.stack = (cell.stack || []).concat(add);          // NUNCA sobrescribe (v2.8)
       cell.calamityStack = true;
     }
   }
@@ -797,6 +813,11 @@ export function activateTile(state, cellId, rng) {
   if (!sk || !sk.owned) return { error: 'locked', state: s };   // R7.8
   if ((sk.uses | 0) <= 0) return { error: 'noUses', state: s }; // R14.3 v2.2
   cell.dormant = false;                                // activa ESTA partida
+  // v2.8 R8.1: revelar pila de calamidad oculta en baldosas (si la hay)
+  if (cell.hiddenStack && cell.hiddenStack.length) {
+    cell.stack = (cell.stack || []).concat(cell.hiddenStack);
+    delete cell.hiddenStack;
+  }
   s.run.runTilesActivated = (s.run.runTilesActivated || 0) + 1;
   sk.uses -= 1;                                        // sin costo de coins
   // R14.5: al activar puede cruzarse el umbral de JUGABLES (> 15) — las
@@ -1252,6 +1273,22 @@ export function useSwapPiles(state, a, b) {
   return s;
 }
 
+export function useUnlockLocks(state, cellId) {
+  const guard = ensureOwnedUses(state, 'unlockLocks');
+  if (guard) return guard;
+  const s = clone(state);
+  const cell = s.run ? s.run.board[cellId] : null;
+  if (!cell) return { error: 'noCell' };
+  if (!cell.blocked) return { error: 'notBlocked' };                    // R7.8 v2.8
+  cell.blocked = false;
+  if (cell.hiddenStack && cell.hiddenStack.length) {                    // R8.4 v2: revelar
+    cell.stack = (cell.stack || []).concat(cell.hiddenStack);
+    delete cell.hiddenStack;
+  }
+  s.skills.unlockLocks.uses -= 1;
+  return s;
+}
+
 export function useRefreshPool(state, rng) {
   const guard = ensureOwnedUses(state, 'refreshPool');
   if (guard) return guard;
@@ -1371,6 +1408,8 @@ export function deserializeState(json) {
         if (!s.skills.capacidad) s.skills.capacidad = { owned: false, level: 0 };
         // v2.2 R14.3 defaults (Activate = skill 'tables' modelo usos)
         if (!s.skills.tables) s.skills.tables = { owned: false, uses: 0, usesBought: 0 };
+        // v2.8 R7.8 defaults (Unlock = skill 'unlockLocks' modelo usos)
+        if (!s.skills.unlockLocks) s.skills.unlockLocks = { owned: false, uses: 0, usesBought: 0 };
       }
       if (s.run) {
         // v2.1 R16 defaults para runs viejas (pre-cola): migración documentada
