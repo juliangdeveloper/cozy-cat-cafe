@@ -98,7 +98,12 @@ test('T16c [R8.3,R8.4] varias semillas: blocked y pre-pila AMBOS aparecen, mezcl
     for (const c of s.run.board) {
       if (!c.calamity) continue;
       total++;
-      if (c.blocked) { blocked++; assert.equal(c.calamityStack, false, 'RED: blocked XOR pre-pila'); }
+      if (c.blocked) { blocked++; assert.equal(c.calamityStack, false, 'RED: blocked XOR pre-pila');
+        assert.ok(Array.isArray(c.hiddenStack) && c.hiddenStack.length >= 1, 'v2.8: candado lleva hiddenStack'); }
+      else if (c.dormant) { // v2.8: dormant con pila oculta (no cuenta como visible)
+        assert.equal(c.stack.length, 0, 'v2.8: dormant sin stack visible');
+        assert.ok(Array.isArray(c.hiddenStack) && c.hiddenStack.length >= 1, 'v2.8: dormant => hiddenStack');
+      }
       else {
         prestack++;
         assert.ok(!c.blocked && c.stack.length >= 1, 'RED: pre-pila => no blocked y stack>=1');
@@ -107,9 +112,12 @@ test('T16c [R8.3,R8.4] varias semillas: blocked y pre-pila AMBOS aparecen, mezcl
   }
   assert.ok(blocked > 0, 'RED: deben aparecer celdas BLOCKED en alguna semilla');
   assert.ok(prestack > 0, 'RED: deben aparecer pilas PRE-COLOCADAS en alguna semilla');
-  const frac = blocked / total;
+  // v2.8: la mezcla ~50/50 aplica sobre las NO-dormant (las dormant con pila
+  // oculta diluyen el total — R8.1 v2 permite calamidad en las 32 celdas)
+  const visibles = blocked + prestack;
+  const frac = blocked / visibles;
   assert.ok(frac >= 0.3 && frac <= 0.7,
-    `RED: mezcla ~50/50, blocked/total = ${frac.toFixed(2)}`);
+    `RED: mezcla ~50/50, blocked/visibles = ${frac.toFixed(2)} (${blocked}/${visibles})`);
 });
 
 // ---------------------------------------------------------------------------
