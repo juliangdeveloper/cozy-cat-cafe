@@ -130,7 +130,7 @@ export { createGame, CONFIG,
 ```js
 // Sig.: placeStack(state, cellId) -> newState | { error }
 ```
-- `R3.1` — [v2.0] El **pool tiene 3 slots**. Cada slot es una pila de **tamaño 1..7** con **color POR FICHA** aleatorio en los desbloqueados (multicolor; el monocromo es un caso posible, no la regla). Se generan por `rng`. → US-2, G1.
+- `R3.1` — [v2.0] El **pool tiene 3 slots**. Cada slot es una pila de **tamaño 1..7** con **color POR FICHA** aleatorio en los desbloqueados (multicolor; el monocromo es un caso posible, no la regla). Se generan por `rng`. **v2.9:** el tamaño se elige por tabla de pesos `CONFIG.PILE_SIZE_WEIGHTS` (índice 0 = tamaño 1): menos fichas más comunes pero SUTIL — [9,8,7,6,5,4,3] ⇒ P ≈ 21/19/17/14/12/10/7% (media 4.0→3.33); `7` sigue ocurriendo. Aplica a TODOS los generadores de pool (`v2Pile`/`pile`/`previewPool` vía `pickPileSize`); uniforme ⇔ tabla plana. Las pilas ocultas de calamidad siguen 1..3 fijo (R8.4b). → US-2, G1.
 - `R3.2` — **No se rellena hasta colocar las 3 actuales.** Al colocar una pila en una celda, ese slot se vacía y `poolPlaced += 1`. **NO se genera una pila nueva por slot.** → US-7.
 - `R3.3` — **Refill:** cuando `poolPlaced === 3` (las 3 colocadas), el pool se **rellena de golpe con 3 pilas nuevas** y `poolPlaced = 0`. La única "bandeja vacía con borde punteado" persistente es el instante entre la 3ª colocación y el refill. → US-7; render §4.4 STYLE.
 - `R3.4` — **Colocar** = tomar la pila del slot `kol` del pool y añadir sus piezas a la celda destino: `board[cell].stack = stack.concat(pile)`. **Válido solo si:** celda existe, `!blocked`, `!dormant` y la celda está VACÍA (`stack.length === 0`) — (v2.2: pilas del pool SOLO en espacios vacíos, error `occupied` en celda ocupada). → US-3.

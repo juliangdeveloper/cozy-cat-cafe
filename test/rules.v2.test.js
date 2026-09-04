@@ -122,6 +122,7 @@ test('T11e [R12.3] debris: grupo contiguo de 10 fichas color 1 => destruido y co
   assert.equal(G.CONFIG.DEBRIS_THRESHOLD, 10, 'RED: CONFIG.DEBRIS_THRESHOLD debe ser 10');
   assert.equal(G.CONFIG.DEBRIS_BONUS_PER, 25, 'RED: CONFIG.DEBRIS_BONUS_PER debe ser 25');
   const s = mkGame();
+  s.skills.serveManual.autoServe = false; // v2.9: aislar debris — un pedido visible no debe comerse el tope antes del umbral (convención de la suite, cf. T11a/T12e)
   s.run.board[0].stack = Array.from({ length: 10 }, () => 1);
   const coinsBefore = s.progress.coins;
   const res = G.resolveCascade(s);
