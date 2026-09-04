@@ -12,6 +12,7 @@ import {
   colorsUnlocked, generateBoard, orderReadyOn, topGroup, pay,
   serializeState, deserializeState, importSave, mulberry32,
   expandTile, freeSlots, activateTile, applyCalamities,
+  previewPool,                     // v2.9 R3.1: pizarra usa la tabla ponderada
 } from '../js/game.js';
 
 const rng = (n) => mulberry32(n);
@@ -630,6 +631,55 @@ test('R3.1 determinismo: misma semilla -> mismo pool tras refill', () => {
   };
   assert.deepEqual(refill(3), refill(3));
   assert.deepEqual(refill(11), refill(11));
+});
+
+// ---------------------------------------------------------------------------
+// v2.9 R3.1 — tamaño de pila PONDERADO (tabla CONFIG.PILE_SIZE_WEIGHTS):
+// más común MENOS fichas, pero sutil (7 sigue ocurriendo). Aplica a TODOS los
+// generadores de pool: v2Pile (openRun/refill), pile (legacy) y previewPool.
+// Calamidades ocultas siguen 1..3 fijo (R8.4b, sin cambio).
+// ---------------------------------------------------------------------------
+test('R3.1 v2.9 CONFIG.PILE_SIZE_WEIGHTS existe: 7 pesos positivos', () => {
+  const w = CONFIG.PILE_SIZE_WEIGHTS;
+  assert.ok(Array.isArray(w) && w.length === 7, 'tabla de 7 pesos (tamaños 1..7)');
+  for (const x of w) assert.ok(Number.isFinite(x) && x > 0, 'pesos positivos finitos');
+});
+
+test('R3.1 v2.9 openRun ponderado: P(1)>P(4)>P(7) en 400 semillas; 7 sigue ocurriendo', () => {
+  const counts = Array(8).fill(0);
+  for (let g = 1; g <= 400; g++) {
+    const s = openRun(createGame({ progress: { coins: 1000 } }), rng(g));
+    for (const p of s.run.pool) counts[p.length]++;
+  }
+  assert.ok(counts[1] > counts[4], `P(1)>P(4): 1s=${counts[1]} 4s=${counts[4]}`);
+  assert.ok(counts[4] > counts[7], `P(4)>P(7): 4s=${counts[4]} 7s=${counts[7]}`);
+  assert.ok(counts[7] > 0, `siete OCURRE (sutil, no prohibido): 7s=${counts[7]}`);
+});
+
+test('R3.1 v2.9 REFRESH y pizarra (previewPool) usan la misma tabla ponderada', () => {
+  const dist = (gen) => {
+    const counts = Array(8).fill(0);
+    for (let g = 1; g <= 200; g++) for (const p of gen(g)) counts[p.length]++;
+    return counts;
+  };
+  // refresh: skill con usos; rosterIndex undefined => cu=1, solo importa el tamaño
+  const refresh = dist((g) => {
+    let s = baseRun();
+    s.skills.refreshPool.owned = true; s.skills.refreshPool.uses = 9;
+    return useRefreshPool(s, rng(g)).run.pool;
+  });
+  assert.ok(refresh[1] > refresh[4] && refresh[4] > refresh[7],
+    `refresh ponderado: 1s=${refresh[1]} 4s=${refresh[4]} 7s=${refresh[7]}`);
+  assert.ok(refresh[7] > 0, 'refresh: siete ocurre');
+  // pizarra: level 3 => 3 tandas de 3 pilas por semilla
+  const prev = dist((g) => {
+    let s = baseRun();
+    s.skills.previewPool.owned = true; s.skills.previewPool.level = 3;
+    return previewPool(s, rng(g)).flat();
+  });
+  assert.ok(prev[1] > prev[4] && prev[4] > prev[7],
+    `pizarra ponderada: 1s=${prev[1]} 4s=${prev[4]} 7s=${prev[7]}`);
+  assert.ok(prev[7] > 0, 'pizarra: siete ocurre');
 });
 
 test('R7.7 REFRESH pool genera pilas deterministas tamaño 1..7 (v2.0)', () => {

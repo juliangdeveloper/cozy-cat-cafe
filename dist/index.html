@@ -485,6 +485,9 @@ const CONFIG = {
   DEBRIS_BONUS_PER: 25,             // v2 escombros: bonus por escombro limpiado
   CASCADE_STEP_MS: 600,             // v2.2.1: ms entre eslabones (antes 1600 — muy lento para seguir el orden)
   PREVIEW_PRICE: 80,                // v2 R15.1 precio previewPool = PREVIEW_PRICE * level
+  PILE_SIZE_WEIGHTS: [9, 8, 7, 6, 5, 4, 3], // v2.9 R3.1: peso del tamaño 1..7 —
+                                    // menos fichas más común pero SUTIL (7 sigue
+                                    // saliendo ~7%): P = peso/42 ⇒ 21/19/17/14/12/10/7%
   // v2.1 — R16 cola de clientes / R17 skills de cola ⚖BALANCE
   MIN_CLIENTS: 20,                  // R16.1 TOTAL_CLIENTS base = 20 + capacidad.level
   MAX_CLIENTS: 60,                  // R16.1 v2.5: tope (capacidad max level = 40; antes 100/80 — curva rota, BALANCE_REPORT.md)
@@ -510,12 +513,20 @@ const ROSTER = [
 // ---------------------------------------------------------------------------
 const clone = (x) => structuredClone(x);
 const rngInt = (rng, lo, hi) => lo + Math.floor(rng() * (hi - lo + 1));
+// v2.9 R3.1: tamaño de pila por TABLA DE PESOS (más común menos fichas, sutil).
+// Uniforme ⇔ tabla plana. Un solo punto de verdad para v2Pile/pile/previewPool.
+function pickPileSize(rng) {
+  const w = CONFIG.PILE_SIZE_WEIGHTS;
+  let x = rng() * w.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < w.length; i++) { x -= w[i]; if (x < 0) return i + 1; }
+  return w.length;
+}
 
 // R3.1 (v2.0): build a single pool pile — size rng 1..7, color POR FICHA
 // aleatorio en [1, cu] (multicolor). Used by buildPick, useRefreshPool and
 // generateBoard-era callers so EVERY pool slot follows the same rule.
 function pile(rng, cu) {
-  return Array.from({ length: rngInt(rng, 1, 7) }, () => rngInt(rng, 1, cu));
+  return Array.from({ length: pickPileSize(rng) }, () => rngInt(rng, 1, cu));
 }
 
 function mulberry32(seed) {
@@ -842,7 +853,7 @@ function poolMaxColor(rosterIndex, colorsOwned) {
 // v2 helper: pila del pool — tamaño rng 1..7, color POR FICHA aleatorio en
 // [1, cu] (v2.0: multicolor; antes monocromo 1..4, R13.3/R13.4).
 function v2Pile(rng, cu) {
-  return Array.from({ length: rngInt(rng, 1, 7) }, () => rngInt(rng, 1, cu));
+  return Array.from({ length: pickPileSize(rng) }, () => rngInt(rng, 1, cu));
 }
 
 // ---------------------------------------------------------------------------
@@ -1678,7 +1689,7 @@ function previewPool(state, rng) {
   const cu = poolMaxColor(r.rosterIndex, state.progress && state.progress.colorsOwned);
   return Array.from({ length: level }, () =>
     Array.from({ length: 3 }, () =>
-      Array.from({ length: rngInt(rng, 1, 7) }, () => rngInt(rng, 1, cu))));
+      Array.from({ length: pickPileSize(rng) }, () => rngInt(rng, 1, cu)))); // v2.9 R3.1 ponderado
 }
 
 function ensureOwnedUses(state, power) {
@@ -2899,7 +2910,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40, tables 80×1.25;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.8.0';
+const GAME_VERSION = 'v2.9.0';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };
