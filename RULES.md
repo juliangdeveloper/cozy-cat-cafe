@@ -130,7 +130,7 @@ export { createGame, CONFIG,
 ```js
 // Sig.: placeStack(state, cellId) -> newState | { error }
 ```
-- `R3.1` — [v2.0] El **pool tiene 3 slots**. Cada slot es una pila de **tamaño 1..7** con **color POR FICHA** aleatorio en los desbloqueados (multicolor; el monocromo es un caso posible, no la regla). Se generan por `rng`. **v2.9:** el tamaño se elige por tabla de pesos `CONFIG.PILE_SIZE_WEIGHTS` (índice 0 = tamaño 1): menos fichas más comunes pero SUTIL — [9,8,7,6,5,4,3] ⇒ P ≈ 21/19/17/14/12/10/7% (media 4.0→3.33); `7` sigue ocurriendo. Aplica a TODOS los generadores de pool (`v2Pile`/`pile`/`previewPool` vía `pickPileSize`); uniforme ⇔ tabla plana. Las pilas ocultas de calamidad siguen 1..3 fijo (R8.4b). → US-2, G1.
+- `R3.1` — [v2.0] El **pool tiene 3 slots**. Cada slot es una pila de **tamaño 1..7** con **color POR FICHA** obtenido de la **bolsa de inventario** de la run (`run.bag`, R18). Se generan por `rng`. **v2.9:** el tamaño se elige por tabla de pesos `CONFIG.PILE_SIZE_WEIGHTS` (índice 0 = tamaño 1): menos fichas más comunes pero SUTIL — [9,8,7,6,5,4,3] ⇒ P ≈ 21/19/17/14/12/10/7% (media 4.0→3.33); `7` sigue ocurriendo. Aplica a TODOS los generadores de pool (`drawPoolPiles`/`previewPool` vía `pickPileSize`). Las pilas ocultas de calamidad siguen 1..3 fijo (R8.4b). → US-2, G1, US-44.
 - `R3.2` — **No se rellena hasta colocar las 3 actuales.** Al colocar una pila en una celda, ese slot se vacía y `poolPlaced += 1`. **NO se genera una pila nueva por slot.** → US-7.
 - `R3.3` — **Refill:** cuando `poolPlaced === 3` (las 3 colocadas), el pool se **rellena de golpe con 3 pilas nuevas** y `poolPlaced = 0`. La única "bandeja vacía con borde punteado" persistente es el instante entre la 3ª colocación y el refill. → US-7; render §4.4 STYLE.
 - `R3.4` — **Colocar** = tomar la pila del slot `kol` del pool y añadir sus piezas a la celda destino: `board[cell].stack = stack.concat(pile)`. **Válido solo si:** celda existe, `!blocked`, `!dormant` y la celda está VACÍA (`stack.length === 0`) — (v2.2: pilas del pool SOLO en espacios vacíos, error `occupied` en celda ocupada). → US-3.
@@ -265,6 +265,13 @@ export { createGame, CONFIG,
 - `R17.1` — **queueSkip "Enviar a la cola"** (modelo uses, USES_PER_RUN.queueSkip=2, unlock cafeLevel 1): los 3 visibles vuelven al fondo de la cola (queueBack) y entran 3 nuevos. `{error}` si !owned o uses===0.
 - `R17.2` — **Mejora de usos**: cada skill modelo uses puede subir +1 uso por partida: `buyUsesUp`, precio `USES_UP_BASE × USES_UP_RATIO^usesBought` (CONFIG 60, 1.6 ⚖BALANCE). openRun: `uses = USES_PER_RUN + usesBought`. Sin tope.
 - `R17.3` — **capacidad** (modelo levels): `CAP_PRICE_BASE × CAP_RATIO^level` (CONFIG **60, 1.145** — v2.5 dial 30h), max 40. TOTAL efectivo = 20 + level.
+
+### R18. Bolsita de colores en el pool [v2.10]
+- `R18.1` — **Bolsita de run (`run.bag`)**: el generador del pool consume de una bolsa de inventario por color `{ [colorId]: count }`. Cada color vivo tiene `count > 0`.
+- `R18.2` — **Bolsita inicial**: al abrir run (`openRun`), si hay `colorsOwned >= 4`, la bolsa arranca con 4 colores distintos sorteados de `1..cu` (con `cu = poolMaxColor(rosterIndex, colorsOwned)`). Si `cu < 4`, toma todos los colores disponibles `1..cu`. A cada color elegido se le asigna un puñado aleatorio en `[CONFIG.BAG_INITIAL_MIN, CONFIG.BAG_INITIAL_MAX]` (6..14).
+- `R18.3` — **Sorteo por ficha**: cada ficha de cada pila del pool se genera eligiendo un color **uniforme entre los colores vivos de la bolsa** (`bag[color] > 0`). Inmediatamente se descuenta 1 unidad: `bag[color] -= 1`. El tamaño de cada pila sigue la distribución ponderada `CONFIG.PILE_SIZE_WEIGHTS` (R3.1 v2.9).
+- `R18.4` — **Recarga al agotarse**: cuando el inventario de un color llega a 0 (`bag[color] === 0`), se sortea un nuevo color uniforme en `1..cu` con probabilidad `1/cu` (puede salir el mismo color u otro). Se le suma un nuevo puñado aleatorio en `[CONFIG.BAG_RELOAD_MIN, CONFIG.BAG_RELOAD_MAX]` (6..14) a ese color en la bolsa. La transición entre colores es gradual y nunca entra un grupo de golpe.
+- `R18.5` — **Punto único de verdad (`drawPoolPiles`)**: `openRun`, el refill en `placeStack` y `useRefreshPool` consumen fichas de `s.run.bag` actualizándola en el estado. `previewPool` simula tandas de forma pura sobre una copia clonada de `s.run.bag` sin mutar el estado. Saves antiguos sin `bag`: en el próximo refill o refresh se inicializa automáticamente una bolsa fresca si falta.
 
 ---
 

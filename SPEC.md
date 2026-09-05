@@ -97,6 +97,10 @@ Cozy, sin timer, sin presión; la dificultad crece por colores y calamidades, no
 - **US-42** — Como desarrolladora, quiero que la **lógica consuma los assets vía sprite map `sprites.png` + `sprites.json`**, para no acoplar mecánica y arte.
 - **US-43** — Como desarrolladora, quiero que los **assets sean intercambiables sin tocar código** (solo sustituir sprites.png/json), para poder re-estilizar la dirección artística más adelante.
 
+### Epic 9 — Bolsita de colores en el pool [v2.10]
+- **US-44** — Como jugadora, quiero que las fichas del pool provengan de una **bolsita con inventario por color** (4 colores iniciales con puñados 6-14, sorteo uniforme entre los vivos), para que salgan rachas naturales de colores que faciliten encadenar y destruir torres.
+- **US-45** — Como jugadora, quiero que al agotarse un color de la bolsita, se agregue una **recarga aleatoria (6-14) de cualquier color desbloqueado** (probabilidad 1/colores, pudiendo repetir el mismo o introducir uno nuevo), para tener una transición suave y continua entre colores sin cambios bruscos.
+
 ---
 
 ## 5. CRITERIOS DE ACEPTACIÓN GLOBALES
