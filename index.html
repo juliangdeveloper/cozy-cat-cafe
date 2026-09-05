@@ -914,10 +914,14 @@ function cascadeLinks(state){
         const group=groups[0];
         const tg=topGroup(s.run.board[group[0]].stack);
         let target;
-        const plan=computeBestChain(s.run.board);
-        const step=plan.find(p=>p.color===tg.color&&p.source.every(si=>group.includes(si)));
-        if(step&&group.includes(step.target)) target=step.target;
-        else target=r2Target(s.run.board,group,tg.color,received);
+        // v2.11 R12.4: espejo del ancla del jugador (misma lógica que resolveCascade)
+        if(s.run.anchor!=null&&group.includes(s.run.anchor)) target=s.run.anchor;
+        else{
+          const plan=computeBestChain(s.run.board);
+          const step=plan.find(p=>p.color===tg.color&&p.source.every(si=>group.includes(si)));
+          if(step&&group.includes(step.target)) target=step.target;
+          else target=r2Target(s.run.board,group,tg.color,received);
+        }
         for(const si of group){
           if(si===target) continue;
           const nb=s.run.board[si];
@@ -1447,7 +1451,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40, tables 80×1.25;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.10.1';
+const GAME_VERSION = 'v2.11.0';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };

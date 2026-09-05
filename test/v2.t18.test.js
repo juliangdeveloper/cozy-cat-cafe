@@ -55,6 +55,9 @@ test('T18b [R3.5 v2.2] placeStack (pool) sobre celda ocupada => {error:"occupied
 // T18c — Fuente conserva su sub-pila [R12.1 v3] (motor hexasort original):
 // A=[2,2] torre; D=[1] recibe la colocación [2] => grupo {A,D}; tie-break
 // no-receptor => target=A: A=[2,2,2], D conserva [1].
+// v2.11 R12.4: [2] es MONOCOLOR => ancla. Para probar el árbitro SIN ancla la
+// colocación usa pila multicolor [2,5] (tope 2, fusiona igual); el caso ancla
+// vive en test/v2.t21.test.js (T21a).
 // ---------------------------------------------------------------------------
 test('T18c [R12.1 v3] fuente conserva sub-pila; la colocada es absorbida por la torre (no-receptor)', () => {
   need('placeStack'); need('resolveCascade');
@@ -63,12 +66,13 @@ test('T18c [R12.1 v3] fuente conserva sub-pila; la colocada es absorbida por la 
   const A = s.run.board[0], D = s.run.board[1];
   A.stack = [2, 2];
   D.stack = [1];
-  const ret = G.placeStack(s, 1, 0, [2]);
+  const ret = G.placeStack(s, 1, 0, [5, 2]);   // multicolor (tope 2) => sin ancla
   const src = unwind(ret, s);
   const res = G.resolveCascade(src);
   const st = unwind(res, src);
+  // D tras colocar = [1,5,2]: cede su run de tope [2] a A => A=[2,2,2], D=[1,5]
   assert.deepEqual(st.run.board[0].stack, [2, 2, 2], 'RED: A (no-receptor) absorbe la racha => [2,2,2]');
-  assert.deepEqual(st.run.board[1].stack, [1], 'RED: D (fuente) conserva su sub-pila [1]');
+  assert.deepEqual(st.run.board[1].stack, [1, 5], 'RED: D (fuente) conserva su sub-pila [1,5]');
 });
 
 // ---------------------------------------------------------------------------

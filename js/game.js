@@ -809,20 +809,24 @@ export function placeStack(state, cellId, slot, rngOrStack) {
   // ningún vecino (ni con el tope de la propia celda), la colocación se
   // RECHAZA sin mutar (contrato T11b: {error, state} sin cambios).
   if (Array.isArray(rngOrStack)) {
-    const pileArr = rngOrStack;
-    const pc = pileArr.length ? pileArr[pileArr.length - 1] : 0;
-    const canMerge = (pc && HEX_ADJ.some(([dq, dr]) => {
-      const nb = b.find((c) => c && c.q === cell.q + dq && c.r === cell.r + dr);
-      return !!(nb && nb.stack && nb.stack.length && topGroup(nb.stack).color === pc);
-    })) || topGroup(cell.stack).color === pc;
-    if (!canMerge) {
-      // v2.2 R3.5: pilas SOLO en celdas vacías. Si la celda está ocupada y la
-      // pila explícita no fusiona con nada => {error:'occupied'} (T18a). En
-      // celda vacía sin fusión se conserva el contrato T11b ('noMerge').
-      return { error: (cell.stack && cell.stack.length) ? 'occupied' : 'noMerge', state: s };
-    }
-    cell.stack = cell.stack.concat(pileArr);          // R3.4 apila al tope
-    return s;                                         // v3: barrido global en resolveCascade
+  const pileArr = rngOrStack;
+  const pc = pileArr.length ? pileArr[pileArr.length - 1] : 0;
+  const canMerge = (pc && HEX_ADJ.some(([dq, dr]) => {
+    const nb = b.find((c) => c && c.q === cell.q + dq && c.r === cell.r + dr);
+    return !!(nb && nb.stack && nb.stack.length && topGroup(nb.stack).color === pc);
+  })) || topGroup(cell.stack).color === pc;
+  if (!canMerge) {
+    // v2.2 R3.5: pilas SOLO en celdas vacías. Si la celda está ocupada y la
+    // pila explícita no fusiona con nada => {error:'occupied'} (T18a). En
+    // celda vacía sin fusión se conserva el contrato T11b ('noMerge').
+    return { error: (cell.stack && cell.stack.length) ? 'occupied' : 'noMerge', state: s };
+  }
+  cell.stack = cell.stack.concat(pileArr);          // R3.4 apila al tope
+  // v2.11 R12.4: pila MONOCOLOR marca el ANCLA del jugador — durante la
+  // cascada que dispara esta colocación, todo grupo que contenga esta celda
+  // drena HACIA ella. Multicolor no ancla (árbitro T1/R2 normal).
+  s.run.anchor = (pileArr.length > 0 && pileArr.every((c) => c === pileArr[0])) ? cellId : null;
+  return s;                                         // v3: barrido global en resolveCascade
   }
   const rng = rngOrStack;
   if (cell.dormant) return { error: 'dormant' };        // v2 R14.2 no colocable
@@ -837,6 +841,8 @@ export function placeStack(state, cellId, slot, rngOrStack) {
   cell.stack = cell.stack.concat(pile);      // R3.4 / R4.2 stack on top
   s.run.pool[idx] = [];
   s.run.poolPlaced += 1;
+  // v2.11 R12.4: ancla del jugador — solo pila MONOCOLOR del tray.
+  s.run.anchor = (pile.length > 0 && pile.every((c) => c === pile[0])) ? cellId : null;
   if (s.run.rosterIndex != null) {
     // v2.1 R16.2 (corregido): cada pila colocada cuenta; cada
     // UNLOCK_PLACED_PILES=3 el roster avanza +1 tipo HASTA el tope
@@ -1063,11 +1069,18 @@ export function resolveCascade(state) {
         const group = groups[0];
         const tg = topGroup(s.run.board[group[0]].stack);
         let target;
-        const plan = computeBestChain(s.run.board);              // T1
-        const step = plan.find((p) => p.color === tg.color
-          && p.source.every((si) => group.includes(si)));
-        if (step && group.includes(step.target)) target = step.target;
-        else target = r2Target(s.run.board, group, tg.color, received); // R2
+        // v2.11 R12.4: ANCLA DEL JUGADOR — si el grupo contiene la celda donde
+        // el jugador colocó una pila monocolor, el destino SIEMPRE es el ancla
+        // (los vecinos drenan hacia su baldosa). Grupos sin ancla: árbitro T1/R2.
+        if (s.run.anchor != null && group.includes(s.run.anchor)) {
+          target = s.run.anchor;
+        } else {
+          const plan = computeBestChain(s.run.board);              // T1
+          const step = plan.find((p) => p.color === tg.color
+            && p.source.every((si) => group.includes(si)));
+          if (step && group.includes(step.target)) target = step.target;
+          else target = r2Target(s.run.board, group, tg.color, received); // R2
+        }
         for (const si of group) {
           if (si === target) continue;
           const nb = s.run.board[si];
@@ -1134,6 +1147,7 @@ export function resolveCascade(state) {
   // recién llegados quedan visibles para la SIGUIENTE cascada / serveOrder;
   // así la cascada es determinista (el Math.random del draw no re-entra aquí).
   if (Array.isArray(s.run.activeClients)) refillClients(s, rngFallback());
+  if ('anchor' in s.run) delete s.run.anchor;   // v2.11 R12.4: el ancla vive SOLO durante su cascada (pureza: no dejar null en estados sin ancla)
   return { state: s, steps };
 }
 

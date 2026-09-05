@@ -47,19 +47,22 @@ test('T11a [R12.1 v3] merge hexasort: grupo contiguo fusiona; fuente conserva su
   // placeStack pone [2] en D => grupo contiguo {A,D} tope 2. T1 empata (ambas
   // ramas score 35) y el tie-break cozy prefiere el NO-receptor => target=A:
   // la ficha colocada es absorbida por la torre; D conserva su sub-pila [1].
+  // v2.11 R12.4: la pila [2] colocada es MONOCOLOR => marca ancla. Para probar
+  // el árbitro T1/R2 SIN ancla se usa una pila multicolor (la pre-colocación
+  // con stack explícito era el método v2.2; el ancla cambió ese contrato).
   const s = mkGame();
   const A = s.run.board[0], D = s.run.board[1];
   A.stack = [2, 2];
   D.stack = [1];
   s.skills.serveManual.autoServe = false;
-  const placed = G.placeStack(s, 1, 0, [2]);
+  const placed = G.placeStack(s, 1, 0, [5, 2]);   // multicolor, tope 2 => sin ancla
   const src = unwind(placed, s);
-  assert.deepEqual(src.run.board[1].stack, [1, 2], 'RED: placeStack apila la pila en D sin fusionar');
+  assert.deepEqual(src.run.board[1].stack, [1, 5, 2], 'RED: placeStack apila la pila en D sin fusionar');
   assert.deepEqual(src.run.board[0].stack, [2, 2], 'RED: placeStack NO muta al vecino');
   const res = G.resolveCascade(src);
   const st = unwind(res, src);
-  assert.deepEqual(st.run.board[0].stack, [2, 2, 2], 'RED: A (no-receptor, torre) debe absorber la racha => [2,2,2]');
-  assert.deepEqual(st.run.board[1].stack, [1], 'RED: D (fuente) conserva su sub-pila [1]');
+  assert.deepEqual(st.run.board[0].stack, [2, 2, 2], 'RED: A (no-receptor, torre) absorbe la racha => [2,2,2]');
+  assert.deepEqual(st.run.board[1].stack, [1, 5], 'RED: D (fuente) conserva su sub-pila [1,5]');
   assert.ok(res.steps >= 1, 'RED: el merge debe ocurrir en cascada (steps>=1)');
 });
 
