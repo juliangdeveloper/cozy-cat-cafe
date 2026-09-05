@@ -2562,9 +2562,14 @@ function cascadeLinks(state){
     }
     // (ii) auto-serve: pedidos flotantes (cell===null), si autoServe!==false
     // v2.4: el tirón del cliente se marca para volarlo (flyToClient en playCascade)
+    // v2.12.2 FIX: SOLO activeClients (R16.4) — como el oráculo resolveCascade.
+    // Iterar run.orders phantom-servía pedidos NO visibles: los snaps mostraban
+    // pilas comidas que el estado autoritativo conservaba => "pilas que
+    // desaparecen y vuelven" al adoptar el final.
     const auto=!(s.skills&&s.skills.serveManual&&s.skills.serveManual.autoServe===false);
-    if(auto&&Array.isArray(s.run.orders)){
-      for(const order of s.run.orders){
+    const vis=(Array.isArray(s.run.activeClients)&&s.run.activeClients.length)?s.run.activeClients:s.run.orders;
+    if(auto&&Array.isArray(vis)){
+      for(const order of vis){
         if(!order||order.served||order.cell!==null) continue;
         const idx=serveCellFor(s.run.board,order);
         if(idx<0) continue;
@@ -2575,6 +2580,7 @@ function cascadeLinks(state){
         s.progress.coins+=amount; served.push({cell:idx,amount,order});  // v2.4: order para flyToClient
         acted=true;
       }
+      if(Array.isArray(s.run.activeClients)) s.run.activeClients=s.run.activeClients.filter(o=>!o.served);
     }
     // (iii) umbral de escombros: grupo contiguo >= DEBRIS_THRESHOLD se elimina
     s.run.board.forEach((c,i)=>{
@@ -3077,7 +3083,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40, tables 80×1.25;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.12.1';
+const GAME_VERSION = 'v2.12.2';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };
