@@ -826,6 +826,9 @@ export function placeStack(state, cellId, slot, rngOrStack) {
   // cascada que dispara esta colocación, todo grupo que contenga esta celda
   // drena HACIA ella. Multicolor no ancla (árbitro T1/R2 normal).
   s.run.anchor = (pileArr.length > 0 && pileArr.every((c) => c === pileArr[0])) ? cellId : null;
+  // v2.12 R12.4c: pila MULTICOLOR activa el IMÁN MONOCOLOR — durante su
+  // cascada, todo grupo con una celda puramente monocolor la elige destino.
+  if (!s.run.anchor && pileArr.length > 1) s.run.monoSink = true;
   return s;                                         // v3: barrido global en resolveCascade
   }
   const rng = rngOrStack;
@@ -843,6 +846,8 @@ export function placeStack(state, cellId, slot, rngOrStack) {
   s.run.poolPlaced += 1;
   // v2.11 R12.4: ancla del jugador — solo pila MONOCOLOR del tray.
   s.run.anchor = (pile.length > 0 && pile.every((c) => c === pile[0])) ? cellId : null;
+  // v2.12 R12.4c: pila MULTICOLOR del tray activa el imán monocolor.
+  if (!s.run.anchor && pile.length > 1) s.run.monoSink = true;
   if (s.run.rosterIndex != null) {
     // v2.1 R16.2 (corregido): cada pila colocada cuenta; cada
     // UNLOCK_PLACED_PILES=3 el roster avanza +1 tipo HASTA el tope
@@ -1068,18 +1073,38 @@ export function resolveCascade(state) {
       if (groups.length > 0) {
         const group = groups[0];
         const tg = topGroup(s.run.board[group[0]].stack);
+        // v2.12: árbitro T1/R2 extraído (rama sin ancla/imán)
+        const arbiterTarget = (tg) => {
+          const plan = computeBestChain(s.run.board);              // T1
+          const step = plan.find((p) => p.color === tg.color
+            && p.source.every((si) => group.includes(si)));
+          if (step && group.includes(step.target)) return step.target;
+          return r2Target(s.run.board, group, tg.color, received); // R2
+        };
         let target;
         // v2.11 R12.4: ANCLA DEL JUGADOR — si el grupo contiene la celda donde
         // el jugador colocó una pila monocolor, el destino SIEMPRE es el ancla
         // (los vecinos drenan hacia su baldosa). Grupos sin ancla: árbitro T1/R2.
+        // v2.12 R12.4c: IMÁN MONOCOLOR — con colocación multicolor, si el grupo
+        // contiene celda(s) PURAMENTE monocolor (stack entero = un color), el
+        // destino es la pura MÁS ALTA (tie: menor índice). Prioridad: ancla >
+        // imán > T1/R2 (una colocación es mono O multi: nunca coexisten).
         if (s.run.anchor != null && group.includes(s.run.anchor)) {
           target = s.run.anchor;
+        } else if (s.run.monoSink) {
+          const pures = group.filter((gi) => {
+            const st = s.run.board[gi].stack;
+            return st.length > 0 && st.every((c) => c === st[0]);
+          });
+          if (pures.length > 0) {
+            pures.sort((a, b2) =>
+              s.run.board[b2].stack.length - s.run.board[a].stack.length || a - b2);
+            target = pures[0];
+          } else {
+            target = arbiterTarget(tg);
+          }
         } else {
-          const plan = computeBestChain(s.run.board);              // T1
-          const step = plan.find((p) => p.color === tg.color
-            && p.source.every((si) => group.includes(si)));
-          if (step && group.includes(step.target)) target = step.target;
-          else target = r2Target(s.run.board, group, tg.color, received); // R2
+          target = arbiterTarget(tg);
         }
         for (const si of group) {
           if (si === target) continue;
@@ -1148,6 +1173,7 @@ export function resolveCascade(state) {
   // así la cascada es determinista (el Math.random del draw no re-entra aquí).
   if (Array.isArray(s.run.activeClients)) refillClients(s, rngFallback());
   if ('anchor' in s.run) delete s.run.anchor;   // v2.11 R12.4: el ancla vive SOLO durante su cascada (pureza: no dejar null en estados sin ancla)
+  if ('monoSink' in s.run) delete s.run.monoSink; // v2.12 R12.4c: el imán vive SOLO durante su cascada
   return { state: s, steps };
 }
 
