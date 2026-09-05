@@ -902,6 +902,13 @@ function serveCellFor(board, order){
 function cascadeLinks(state){
   const s=structuredClone(state);
   const links=[]; const received=new Set();      // v3: tie-break no-receptor
+  // v2.12: árbitro T1/R2 extraído (rama sin ancla/imán) — mismo criterio que resolveCascade
+  const arbiterTarget=(tg)=>{
+    const plan=computeBestChain(s.run.board);
+    const step=plan.find(p=>p.color===tg.color&&p.source.every(si=>group.includes(si)));
+    if(step&&group.includes(step.target)) return step.target;
+    return r2Target(s.run.board,group,tg.color,received);
+  };
   for(let guard=0; guard<1000; guard++){
     let acted=false; const served=[], debris=[], merged=[];
     // (i) merge HEXASORT ORIGINAL (v3): barrido global — grupos contiguos BFS
@@ -915,7 +922,15 @@ function cascadeLinks(state){
         const tg=topGroup(s.run.board[group[0]].stack);
         let target;
         // v2.11 R12.4: espejo del ancla del jugador (misma lógica que resolveCascade)
+        // v2.12 R12.4c: espejo del imán monocolor (pura más alta gana)
         if(s.run.anchor!=null&&group.includes(s.run.anchor)) target=s.run.anchor;
+        else if(s.run.monoSink){
+          const pures=group.filter(gi=>{const st2=s.run.board[gi].stack;return st2.length>0&&st2.every(c=>c===st2[0]);});
+          if(pures.length>0){
+            pures.sort((x,y)=>s.run.board[y].stack.length-s.run.board[x].stack.length||x-y);
+            target=pures[0];
+          } else target=arbiterTarget(tg);
+        }
         else{
           const plan=computeBestChain(s.run.board);
           const step=plan.find(p=>p.color===tg.color&&p.source.every(si=>group.includes(si)));
@@ -1451,7 +1466,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40, tables 80×1.25;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.11.0';
+const GAME_VERSION = 'v2.12.0';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };
