@@ -49,7 +49,7 @@ for (const vw of [390, 414]) {
     if (!(m.cardW >= 100 && m.cardW <= 118)) fails.push(`vw=390: order-card ${m.cardW}px (esperado ~110-117)`);
     if (!(m.catW >= 30 && m.catW <= 38)) fails.push(`vw=390: cat ${m.catW}px (esperado 34)`);
   }
-  if (!/^v2\.[6-9]/.test(m.ver)) fails.push(`version ${m.ver} (esperada v2.6+)`);
+  if (!/^v2\.(?:[6-9]|10)/.test(m.ver)) fails.push(`version ${m.ver} (esperada v2.6+)`);
   await page.screenshot({ path: `audit-v262-${vw}.png` });
   await page.close();
 }

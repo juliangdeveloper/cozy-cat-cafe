@@ -103,6 +103,7 @@ test('T11c [R15.2 + R12.2] orden eslabon: auto-servir ANTES de evaluar umbral', 
 test('T11d [R12.2] resolveCascade es pura: {state, steps}; estable => steps 0 y no muta', () => {
   need('createGame'); need('resolveCascade');
   const s = mkGame();
+  s.skills.serveManual.autoServe = false; // aislar de clientes iniciales servibles
   s.run.board[0].stack = [1, 1]; // estable: sin merge ni threshold pendiente
   const snapshot = JSON.stringify(s);
   const res = G.resolveCascade(s);
@@ -112,6 +113,7 @@ test('T11d [R12.2] resolveCascade es pura: {state, steps}; estable => steps 0 y 
   assert.deepEqual(res.state, JSON.parse(snapshot), 'RED: resolveCascade no debe mutar el estado de entrada (deep-equal)');
   // con una mutación pendiente itera hasta estabilizar
   const s2 = mkGame();
+  s2.skills.serveManual.autoServe = false; // aislar
   s2.run.board[0].stack = Array.from({ length: 10 }, () => 4); // debris threshold pendiente
   const res2 = G.resolveCascade(s2);
   assert.ok(res2.steps >= 1, 'RED: con mutación pendiente steps >= 1');

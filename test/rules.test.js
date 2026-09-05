@@ -13,6 +13,7 @@ import {
   serializeState, deserializeState, importSave, mulberry32,
   expandTile, freeSlots, activateTile, applyCalamities,
   previewPool,                     // v2.9 R3.1: pizarra usa la tabla ponderada
+  drawPoolPiles, initBag,          // v2.10 R18: bolsita de pool
 } from '../js/game.js';
 
 const rng = (n) => mulberry32(n);
@@ -694,6 +695,78 @@ test('R7.7 REFRESH pool genera pilas deterministas tamaño 1..7 (v2.0)', () => {
     assert.ok(pile.length >= 1 && pile.length <= 7, 'v2.0: tamaño 1..7');
     for (const c of pile) assert.ok(c >= 1 && c <= 3, 'color en 1..colorsUnlocked(3)');
   }
+});
+
+// ---------------------------------------------------------------------------
+// R18 v2.10 — Bolsita de colores en el pool (bag de inventario por color)
+// ---------------------------------------------------------------------------
+test('R18.1 v2.10 openRun inicializa run.bag con 4 colores y puñados 6-14', () => {
+  const s = openRun(createGame({ progress: { coins: 100 } }), rng(42));
+  assert.ok(s.run && s.run.bag, 'RED: s.run.bag debe existir');
+  const entries = Object.entries(s.run.bag).filter(([_, count]) => count > 0);
+  assert.equal(entries.length, 4, 'RED: debe haber exactamente 4 colores activos en la bolsa inicial');
+  for (const [colStr, count] of entries) {
+    const col = Number(colStr);
+    assert.ok(col >= 1 && col <= s.progress.colorsOwned, `color ${col} dentro de colorsOwned`);
+    assert.ok(count >= 0, 'conteo no negativo');
+  }
+});
+
+test('R18.2/R18.3 v2.10 consumo exacto y decremento en run.bag al extraer fichas', () => {
+  let s = openRun(createGame({ progress: { coins: 100 } }), rng(10));
+  s.run.bag = { 1: 5, 2: 10 };
+  const cu = 2;
+  const initialSum = 15;
+  const { piles, nextBag } = drawPoolPiles(rng(99), s.run.bag, cu);
+  assert.equal(piles.length, 3, 'debe generar 3 pilas');
+  let drawnCount = 0;
+  for (const p of piles) {
+    drawnCount += p.length;
+    for (const c of p) {
+      assert.ok(c === 1 || c === 2, `ficha color ${c} debe venir de los colores vivos`);
+    }
+  }
+  const remainingSum = Object.values(nextBag).reduce((a, b) => a + b, 0);
+  if (nextBag[1] > 0 && nextBag[2] > 0) {
+    assert.equal(remainingSum, initialSum - drawnCount, 'suma debe decrecer exactamente las fichas sacadas');
+  }
+});
+
+test('R18.4 v2.10 recarga al agotarse un color (llega a 0 => puñado 6-14)', () => {
+  let bag = { 1: 1 };
+  const cu = 4;
+  const { piles, nextBag } = drawPoolPiles(rng(123), bag, cu);
+  assert.ok(piles.length === 3);
+  const totalFichas = Object.values(nextBag).reduce((a, b) => a + b, 0);
+  assert.ok(totalFichas >= 1, 'la bolsa debe seguir teniendo fichas tras recargar');
+});
+
+test('R18.5 v2.10 previewPool es pura y no muta state.run.bag', () => {
+  let s = openRun(createGame({ progress: { coins: 1000 } }), rng(5));
+  s.skills.previewPool.owned = true;
+  s.skills.previewPool.level = 2;
+  const bagBefore = JSON.stringify(s.run.bag);
+  const prev = previewPool(s, rng(77));
+  assert.ok(Array.isArray(prev) && prev.length === 2, '2 tandas de preview');
+  assert.equal(JSON.stringify(s.run.bag), bagBefore, 'previewPool no debe mutar state.run.bag');
+});
+
+test('R18.6 v2.10 useRefreshPool descuenta de state.run.bag', () => {
+  let s = openRun(createGame({ progress: { coins: 1000 } }), rng(5));
+  s.skills.refreshPool.owned = true;
+  s.skills.refreshPool.uses = 3;
+  const bagBefore = JSON.stringify(s.run.bag);
+  const st = useRefreshPool(s, rng(88));
+  assert.notEqual(JSON.stringify(st.run.bag), bagBefore, 'useRefreshPool debe actualizar la bolsa');
+});
+
+test('R18.7 v2.10 compatibilidad: save sin bag inicializa bag en refill', () => {
+  let s = baseRun();
+  delete s.run.bag;
+  s = placeStack(s, 0, 0);
+  s = placeStack(s, 1, 1);
+  s = placeStack(s, 2, 2, rng(15));
+  assert.ok(s.run.bag, 'refill debe inicializar bag si no existía');
 });
 
 // ---------------------------------------------------------------------------

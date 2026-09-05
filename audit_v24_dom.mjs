@@ -29,7 +29,7 @@ async function checkWidth(browser, vw) {
   });
   if (m.scrollX || m.bodyScrollX) fails.push(`vw=${vw}: overflow horizontal (board=${Math.round(m.boardW)} wrap=${m.wrapW})`);
   if (m.powOut) fails.push(`vw=${vw}: powerbar sale de pantalla (${m.nPow} skills)`);
-  if (!/^v2\.[4-9]/.test(m.version)) fails.push(`version ${m.version}`);
+  if (!/^v2\.(?:[4-9]|10)/.test(m.version)) fails.push(`version ${m.version}`);
   await page.close();
   return m;
 }

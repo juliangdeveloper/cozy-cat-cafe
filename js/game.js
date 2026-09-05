@@ -46,6 +46,12 @@ export const CONFIG = {
   PILE_SIZE_WEIGHTS: [9, 8, 7, 6, 5, 4, 3], // v2.9 R3.1: peso del tamaño 1..7 —
                                     // menos fichas más común pero SUTIL (7 sigue
                                     // saliendo ~7%): P = peso/42 ⇒ 21/19/17/14/12/10/7%
+  // v2.10 — R18 Bolsita de pool (rachas y transiciones suaves)
+  BAG_INITIAL_COLORS: 4,            // R18.2 cantidad de colores iniciales en la bolsa
+  BAG_INITIAL_MIN: 6,               // R18.2 puñado inicial mín por color
+  BAG_INITIAL_MAX: 14,              // R18.2 puñado inicial máx por color
+  BAG_RELOAD_MIN: 6,                // R18.4 recarga mín al agotarse un color
+  BAG_RELOAD_MAX: 14,               // R18.4 recarga máx al agotarse un color
   // v2.1 — R16 cola de clientes / R17 skills de cola ⚖BALANCE
   MIN_CLIENTS: 20,                  // R16.1 TOTAL_CLIENTS base = 20 + capacidad.level
   MAX_CLIENTS: 60,                  // R16.1 v2.5: tope (capacidad max level = 40; antes 100/80 — curva rota, BALANCE_REPORT.md)
@@ -408,6 +414,69 @@ function rosterMax(colorsOwned) {
 function poolMaxColor(rosterIndex, colorsOwned) {
   return Math.min(rosterIndex || 1, colorsOwned || 1);
 }
+
+// ---------------------------------------------------------------------------
+// v2.10 R18 — Bolsita de colores en el pool (bag de inventario por color).
+// ---------------------------------------------------------------------------
+
+// R18.2: inicializar bolsa con 4 colores (o cu si cu < 4) y puñados 6..14
+export function initBag(rng, cu) {
+  const bag = {};
+  const maxC = Math.max(1, cu || 1);
+  const k = Math.min(CONFIG.BAG_INITIAL_COLORS, maxC);
+  // Elegir k colores distintos en 1..maxC
+  const indices = pickDistinct(rng, maxC, k); // 0-indexed en [0, maxC)
+  for (const idx of indices) {
+    const color = idx + 1;
+    bag[color] = rngInt(rng, CONFIG.BAG_INITIAL_MIN, CONFIG.BAG_INITIAL_MAX);
+  }
+  return bag;
+}
+
+// R18.3/R18.4: saca 1 ficha de la bolsa (uniforme entre vivos) y descuenta 1.
+// Si llega a 0, sortea color en 1..cu con prob 1/cu y suma puñado 6..14.
+// Muta `bag` directamente (el caller es responsable de clonar si requiere pureza).
+function drawTileFromBag(rng, bag, cu) {
+  const maxC = Math.max(1, cu || 1);
+  let alive = Object.keys(bag).map(Number).filter(c => bag[c] > 0);
+  if (alive.length === 0) {
+    // Si la bolsa estaba vacía, recargar un color
+    const c = rngInt(rng, 1, maxC);
+    bag[c] = (bag[c] || 0) + rngInt(rng, CONFIG.BAG_RELOAD_MIN, CONFIG.BAG_RELOAD_MAX);
+    alive = [c];
+  }
+  // Sorteo uniforme entre vivos
+  const chosenColor = alive[Math.floor(rng() * alive.length)];
+  bag[chosenColor] -= 1;
+  if (bag[chosenColor] <= 0) {
+    delete bag[chosenColor];
+    // R18.4: recarga al agotarse — sortea color uniforme en 1..maxC (prob 1/maxC)
+    const nextC = rngInt(rng, 1, maxC);
+    bag[nextC] = (bag[nextC] || 0) + rngInt(rng, CONFIG.BAG_RELOAD_MIN, CONFIG.BAG_RELOAD_MAX);
+  }
+  return chosenColor;
+}
+
+// R18.5: drawPoolPiles(rng, bag, cu) -> { piles, nextBag }
+// Función pura: clona `bag` y genera 3 pilas según PILE_SIZE_WEIGHTS.
+export function drawPoolPiles(rng, bag, cu) {
+  const nextBag = clone(bag || {});
+  // Si la bolsa no tiene fichas vivas, inicializarla
+  const alive = Object.keys(nextBag).filter(c => nextBag[c] > 0);
+  if (alive.length === 0) {
+    Object.assign(nextBag, initBag(rng, cu));
+  }
+  const piles = Array.from({ length: 3 }, () => {
+    const size = pickPileSize(rng);
+    const pile = [];
+    for (let i = 0; i < size; i++) {
+      pile.push(drawTileFromBag(rng, nextBag, cu));
+    }
+    return pile;
+  });
+  return { piles, nextBag };
+}
+
 // v2 helper: pila del pool — tamaño rng 1..7, color POR FICHA aleatorio en
 // [1, cu] (v2.0: multicolor; antes monocromo 1..4, R13.3/R13.4).
 function v2Pile(rng, cu) {
@@ -465,15 +534,21 @@ function refillClients(s, rng) {
 
 export function openRun(state, rng) {
   let s = clone(state);
+  const r = rng || Math.random;
   if (s.progress.permTiles == null) s.progress.permTiles = 1;      // v2 default (saves v1)
-  const board = generateBoard(32, rng);                            // R14.1 board dual 32 (rectángulo 8×4 pointy, v2.2)
+  const board = generateBoard(32, r);                            // R14.1 board dual 32 (rectángulo 8×4 pointy, v2.2)
+  const rosterIdx = Math.min(5, rosterMax(s.progress.colorsOwned)); // R13.3 v2.1: 5 tipos activos
+  const cu = poolMaxColor(rosterIdx, s.progress.colorsOwned);
+  const initialBag = initBag(r, cu);                               // R18.2 bolsita inicial
+  const { piles, nextBag } = drawPoolPiles(r, initialBag, cu);    // R18.5
   s.run = {
     phase: 'open', board,
     orders: [], activeClients: [],                                 // v2.1 R16.2 clientes = pedidos flotantes
-    pool: Array.from({ length: 3 }, () => v2Pile(rng, poolMaxColor(5, s.progress.colorsOwned))),
+    pool: piles,
+    bag: nextBag,                                                  // v2.10 R18
     poolPlaced: 0, calamities: 0,
     calamitiesApplied: false,                                      // R14.5 una vez por partida
-    rosterIndex: Math.min(5, rosterMax(s.progress.colorsOwned)),   // R13.3 v2.1: 5 tipos activos
+    rosterIndex: rosterIdx,
     placedCounter: 0,                                              // R13.4
     runTilesActivated: 0,                                          // R14.3
     // v2.1 R16 — cola de clientes perezosa: 3 visibles, contadores, devueltos
@@ -484,7 +559,7 @@ export function openRun(state, rng) {
     mergeSeeds: [],                                                // v2.0 R12.1 paso a paso
   };
   // R16.4: dibujar los 3 VISIBLES iniciales (llegada perezosa, no pre-genera)
-  refillClients(s, rng || Math.random);
+  refillClients(s, r);
   for (const key of CONFIG.USES_SKILLS) {
     if (s.skills[key] && s.skills[key].owned) {
       // v2.3 R7.4: cero base gratis — usos por partida = SOLO los comprados
@@ -751,11 +826,13 @@ export function placeStack(state, cellId, slot, rngOrStack) {
   }
   if (s.run.poolPlaced === 3) {
     // refill all 3 at once (R3.3); injected rng keeps it deterministic
-    if (s.run.rosterIndex != null) {
-      // v2 R13.4: pool UNIFORME entre desbloqueados 1..min(rosterIndex, colorsOwned)
-      const r = rng || Math.random;
-      const cu = poolMaxColor(s.run.rosterIndex, s.progress.colorsOwned);
-      s.run.pool = Array.from({ length: 3 }, () => v2Pile(r, cu));
+    const r = rng || Math.random;
+    if (s.run.rosterIndex != null || s.run.bag != null || s.progress.colorsOwned != null) {
+      // v2.10 R18: refill consume de s.run.bag (o la inicializa si faltaba)
+      const cu = poolMaxColor(s.run.rosterIndex || 5, s.progress.colorsOwned || 4);
+      const { piles, nextBag } = drawPoolPiles(r, s.run.bag, cu);
+      s.run.pool = piles;
+      s.run.bag = nextBag;
     } else {
       s.run.pool = buildPick(rng, 3, s.progress.colorsUnlocked);
     }
@@ -1245,9 +1322,14 @@ export function previewPool(state, rng) {
   if (level <= 0) return null;
   const r = (state && state.run) || {};
   const cu = poolMaxColor(r.rosterIndex, state.progress && state.progress.colorsOwned);
-  return Array.from({ length: level }, () =>
-    Array.from({ length: 3 }, () =>
-      Array.from({ length: pickPileSize(rng) }, () => rngInt(rng, 1, cu)))); // v2.9 R3.1 ponderado
+  let simBag = clone(r.bag || {});
+  const tandas = [];
+  for (let i = 0; i < level; i++) {
+    const res = drawPoolPiles(rng, simBag, cu);
+    tandas.push(res.piles);
+    simBag = res.nextBag;
+  }
+  return tandas;
 }
 
 function ensureOwnedUses(state, power) {
@@ -1304,11 +1386,12 @@ export function useRefreshPool(state, rng) {
   const guard = ensureOwnedUses(state, 'refreshPool');
   if (guard) return guard;
   const s = clone(state);
-  // v2.4 FIX: el refresh monocolor era un bug — usaba progress.colorsUnlocked
-  // (v1, =1 al inicio) en vez de poolMaxColor(rosterIndex, colorsOwned) como
-  // openRun. Ahora genera EXACTAMENTE como el pool inicial (v2Pile multicolor).
-  const cu = poolMaxColor(s.run.rosterIndex, s.progress.colorsOwned);
-  s.run.pool = Array.from({ length: 3 }, () => v2Pile(rng || Math.random, cu)); // R7.7 + R3.1 v2.4
+  // v2.10 R18: useRefreshPool consume de s.run.bag
+  const r = rng || Math.random;
+  const cu = poolMaxColor(s.run && s.run.rosterIndex, s.progress.colorsOwned);
+  const { piles, nextBag } = drawPoolPiles(r, s.run && s.run.bag, cu);
+  s.run.pool = piles;
+  s.run.bag = nextBag;
   s.run.poolPlaced = 0;                                                   // R7.7
   s.skills.refreshPool.uses -= 1;
   return s;
