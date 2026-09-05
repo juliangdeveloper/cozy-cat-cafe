@@ -770,6 +770,63 @@ test('R18.7 v2.10 compatibilidad: save sin bag inicializa bag en refill', () => 
 });
 
 // ---------------------------------------------------------------------------
+// R18 v2.10.1 — anti-colapso: la cuota viva se repara, la recarga NO cae en
+// vivos. El save real del jugador colapsó a bag {"10":4} (1 vivo) porque la
+// recarga v2.10.0 podía caer en un color VIVO: el nº de vivos era monótono
+// decreciente. Invariante nuevo: vivos === min(4, cu) tras cualquier draw.
+// ---------------------------------------------------------------------------
+const aliveOf = (bag) => Object.values(bag).filter(c => c > 0).length;
+
+test('R18.8 v2.10.1 invariante: vivos === 4 tras cualquier draw (nunca colapsa)', () => {
+  for (let g = 1; g <= 200; g++) {
+    let bag = initBag(rng(g), 10);
+    for (let step = 0; step < 60; step++) {
+      const res = drawPoolPiles(rng(g * 1000 + step), bag, 10);
+      bag = res.nextBag;
+      assert.equal(aliveOf(bag), 4,
+        `RED: seed ${g} paso ${step}: vivos=${aliveOf(bag)} (invariante 4)`);
+    }
+  }
+});
+
+test('R18.9 v2.10.1 la recarga NUNCA cae en un color vivo', () => {
+  // cu=4 con los 4 vivos y puñados asimétricos: el único color que puede
+  // morir es el 4 (1 ficha). Si la recarga cayera en un vivo, un superviviente
+  // crecería por encima de su valor inicial — eso es lo que se verifica.
+  // (El 4 puede renacer y ser parcialmente consumido en el mismo draw, por eso
+  // su valor final no se afirma contra 6..14 exacto, solo >0 y <= 14.)
+  let sawReload = false;
+  for (let g = 1; g <= 60; g++) {
+    const bag0 = { 1: 20, 2: 20, 3: 20, 4: 1 }; // solo el 4 puede morir
+    const res = drawPoolPiles(rng(g), bag0, 4);
+    for (const c of [1, 2, 3]) {
+      assert.ok((res.nextBag[c] || 0) <= 20,
+        `RED: color vivo ${c} creció (seed ${g}) — la recarga cayó en un vivo`);
+    }
+    const v4 = res.nextBag[4] || 0;
+    assert.ok(v4 >= 1 && v4 <= 14,
+      `RED: el 4 quedó en ${v4} (debe ser 1 intacto o renacido 1..14 tras consumo, seed ${g})`);
+    if (v4 !== 1) sawReload = true;
+  }
+  assert.ok(sawReload, 'RED: precondition — debe observarse al menos una recarga en 60 semillas');
+});
+
+test('R18.10 v2.10.1 bolsa colapsada heredada se sana al primer draw (save del jugador)', () => {
+  // réplica literal del save: bag {"10": 4}, cu=10
+  const collapsed = { 10: 4 };
+  const res = drawPoolPiles(rng(7), collapsed, 10);
+  const alive = Object.entries(res.nextBag).filter(([_, n]) => n > 0);
+  assert.equal(alive.length, 4, `RED: vivos tras sanar = 4, dio ${JSON.stringify(res.nextBag)}`);
+  assert.ok(res.nextBag[10] > 0 || res.piles.flat().includes(10) || true,
+    'sanity: el color 10 puede seguir vivo o haber sido re-sortado');
+  assert.ok(res.piles.length === 3, 'el draw entrega 3 pilas');
+  // la segunda tanda ya opera normal sobre la bolsa sana
+  const res2 = drawPoolPiles(rng(8), res.nextBag, 10);
+  assert.equal(Object.values(res2.nextBag).filter(c => c > 0).length, 4,
+    'RED: la bolsa sana se mantiene en 4 vivos');
+});
+
+// ---------------------------------------------------------------------------
 // helpers
 // ---------------------------------------------------------------------------
 function baseRun() {

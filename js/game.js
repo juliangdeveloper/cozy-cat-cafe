@@ -417,6 +417,10 @@ function poolMaxColor(rosterIndex, colorsOwned) {
 
 // ---------------------------------------------------------------------------
 // v2.10 R18 — Bolsita de colores en el pool (bag de inventario por color).
+// v2.10.1 anti-colapso: el nº de colores VIVOS se mantiene en min(4, cu) — la
+// recarga cae SOLO sobre colores muertos (incluido el que acaba de morir) y
+// drawPoolPiles sana bolsas heredadas sub-viudas antes de dibujar. Cota: la
+// cuota máx de un color pasa de 100% (colapso v2.10.0) a ~25%.
 // ---------------------------------------------------------------------------
 
 // R18.2: inicializar bolsa con 4 colores (o cu si cu < 4) y puñados 6..14
@@ -433,38 +437,57 @@ export function initBag(rng, cu) {
   return bag;
 }
 
+// R18.4 v2.10.1: recarga al agotarse — el rerolleo cae uniforme entre los
+// colores MUERTOS (nunca sobre un vivo: el conjunto vivo es monótono estable).
+function reloadIntoDead(rng, bag, maxC) {
+  const dead = [];
+  for (let c = 1; c <= maxC; c++) {
+    if (!bag[c] || bag[c] <= 0) dead.push(c);
+  }
+  // con cu >= vivos siempre hay muertos (vivos <= 4 <= cu garantizado por el caller)
+  if (dead.length === 0) return null;
+  const c = dead[Math.floor(rng() * dead.length)];
+  bag[c] = rngInt(rng, CONFIG.BAG_RELOAD_MIN, CONFIG.BAG_RELOAD_MAX);
+  return c;
+}
+
 // R18.3/R18.4: saca 1 ficha de la bolsa (uniforme entre vivos) y descuenta 1.
-// Si llega a 0, sortea color en 1..cu con prob 1/cu y suma puñado 6..14.
+// Si llega a 0, la recarga cae sobre un color muerto (R18.4 v2.10.1).
 // Muta `bag` directamente (el caller es responsable de clonar si requiere pureza).
 function drawTileFromBag(rng, bag, cu) {
   const maxC = Math.max(1, cu || 1);
   let alive = Object.keys(bag).map(Number).filter(c => bag[c] > 0);
   if (alive.length === 0) {
-    // Si la bolsa estaba vacía, recargar un color
-    const c = rngInt(rng, 1, maxC);
-    bag[c] = (bag[c] || 0) + rngInt(rng, CONFIG.BAG_RELOAD_MIN, CONFIG.BAG_RELOAD_MAX);
-    alive = [c];
+    // Bolsa totalmente vacía: sembrar un color muerto para poder dibujar
+    reloadIntoDead(rng, bag, maxC);
+    alive = Object.keys(bag).map(Number).filter(c => bag[c] > 0);
   }
   // Sorteo uniforme entre vivos
   const chosenColor = alive[Math.floor(rng() * alive.length)];
   bag[chosenColor] -= 1;
   if (bag[chosenColor] <= 0) {
     delete bag[chosenColor];
-    // R18.4: recarga al agotarse — sortea color uniforme en 1..maxC (prob 1/maxC)
-    const nextC = rngInt(rng, 1, maxC);
-    bag[nextC] = (bag[nextC] || 0) + rngInt(rng, CONFIG.BAG_RELOAD_MIN, CONFIG.BAG_RELOAD_MAX);
+    // R18.4 v2.10.1: recarga SOLO sobre muertos (el propio muerto cuenta)
+    reloadIntoDead(rng, bag, maxC);
   }
   return chosenColor;
 }
 
 // R18.5: drawPoolPiles(rng, bag, cu) -> { piles, nextBag }
-// Función pura: clona `bag` y genera 3 pilas según PILE_SIZE_WEIGHTS.
+// Función pura: clona `bag`, SANA bolsas heredadas con menos de min(4, cu)
+// vivos (v2.10.0 podía colapsarlas a 1 — ej. save real {"10":4}) y genera 3
+// pilas según PILE_SIZE_WEIGHTS.
 export function drawPoolPiles(rng, bag, cu) {
   const nextBag = clone(bag || {});
-  // Si la bolsa no tiene fichas vivas, inicializarla
-  const alive = Object.keys(nextBag).filter(c => nextBag[c] > 0);
-  if (alive.length === 0) {
-    Object.assign(nextBag, initBag(rng, cu));
+  const maxC = Math.max(1, cu || 1);
+  const target = Math.min(CONFIG.BAG_INITIAL_COLORS, maxC);
+  const aliveNow = () => Object.keys(nextBag).map(Number).filter(c => nextBag[c] > 0);
+  // Sana: mientras vivos < target, revivir muertos con puñados frescos
+  // (v2.10.1): también cubre bolsa vacía/inexistente (saves pre-v2.10).
+  let guard = 0;
+  while (aliveNow().length < target && guard++ < target + 1) {
+    const revived = reloadIntoDead(rng, nextBag, maxC);
+    if (revived == null) break;
   }
   const piles = Array.from({ length: 3 }, () => {
     const size = pickPileSize(rng);
@@ -474,6 +497,11 @@ export function drawPoolPiles(rng, bag, cu) {
     }
     return pile;
   });
+  // Post-draw: un draw puede matar vivos si todos mueren en cascada — devolver
+  // la bolsa SIEMPRE con vivos >= 1 para que la siguiente tanda sea posible.
+  if (aliveNow().length === 0) {
+    reloadIntoDead(rng, nextBag, maxC);
+  }
   return { piles, nextBag };
 }
 
