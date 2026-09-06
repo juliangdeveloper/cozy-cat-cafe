@@ -52,52 +52,52 @@ const dormantCell = (s) =>
 // [7,9,9,7] = 32 (estilo hexágono Catan pequeño, simetría de 180°). Cualquier
 // orientación global pasa (se exige el multiconjunto/orden por fila r).
 // ---------------------------------------------------------------------------
-test('T14a [R14.1 v2.2] generateBoard(32): rectángulo pointy 8×4 (4 filas de 8)', () => {
+test('T14a [R14.1 v2.13] generateBoard(35): rectángulo pointy 7×5 (5 filas de 7)', () => {
   need('generateBoard');
-  // FIRMA elegida: (size, rng) — 32 celdas, rng determinista.
+  // FIRMA elegida: (size, rng) — 35 celdas, rng determinista.
   let board = null;
   try {
-    board = boardOf(G.generateBoard(32, mulberry32(1)));
+    board = boardOf(G.generateBoard(35, mulberry32(1)));
   } catch {
-    assert.ok(false, 'RED: generateBoard(32, rng) firma v2 no implementada (debe retornar 32 celdas)');
+    assert.ok(false, 'RED: generateBoard(35, rng) firma v2 no implementada (debe retornar 35 celdas)');
   }
-  assert.ok(Array.isArray(board), 'RED: generateBoard(32, rng) debe retornar el board (array de celdas)');
-  assert.equal(board.length, 32, 'RED: el tablero dual v2 tiene SIEMPRE 32 celdas');
+  assert.ok(Array.isArray(board), 'RED: generateBoard(35, rng) debe retornar el board (array de celdas)');
+  assert.equal(board.length, 35, 'RED: el tablero dual v2.13 tiene SIEMPRE 35 celdas');
   // agrupar por fila axial r -> tamaños
   const rows = new Map();
   for (const c of board) {
     assert.ok(Number.isFinite(c.r), `RED: celda sin coordenada axial r: ${JSON.stringify(c)}`);
     rows.set(c.r, (rows.get(c.r) || 0) + 1);
   }
-  assert.equal(rows.size, 4, `RED: rectángulo 8×4 = 4 filas axiales, hay ${rows.size}`);
-  // v2.2-shape: filas ordenadas por r → 4 filas de 8 (rectángulo tipo marco de Catan)
+  assert.equal(rows.size, 5, `RED: rectángulo 7×5 = 5 filas axiales, hay ${rows.size}`);
+  // v2.13-shape: filas ordenadas por r → 5 filas de 7 (rectángulo tipo marco de Catan)
   const ordered = [...rows.keys()].sort((a, b) => a - b).map((r) => rows.get(r));
-  assert.deepEqual(ordered, [8, 8, 8, 8],
-    `RED: rectángulo 8×4 = filas [8,8,8,8], hay ${JSON.stringify(ordered)}`);
-  // columnas plegadas col=q+floor(r/2): 8 consecutivas y MISMO patrón por fila
+  assert.deepEqual(ordered, [7, 7, 7, 7, 7],
+    `RED: rectángulo 7×5 = filas [7,7,7,7,7], hay ${JSON.stringify(ordered)}`);
+  // columnas plegadas col=q+floor(r/2): 7 consecutivas y MISMO patrón por fila
   const patterns = [...rows.keys()].sort((a, b) => a - b).map((r) => {
     const cols = board.filter(c => c.r === r).map(c => c.q + Math.floor(r / 2)).sort((a, b) => a - b);
-    assert.equal(new Set(cols).size, 8, `RED: fila r=${r} debe cubrir 8 columnas plegadas consecutivas`);
+    assert.equal(new Set(cols).size, 7, `RED: fila r=${r} debe cubrir 7 columnas plegadas consecutivas`);
     return cols;
   });
   const base = patterns[0].join(',');
   for (const p of patterns) assert.equal(p.join(','), base,
-    'RED: las 4 filas deben compartir el patrón de columnas (rectángulo)');
+    'RED: las 5 filas deben compartir el patrón de columnas (rectángulo)');
 });
 
 // ---------------------------------------------------------------------------
 // T14b — Jugables = núcleo 2-3-2 (7); resto apagadas/bloqueadas [R14.2]
 // ---------------------------------------------------------------------------
-test('T14b [R14.2] tras openRun: 7 jugables y 25 dormant/blocked', () => {
+test('T14b [R14.2] tras openRun: 7 jugables y 28 dormant/blocked', () => {
   need('createGame'); need('openRun');
   const s = mkGame(1);
   const board = s.run && s.run.board;
   assert.ok(Array.isArray(board), 'RED: openRun debe dejar state.run.board');
-  assert.equal(board.length, 32, 'RED: el board de run debe exponer las 32 celdas [R14.1]'); // v2-shape: 30 → 32
+  assert.equal(board.length, 35, 'RED: el board de run debe exponer las 35 celdas [R14.1]'); // v2.13-shape: 32 → 35
   const playable = board.filter(c => !c.dormant && !c.blocked).length;
   const off = board.length - playable;
   assert.equal(playable, 7, 'RED: jugables al inicio = núcleo 2-3-2 (7) [R14.2]');
-  assert.equal(off, 25, 'RED: las otras 25 celdas deben estar dormant/blocked [R14.1,R14.2]'); // v2-shape: 23 → 25
+  assert.equal(off, 28, 'RED: las otras 28 celdas deben estar dormant/blocked [R14.1,R14.2]'); // v2.13-shape: 25 → 28
 });
 
 // ---------------------------------------------------------------------------
