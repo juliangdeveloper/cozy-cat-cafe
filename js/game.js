@@ -277,29 +277,30 @@ function expandTileCheck(s, q, r) {
 // ---------------------------------------------------------------------------
 // Board / pool generation — v2.1 (R14.1/R14.2; reemplaza el board v1 de 7).
 // Firma elegida: generateBoard(n, rng) -> array de `n` celdas axiales
-// { id, q, r, stack, blocked, calamity, dormant }. En el juego n SIEMPRE es 35
-// (rectángulo 7×5 pointy: 5 filas axiales de 7 = 35 celdas, R14.1 v2.13).
+// { id, q, r, stack, blocked, calamity, dormant }. En el juego n SIEMPRE es 36
+// (rectángulo 6×6 pointy: 6 filas axiales de 6 = 36 celdas, R14.1 v2.14).
 // Las celdas nacen dormant:true (visibles pero apagadas) salvo el núcleo 2-3-2
 // (7 celdas, mismas coords que initialHexCells) que queda jugable (dormant:false).
 // ---------------------------------------------------------------------------
 export function generateBoard(n, rng) {
-  const size = n || 35;
+  const size = n || 36;
   const core = new Set(initialHexCells().map((c) => `${c.q},${c.r}`));
   const board = [];
   let id = 0;
-  // RECTÁNGULO 7×5 pointy (R14.1 v2.13): 5 filas axiales de 7 = 35 celdas,
+  // RECTÁNGULO 6×6 pointy (R14.1 v2.14): 6 filas axiales de 6 = 36 celdas,
   // contorno rectangular tipo marco de Catan con offset de panal. En columna
-  // plegada col = q + floor(r/2) las 5 filas cubren el MISMO patrón consecutivo
-  // -3..3 (qStart + floor(r/2) constante = -3) — así lo exige el contrato del
+  // plegada col = q + floor(r/2) las 6 filas cubren el MISMO patrón consecutivo
+  // -3..2 (qStart + floor(r/2) constante = -3) — así lo exige el contrato del
   // rectángulo (T14a):
-  //   r=-2: q -2..4   r=-1: q -2..4   r=0: q -3..3   r=1: q -3..3   r=2: q -4..2
+  //   r=-2/-1: q -2..3   r=0/1: q -3..2   r=2/3: q -4..1
   // El núcleo 2-3-2 (7 celdas, initialHexCells) queda dentro y jugable.
-  const ROWS = [ // [r, qStart, width] — RECTÁNGULO 7×5 pointy (35 celdas)
-    [-2, -2, 7],
-    [-1, -2, 7],
-    [0, -3, 7],
-    [1, -3, 7],
-    [2, -4, 7],
+  const ROWS = [ // [r, qStart, width] — RECTÁNGULO 6×6 pointy (36 celdas)
+    [-2, -2, 6],
+    [-1, -2, 6],
+    [0, -3, 6],
+    [1, -3, 6],
+    [2, -4, 6],
+    [3, -4, 6],
   ];
   for (const [r, qStart, w] of ROWS) {
     for (let q = qStart; q < qStart + w; q++) {
@@ -566,7 +567,7 @@ export function openRun(state, rng) {
   let s = clone(state);
   const r = rng || Math.random;
   if (s.progress.permTiles == null) s.progress.permTiles = 1;      // v2 default (saves v1)
-  const board = generateBoard(35, r);                            // R14.1 board dual 35 (rectángulo 7×5 pointy, v2.13)
+  const board = generateBoard(36, r);                            // R14.1 board dual 36 (rectángulo 6×6 pointy, v2.14)
   const rosterIdx = Math.min(5, rosterMax(s.progress.colorsOwned)); // R13.3 v2.1: 5 tipos activos
   const cu = poolMaxColor(rosterIdx, s.progress.colorsOwned);
   const initialBag = initBag(r, cu);                               // R18.2 bolsita inicial
@@ -969,8 +970,8 @@ export function buyTablesUp(state) {
   if (!s.skills.tables) s.skills.tables = { owned: false, uses: 0, usesBought: 0 };
   // v2.4: el techo de mesas/partida depende del TAMAÑO DEL TABLERO —
   // celdas totales − núcleo 7 (nunca tiene sentido comprar más activables
-  // que baldosas apagadas existan). Con 35 celdas (7×5 v2.13): tope 28.
-  const boardCap = (s.run && Array.isArray(s.run.board) ? s.run.board.length : 35) - 7;
+  // que baldosas apagadas existan). Con 36 celdas (6×6 v2.14): tope 29.
+  const boardCap = (s.run && Array.isArray(s.run.board) ? s.run.board.length : 36) - 7;
   if ((s.skills.tables.usesBought || 0) >= boardCap) return { error: 'maxUses', state: s };
   const price = permTilePrice(s);
   if (s.progress.coins < price) return { error: 'noFunds', state: s };

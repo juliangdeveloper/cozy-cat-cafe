@@ -301,37 +301,37 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
      vw >= 350  -> 17   (17*16.7=284 <= 300, vw 320)
      vw <  350  -> 14
    (hx fraccional imposible: el pitch del panal exige enteros) */
-/* v2.13: tablero RECTÁNGULO 7×5 pointy (35 celdas, 5 filas de 7) — extensión
-   REAL medida por renderBoard: boxW = hx·(6·1.732 + 0.866 + 2) = 13.258·hx
-   (7 columnas = 6 pitches √3·hx + 2·hx de la última; filas impares sobresalen
-   0.866·hx a la derecha). hx_max = floor((vw − 20) / 13.258).
-   Máximo honesto en vw 390 => 27px (27·13.258=358 <= 370) — +8% lineal, +17%
-   de área por ficha vs v2.12 (25px), y UNA fila MÁS de tablero.
+/* v2.14: tablero RECTÁNGULO 6×6 pointy (36 celdas, 6 filas de 6) — extensión
+   REAL medida por renderBoard: boxW = hx·(5·1.732 + 0.866 + 2) = 11.526·hx
+   (6 columnas = 5 pitches √3·hx + 2·hx de la última; filas impares sobresalen
+   0.866·hx a la derecha). hx_max = floor((vw − 20) / 11.526).
+   Máximo honesto en vw 390 => 32px (32·11.526=369 <= 370) — +28% lineal vs
+   v2.13 (27px), +2.4× el área de ficha del 8×4 original (25px).
    ESCALERA (verificada con audit DOM, sin overflow a los costados):
-     vw >= 761  -> 52   (52·13.258=689 <= 741)
-     vw >= 433  -> 30   (30·13.258=398 <= 421)
-     vw >= 405  -> 28   (28·13.258=371 <= 393)
-     vw >= 387  -> 27   (27·13.258=358 <= 375)
-     vw >= 372  -> 26   (26·13.258=345 <= 360)
-     vw >= 357  -> 25   (25·13.258=332 <= 345)
-     vw >= 342  -> 24
-     vw >= 327  -> 23
-     vw >= 312  -> 22
-     vw >= 297  -> 20
-     vw <  297  -> 19
+     vw >= 761  -> 60   (60·11.526=692 <= 741)
+     vw >= 433  -> 35   (35·11.526=403 <= 421)
+     vw >= 405  -> 33   (33·11.526=380 <= 393)
+     vw >= 388  -> 32   (32·11.526=369 <= 376)
+     vw >= 373  -> 31   (31·11.526=357 <= 361)
+     vw >= 358  -> 30   (30·11.526=346 <= 346)
+     vw >= 342  -> 28
+     vw >= 326  -> 27
+     vw >= 310  -> 25
+     vw >= 294  -> 24
+     vw <  294  -> 23
    (hx fraccional imposible: el pitch del panal exige enteros) */
-:root{ --hx:27px; }                          /* 27·13.258=358 <= 378 (vw 390) */
-@media(min-width:761px){:root{--hx:52px}}    /* 52·13.258=689 <= 741 */
-@media(max-width:720px){:root{--hx:30px}}    /* 30·13.258=398 <= 421 (vw 433+) */
-@media(max-width:432px){:root{--hx:28px}}    /* 28·13.258=371 <= 393 (vw 405+) */
-@media(max-width:404px){:root{--hx:27px}}
-@media(max-width:386px){:root{--hx:26px}}    /* 345 <= 360 (vw 372+) */
-@media(max-width:371px){:root{--hx:25px}}
-@media(max-width:356px){:root{--hx:24px}}
-@media(max-width:341px){:root{--hx:23px}}
-@media(max-width:326px){:root{--hx:22px}}
-@media(max-width:311px){:root{--hx:20px}}
-@media(max-width:296px){:root{--hx:19px}}
+:root{ --hx:32px; }                          /* 32·11.526=369 <= 378 (vw 390) */
+@media(min-width:761px){:root{--hx:60px}}    /* 60·11.526=692 <= 741 */
+@media(max-width:720px){:root{--hx:35px}}    /* 35·11.526=403 <= 421 (vw 433+) */
+@media(max-width:432px){:root{--hx:33px}}    /* 33·11.526=380 <= 393 (vw 405+) */
+@media(max-width:404px){:root{--hx:32px}}
+@media(max-width:387px){:root{--hx:31px}}    /* 357 <= 361 (vw 373+) */
+@media(max-width:372px){:root{--hx:30px}}
+@media(max-width:357px){:root{--hx:28px}}
+@media(max-width:341px){:root{--hx:27px}}
+@media(max-width:325px){:root{--hx:25px}}
+@media(max-width:309px){:root{--hx:24px}}
+@media(max-width:293px){:root{--hx:23px}}
 @media(max-width:281px){:root{--hx:17px}}
 
 /* ============================================================
@@ -1469,7 +1469,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40, tables 80×1.25;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.13.0';
+const GAME_VERSION = 'v2.14.0';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };

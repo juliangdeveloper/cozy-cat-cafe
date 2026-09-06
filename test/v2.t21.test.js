@@ -35,18 +35,20 @@ test('T21a [R12.4] ancla monocolor: la pila colocada drena al tope del vecino', 
   need('placeStack'); need('resolveCascade');
   const s = mkGame(1);
   s.skills.serveManual.autoServe = false;
-  const A = s.run.board[0], D = s.run.board[1];
+  // v2.14-shape: núcleo jugable = 8,9,14,15,16,20,21 (q/r equivalentes al 2-3-2);
+  // A=8 (q0,r-1) y D=9 (q1,r-1) adyacentes y jugables.
+  const A = s.run.board[8], D = s.run.board[9];
   A.stack = [2, 2];
   D.stack = [1];
-  const ret = G.placeStack(s, 1, 0, [2, 2]);          // monocolor 2
+  const ret = G.placeStack(s, 9, 0, [2, 2]);          // monocolor 2
   const src = unwind(ret, s);
-  assert.equal(src.run.anchor, 1, 'RED: colocar monocolor debe marcar run.anchor=cellId');
+  assert.equal(src.run.anchor, 9, 'RED: colocar monocolor debe marcar run.anchor=cellId');
   const res = G.resolveCascade(src);
   const st = unwind(res, src);
   // D tras colocar = [1,2,2]; absorbe el run [2,2] de A => [1,2,2,2,2]
-  assert.deepEqual(st.run.board[1].stack, [1, 2, 2, 2, 2],
+  assert.deepEqual(st.run.board[9].stack, [1, 2, 2, 2, 2],
     'RED: el ANCLA (D) debe absorber la racha de A => [1,2,2,2,2]');
-  assert.deepEqual(st.run.board[0].stack, [],
+  assert.deepEqual(st.run.board[8].stack, [],
     'RED: A (fuente) cede su run y queda vacía');
   assert.equal(st.run.anchor, undefined,
     'RED: el ancla debe eliminarse al final de la cascada');
@@ -63,21 +65,21 @@ test('T21b [R12.4] revelación de 2º grado: sub-pilas drenadas en eslabones sig
   need('placeStack'); need('resolveCascade');
   const s = mkGame(1);
   s.skills.serveManual.autoServe = false;
-  // Geometría núcleo REAL (probe): 10-11-18-19 adyacentes; 10-18 y 10-19 y 11-19.
-  // Ancla = 10; A=18 vecina del ancla; B=11 vecina del ancla.
-  const A = s.run.board[18], D = s.run.board[10], B = s.run.board[11];
+  // Geometría núcleo REAL (probe v2.14): 14-15-16 adyacentes en fila r=0; 8-15
+  // (dq1,dr1) y 9-15 (dq-1,dr1) también. Ancla = 15; A=14 y B=16 vecinas del ancla.
+  const A = s.run.board[14], D = s.run.board[15], B = s.run.board[16];
   A.stack = [2, 2];
   D.stack = [1];
   B.stack = [3, 2];            // tope 2 (entra al grupo), revela [3] al ceder
-  const ret = G.placeStack(s, 10, 0, [2, 2]);
+  const ret = G.placeStack(s, 15, 0, [2, 2]);
   const src = unwind(ret, s);
   const res = G.resolveCascade(src);
   const st = unwind(res, src);
   // D tras colocar = [1,2,2]; absorbe run de A (2 fichas) + run de B (1 ficha)
-  assert.deepEqual(st.run.board[10].stack, [1, 2, 2, 2, 2, 2],
-    `RED: el ancla debe juntar AMBOS runs de 2 => [1,2,2,2,2,2], dio ${JSON.stringify(st.run.board[10].stack)}`);
-  assert.deepEqual(st.run.board[18].stack, [], 'RED: A queda vacía');
-  assert.deepEqual(st.run.board[11].stack, [3], 'RED: B conserva sub-pila [3]');
+  assert.deepEqual(st.run.board[15].stack, [1, 2, 2, 2, 2, 2],
+    `RED: el ancla debe juntar AMBOS runs de 2 => [1,2,2,2,2,2], dio ${JSON.stringify(st.run.board[15].stack)}`);
+  assert.deepEqual(st.run.board[14].stack, [], 'RED: A queda vacía');
+  assert.deepEqual(st.run.board[16].stack, [3], 'RED: B conserva sub-pila [3]');
 });
 
 // ---------------------------------------------------------------------------
@@ -88,16 +90,17 @@ test('T21c [R12.4] pila multicolor NO marca ancla: árbitro normal (regresión T
   need('placeStack'); need('resolveCascade');
   const s = mkGame(1);
   s.skills.serveManual.autoServe = false;
-  const A = s.run.board[0], D = s.run.board[1];
+  // v2.14-shape: A=8, D=9 jugables adyacentes
+  const A = s.run.board[8], D = s.run.board[9];
   A.stack = [2, 2];
   D.stack = [1];
-  const ret = G.placeStack(s, 1, 0, [2, 5]);          // multicolor
+  const ret = G.placeStack(s, 9, 0, [2, 5]);          // multicolor
   const src = unwind(ret, s);
   assert.ok(!src.run.anchor, 'RED: multicolor NO debe marcar ancla');
   const res = G.resolveCascade(src);
   const st = unwind(res, src);
   // Árbitro v2.10 intacto: el tope 2 de D se fusiona; T1/R2 puede elegir A.
-  const tops = [st.run.board[0].stack, st.run.board[1].stack];
+  const tops = [st.run.board[8].stack, st.run.board[9].stack];
   const a = tops[0], d = tops[1];
   const dTop = d.length ? d[d.length - 1] : 0;
   assert.ok(
@@ -150,19 +153,19 @@ test('T21e [R12.4] flujo pool: colocar del tray monocolor ancla; el ancla vive s
   need('placeStack'); need('resolveCascade');
   const s = mkGame(1);
   s.skills.serveManual.autoServe = false;
-  // Geometría real: 10-11 adyacentes. Pool monocolor [3,3] al slot 0; torre
-  // vecina de tope 3 en 11; ancla = 10.
+  // Geometría real v2.14: 14-15 adyacentes. Pool monocolor [3,3] al slot 0; torre
+  // vecina de tope 3 en 15; ancla = 14.
   s.run.pool = [[3, 3], [], []];
   s.run.poolPlaced = 0;
-  s.run.board[10].stack = [];
-  s.run.board[11].stack = [3];
-  const ret = G.placeStack(s, 10, 0);                 // firma pool: (state, cellId, slot)
+  s.run.board[14].stack = [];
+  s.run.board[15].stack = [3];
+  const ret = G.placeStack(s, 14, 0);                 // firma pool: (state, cellId, slot)
   const src = unwind(ret, s);
-  assert.equal(src.run.anchor, 10, 'RED: pool monocolor debe marcar ancla');
+  assert.equal(src.run.anchor, 14, 'RED: pool monocolor debe marcar ancla');
   const res = G.resolveCascade(src);
   const st = unwind(res, src);
-  assert.deepEqual(st.run.board[10].stack, [3, 3, 3], 'RED: ancla absorbe vecino');
-  assert.equal(st.run.board[11].stack.length, 0, 'RED: la torre vecina cede TODO su run de 3');
+  assert.deepEqual(st.run.board[14].stack, [3, 3, 3], 'RED: ancla absorbe vecino');
+  assert.equal(st.run.board[15].stack.length, 0, 'RED: la torre vecina cede TODO su run de 3');
   assert.equal(st.run.anchor, undefined, 'RED: ancla eliminada tras cascada');
 });
 
