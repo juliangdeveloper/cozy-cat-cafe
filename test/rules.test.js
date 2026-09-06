@@ -186,23 +186,22 @@ test('REDESIGN (b) pila insuficiente o color distinto => error sin consumir ni s
   assert.equal(b.run.orders[0].served, false);
 });
 
-test('REDESIGN (c) tablero v2 = 32 celdas: núcleo 2-3-2 jugable + 25 dormant', () => {
-  // v2-shape: R14.1/R14.2 reemplazan el tablero v1 de 7 celdas: el board es
-  // SIEMPRE 32 (panal con picos filas [7,9,9,7], antes 30 = panal 5×6); el
-  // núcleo 2-3-2 (7 celdas, coords de initialHexCells centradas) nace jugable
-  // (dormant:false) y las otras 25 quedan dormant (visibles apagadas).
+test('REDESIGN (c) tablero v2.13 = 35 celdas: núcleo 2-3-2 jugable + 28 dormant', () => {
+  // v2.13-shape: R14.1/R14.2 rectángulo 7×5 pointy = 35 celdas; el núcleo
+  // 2-3-2 (7 celdas, coords de initialHexCells centradas) nace jugable
+  // (dormant:false) y las otras 28 quedan dormant (visibles apagadas).
   const s = openRun(createGame(), rng(1));
-  assert.equal(s.run.board.length, 32); // v2-shape: 30 → 32
+  assert.equal(s.run.board.length, 35); // v2.13-shape: 32 → 35
   const playable = s.run.board.filter((c) => !c.dormant);
   const dormant = s.run.board.filter((c) => c.dormant);
   assert.equal(playable.length, 7);
-  assert.equal(dormant.length, 25); // v2-shape: 23 → 25
+  assert.equal(dormant.length, 28); // v2.13-shape: 25 → 28
   const byCol = {};
   for (const c of playable) byCol[c.q] = (byCol[c.q] || 0) + 1;
   assert.deepEqual({ '-1': 2, '0': 3, '1': 2 }, { '-1': byCol[-1], '0': byCol[0], '1': byCol[1] });
-  // coordenadas axiales únicas en TODO el tablero (32) // v2-shape: 30 → 32
+  // coordenadas axiales únicas en TODO el tablero (35) // v2.13-shape: 32 → 35
   const keys = new Set(s.run.board.map((c) => `${c.q},${c.r}`));
-  assert.equal(keys.size, 32);
+  assert.equal(keys.size, 35);
   // orders NO llevan `cell` (v2: pedidos flotantes)
   for (const o of s.run.orders) assert.equal(o.cell, undefined);
 });

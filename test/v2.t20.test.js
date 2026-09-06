@@ -152,8 +152,8 @@ test('T20.g [v2.8] applyCalamities alcanza celdas dormant (pila oculta revelable
   let act = 0;
   for (const c of B) { if (c.dormant && act < 9) { c.dormant = false; act++; } }
   const dormantes = B.filter((c) => c.dormant).length;
-  assert.equal(dormantes, 16, '16 dormant restantes (32-16 jugables)');
-  // rng SIEMPRE rama pila: con pool de candidatos 32 y count ~[4,10], dormant
+  assert.equal(dormantes, 19, '19 dormant restantes (35-16 jugables)');
+  // rng SIEMPRE rama pila: con pool de candidatos 35 y count ~[4,10], dormant
   // tiene ~50% de ser alcanzada; verificación robusta = EXPECT a nivel de API:
   // si alguna dormant recibió calamidad, DEBE llevar hiddenStack (nunca stack).
   const rng = mulberry32(21);
@@ -180,7 +180,7 @@ test('T20.h [v2.8] one-shot y rango [ceil(n/5), floor(n/3)] intactos', () => {
   B.forEach((c) => { if (c.dormant) c.dormant = false; });
   const rng = mulberry32(31);
   const fin = G.applyCalamities(s, rng);
-  const n = 32;
+  const n = 35;   // v2.13: tablero 7×5
   const lo = Math.ceil(n / 5), hi = Math.floor(n / 3);
   assert.ok(fin.run.calamities >= lo && fin.run.calamities <= hi, `count=${fin.run.calamities} fuera de [${lo},${hi}]`);
   const fin2 = G.applyCalamities(fin, rng);

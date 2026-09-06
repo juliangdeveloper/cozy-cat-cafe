@@ -157,20 +157,21 @@ test('T12a [R13.1] pedido sin order.cell es servible desde CUALQUIER celda', () 
 
 test('T12b [R15.2] match determinista: elige tope count mas cercano SIN exceder (luego menor disponible)', () => {
   need('createGame'); need('resolveCascade');
-  // v3: topes NO adyacentes (celdas 0 y 7, misma fila) para probar el matching
-  // del serve sin que el barrido global de merge los fusione antes.
-  // caso 1: topes count 3 (celda 0) y 4 (celda 7) => elige el de 3
+  // v3/v2.13: topes NO adyacentes (celdas 0 y 10 — con 7 columnas la celda 7
+  // quedó adyacente a la 0, así que usamos 10 [fila r=-1]) para probar el
+  // matching del serve sin que el barrido global de merge los fusione antes.
+  // caso 1: topes count 3 (celda 0) y 4 (celda 10) => elige el de 3
   const s = mkGame();
   s.run.orders.length = 0;
   s.run.orders.push({ id: 'o12b', color: 2, qty: 3, cell: null, served: false });
   s.run.activeClients = [s.run.orders[0]]; // v2.1-clients: solo visibles se sirven [R16.4]
   s.run.board[0].stack = [2, 2, 2];
-  s.run.board[7].stack = [2, 2, 2, 2];
+  s.run.board[10].stack = [2, 2, 2, 2];
   const res = G.resolveCascade(s);
   const st = unwind(res, s);
   assert.ok(st.run.orders.find(o => o.id === 'o12b').served, 'RED: debe auto-servir');
   assert.equal(st.run.board[0].stack.length, 0, 'RED: debe elegir la celda con tope count 3 (cercano sin exceder)');
-  assert.deepEqual(st.run.board[7].stack, [2, 2, 2, 2], 'RED: la celda no elegida queda intacta');
+  assert.deepEqual(st.run.board[10].stack, [2, 2, 2, 2], 'RED: la celda no elegida queda intacta');
 
   // caso 2: topes 5 y 6, qty 3 => elige el de 5 (menor disponible)
   const s2 = mkGame();
@@ -178,12 +179,12 @@ test('T12b [R15.2] match determinista: elige tope count mas cercano SIN exceder 
   s2.run.orders.push({ id: 'o12b2', color: 2, qty: 3, cell: null, served: false });
   s2.run.activeClients = [s2.run.orders[0]]; // v2.1-clients: solo visibles se sirven [R16.4]
   s2.run.board[0].stack = [2, 2, 2, 2, 2];
-  s2.run.board[7].stack = [2, 2, 2, 2, 2, 2];
+  s2.run.board[10].stack = [2, 2, 2, 2, 2, 2];
   const res2 = G.resolveCascade(s2);
   const st2 = unwind(res2, s2);
   assert.ok(st2.run.orders.find(o => o.id === 'o12b2').served, 'RED: debe auto-servir');
   assert.equal(st2.run.board[0].stack.length, 2, 'RED: debe elegir la celda con tope count 5 (menor disponible)');
-  assert.deepEqual(st2.run.board[7].stack, [2, 2, 2, 2, 2, 2], 'RED: la celda no elegida debe quedar intacta');
+  assert.deepEqual(st2.run.board[10].stack, [2, 2, 2, 2, 2, 2], 'RED: la celda no elegida debe quedar intacta');
 });
 
 test('T12c [R4.3 v2] servir consume EXACTAMENTE qty del tope (excedente queda)', () => {

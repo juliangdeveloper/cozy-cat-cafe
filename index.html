@@ -301,37 +301,37 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
      vw >= 350  -> 17   (17*16.7=284 <= 300, vw 320)
      vw <  350  -> 14
    (hx fraccional imposible: el pitch del panal exige enteros) */
-/* v2.4 +20% fichas: extensión REAL del panal 8×4 pointy medida por renderBoard:
-   boxW = hx·(7·1.732 + 0.866 + 2) = 15.0·hx (las filas impares sobresalen a la
-   derecha 0.866·hx). hx_max = floor((vw − 20) / 15.0); 20 = padding #app (12)
-   + padding .board-wrap (8). Máximo honesto en vw 390 => 25px (+14% lineal,
-   +29% de área por ficha vs v2.2 que usaba 22 con extensión sobre-dimensionada).
+/* v2.13: tablero RECTÁNGULO 7×5 pointy (35 celdas, 5 filas de 7) — extensión
+   REAL medida por renderBoard: boxW = hx·(6·1.732 + 0.866 + 2) = 13.258·hx
+   (7 columnas = 6 pitches √3·hx + 2·hx de la última; filas impares sobresalen
+   0.866·hx a la derecha). hx_max = floor((vw − 20) / 13.258).
+   Máximo honesto en vw 390 => 27px (27·13.258=358 <= 370) — +8% lineal, +17%
+   de área por ficha vs v2.12 (25px), y UNA fila MÁS de tablero.
    ESCALERA (verificada con audit DOM, sin overflow a los costados):
-     vw >= 761  -> 44   (44·15.0=660 <= 741)
-     vw >= 433  -> 28   (28·15.0=420 <= 421)
-     vw >= 405  -> 26   (26·15.0=390 <= 393)
-     vw >= 387  -> 25   (25·15.0=375 <= 375)
-     vw >= 372  -> 24   (24·15.0=360 <= 360)
-     vw >= 357  -> 23   (23·15.0=345 <= 345)
-     vw >= 342  -> 22
-     vw >= 327  -> 21
-     vw >= 312  -> 20
-     vw >= 297  -> 19
-     vw >= 282  -> 18
-     vw <  282  -> 17
+     vw >= 761  -> 52   (52·13.258=689 <= 741)
+     vw >= 433  -> 30   (30·13.258=398 <= 421)
+     vw >= 405  -> 28   (28·13.258=371 <= 393)
+     vw >= 387  -> 27   (27·13.258=358 <= 375)
+     vw >= 372  -> 26   (26·13.258=345 <= 360)
+     vw >= 357  -> 25   (25·13.258=332 <= 345)
+     vw >= 342  -> 24
+     vw >= 327  -> 23
+     vw >= 312  -> 22
+     vw >= 297  -> 20
+     vw <  297  -> 19
    (hx fraccional imposible: el pitch del panal exige enteros) */
-:root{ --hx:25px; }                          /* v2.4: 25·15.0=375 <= 378 (vw 390) */
-@media(min-width:761px){:root{--hx:44px}}    /* 44·15.0=660 <= 741 */
-@media(max-width:720px){:root{--hx:28px}}    /* 28·15.0=420 <= 421 (vw 433+) */
-@media(max-width:432px){:root{--hx:26px}}    /* 26·15.0=390 <= 393 (vw 405+) */
-@media(max-width:404px){:root{--hx:25px}}
-@media(max-width:386px){:root{--hx:24px}}    /* 360 <= 360 (vw 372+) */
-@media(max-width:371px){:root{--hx:23px}}
-@media(max-width:356px){:root{--hx:22px}}
-@media(max-width:341px){:root{--hx:21px}}
-@media(max-width:326px){:root{--hx:20px}}
-@media(max-width:311px){:root{--hx:19px}}
-@media(max-width:296px){:root{--hx:18px}}
+:root{ --hx:27px; }                          /* 27·13.258=358 <= 378 (vw 390) */
+@media(min-width:761px){:root{--hx:52px}}    /* 52·13.258=689 <= 741 */
+@media(max-width:720px){:root{--hx:30px}}    /* 30·13.258=398 <= 421 (vw 433+) */
+@media(max-width:432px){:root{--hx:28px}}    /* 28·13.258=371 <= 393 (vw 405+) */
+@media(max-width:404px){:root{--hx:27px}}
+@media(max-width:386px){:root{--hx:26px}}    /* 345 <= 360 (vw 372+) */
+@media(max-width:371px){:root{--hx:25px}}
+@media(max-width:356px){:root{--hx:24px}}
+@media(max-width:341px){:root{--hx:23px}}
+@media(max-width:326px){:root{--hx:22px}}
+@media(max-width:311px){:root{--hx:20px}}
+@media(max-width:296px){:root{--hx:19px}}
 @media(max-width:281px){:root{--hx:17px}}
 
 /* ============================================================
@@ -1469,7 +1469,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40, tables 80×1.25;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.12.2';
+const GAME_VERSION = 'v2.13.0';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };
