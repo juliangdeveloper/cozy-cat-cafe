@@ -20,18 +20,19 @@ await page.reload({ waitUntil: 'networkidle0' });
 if (await page.evaluate(() => !!document.querySelector('#btnOpen'))) { await page.click('#btnOpen'); await sleep(500); }
 await sleep(300);
 
-// Sembrar: D=10 vacía; A=18=[2,2] puro adyacente a D. Colocar [5,2] (multi,
-// tope 2) en D => eslabón 1: imán manda el run a A (A=[2,2,2], D revela [5]).
-// Eslabón 2: D=[5] está sola (sin vecino 5) => grupo NULO => estabiliza.
-// La variante conReferenceError: D revela [5] y E=11=[5,5] adyacente a D =>
-// eslabón 2 con grupo {D,E} SIN pura (ambas [5,5]) => arbiterTarget(tg) con
-// closure rota => ReferenceError ANTES del fix.
+// Sembrar (v2.14: núcleo jugable = 8,9,14,15,16,20,21): D=15 vacía; A=14=[2,2]
+// puro adyacente a D; E=8=[5,5] vecina de D. Colocar [5,2] (multi, tope 2) en D
+// => eslabón 1: imán manda el run de 2 a A (A=[2,2,2], D revela [5]).
+// Eslabón 2: D=[5] con E=[5,5] adyacente => grupo {D,E} SIN pura (ambas [5,5])
+// => arbiterTarget normal; ANTES del fix el helper con closure rota lanzaba
+// ReferenceError dentro de playCascade => promesa rechazada sin catch => UI
+// congelada sin render. Verifica la REPARACIÓN: anima completa y UI viva.
 await page.evaluate(() => {
   const s = window.__dbg.state;
   const B = s.run.board;
-  B[18].stack = [2, 2];
-  B[11].stack = [5, 5];        // vecina de 10: provocará eslabón 2 sin pura
-  B[10].stack = [];
+  B[14].stack = [2, 2];
+  B[8].stack = [5, 5];         // vecina de 15: provocará eslabón 2 sin pura
+  B[15].stack = [];
   s.skills.serveManual.autoServe = false;   // aislar merges (convención suite)
   s.run.pool[0] = [5, 2];      // multi, tope 2 => monoSink
   window.__dbg.renderAll();
@@ -40,16 +41,16 @@ await page.evaluate(() => {
 await sleep(200);
 await page.evaluate(() => { const el = document.querySelector('#pool .poolslot:not(.drop)'); if (el) el.click(); });
 await sleep(150);
-await page.evaluate(() => { const el = document.querySelector('#board .cell[data-id="10"]'); if (el) el.click(); });
+await page.evaluate(() => { const el = document.querySelector('#board .cell[data-id="15"]'); if (el) el.click(); });
 await sleep(4500);             // 2 eslabones × 600ms + settle + margen
 
 const fin = await page.evaluate(() => {
   const s = window.__dbg.state;
   const B = s.run.board;
   return {
-    A18: JSON.stringify(B[18].stack),
-    D10: JSON.stringify(B[10].stack),
-    E11: JSON.stringify(B[11].stack),
+    A18: JSON.stringify(B[14].stack),
+    D10: JSON.stringify(B[15].stack),
+    E11: JSON.stringify(B[8].stack),
     slot: (typeof ui !== 'undefined') ? ui.slot : 'n/a',
     anim: !!document.querySelector('#board') && !document.body.classList.contains('anim'),
   };

@@ -29,44 +29,44 @@ const mkGame = (seed = 1) => {
 // CONSECUTIVAS y las 4 filas comparten el MISMO patrón (rectángulo con offset
 // de panal, contorno tipo marco de Catan).
 // ---------------------------------------------------------------------------
-test('T14g [R14.1 v2.13] generateBoard(35): rectángulo pointy 7×5 (5 filas de 7)', () => {
+test('T14g [R14.1 v2.14] generateBoard(36): rectángulo pointy 6×6 (6 filas de 6)', () => {
   need('generateBoard');
-  const board = G.generateBoard(35, mulberry32(1));
-  assert.ok(Array.isArray(board) && board.length === 35, 'RED: generateBoard(35) debe retornar 35 celdas');
+  const board = G.generateBoard(36, mulberry32(1));
+  assert.ok(Array.isArray(board) && board.length === 36, 'RED: generateBoard(36) debe retornar 36 celdas');
   const rows = new Map();
   for (const c of board) {
     assert.ok(Number.isFinite(c.r), `RED: celda sin r: ${JSON.stringify(c)}`);
     rows.set(c.r, (rows.get(c.r) || 0) + 1);
   }
-  assert.equal(rows.size, 5, `RED: rectángulo 7×5 = 5 filas axiales, hay ${rows.size}`);
+  assert.equal(rows.size, 6, `RED: rectángulo 6×6 = 6 filas axiales, hay ${rows.size}`);
   const ordered = [...rows.keys()].sort((a, b) => a - b).map(r => rows.get(r));
-  assert.deepEqual(ordered, [7, 7, 7, 7, 7], `RED: 5 filas de 7, hay ${JSON.stringify(ordered)}`);
+  assert.deepEqual(ordered, [6, 6, 6, 6, 6, 6], `RED: 6 filas de 6, hay ${JSON.stringify(ordered)}`);
   const patterns = [...rows.keys()].sort((a, b) => a - b).map(r => {
     const cols = board.filter(c => c.r === r).map(c => c.q + Math.floor(r / 2)).sort((a, b) => a - b);
-    assert.equal(new Set(cols).size, 7, `RED: fila r=${r} debe cubrir 7 columnas plegadas consecutivas`);
+    assert.equal(new Set(cols).size, 6, `RED: fila r=${r} debe cubrir 6 columnas plegadas consecutivas`);
     return cols;
   });
   const base = patterns[0].join(',');
-  for (const p of patterns) assert.equal(p.join(','), base, 'RED: las 5 filas deben compartir el patrón de columnas (rectángulo)');
+  for (const p of patterns) assert.equal(p.join(','), base, 'RED: las 6 filas deben compartir el patrón de columnas (rectángulo)');
 });
 
 // ---------------------------------------------------------------------------
 // T14h — Arranque: núcleo 2-3-2 jugable (7), resto dormant (25) [R14.2]
 // (el núcleo mantiene sus coords axial — solo cambia el shape del tablero)
 // ---------------------------------------------------------------------------
-test('T14h [R14.2 v2.13] tras openRun: 7 jugables (núcleo 2-3-2) y 28 dormant', () => {
+test('T14h [R14.2 v2.14] tras openRun: 7 jugables (núcleo 2-3-2) y 29 dormant', () => {
   need('createGame'); need('openRun');
   const s = mkGame(1);
   const board = s.run && s.run.board;
   assert.ok(Array.isArray(board), 'RED: openRun debe dejar state.run.board');
-  assert.equal(board.length, 35, 'RED: el board de run debe exponer las 35 celdas [R14.1]');
+  assert.equal(board.length, 36, 'RED: el board de run debe exponer las 36 celdas [R14.1]');
   const playable = board.filter(c => !c.dormant && !c.blocked);
   assert.equal(playable.length, 7, 'RED: jugables al inicio = núcleo 2-3-2 (7) [R14.2]');
   const byCol = {};
   for (const c of playable) byCol[c.q] = (byCol[c.q] || 0) + 1;
   assert.deepEqual({ '-1': 2, '0': 3, '1': 2 }, { '-1': byCol[-1], '0': byCol[0], '1': byCol[1] },
     'RED: el núcleo jugable conserva las coords axial del 2-3-2');
-  assert.equal(board.length - playable.length, 28, 'RED: las otras 28 celdas dormant [R14.2]');
+  assert.equal(board.length - playable.length, 29, 'RED: las otras 29 celdas dormant [R14.2]');
 });
 
 // ---------------------------------------------------------------------------
