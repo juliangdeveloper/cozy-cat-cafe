@@ -1266,7 +1266,6 @@ export function buySkill(state, power) {
   // v2 R15.1 — serveManual: modelo TOGGLE (owned, SIN uses)
   if (power === 'serveManual') {
     if (sk.owned) return { error: 'owned' };
-    if (s.progress.cafeLevel < sk.unlockLevel) return { error: 'locked' }; // R7.1
     if (s.progress.coins < sk.price) return { error: 'noFunds' };          // R7.3
     s.progress.coins -= sk.price;
     s.skills.serveManual.owned = true;        // autoServe ya viene true (toggle)
@@ -1277,7 +1276,6 @@ export function buySkill(state, power) {
     const level = sk.level || 0;
     if (level >= 3) return { error: 'max' };
     const price = CONFIG.PREVIEW_PRICE * (level + 1);   // p.ej. 80*level
-    if (s.progress.cafeLevel < sk.unlockLevel) return { error: 'locked' }; // R7.1
     if (s.progress.coins < price) return { error: 'noFunds' };             // R7.3
     s.progress.coins -= price;
     s.skills.previewPool.owned = true;
@@ -1290,24 +1288,22 @@ export function buySkill(state, power) {
     const capMax = CONFIG.MAX_CLIENTS - CONFIG.MIN_CLIENTS;   // 80 (R16.1)
     if (level >= capMax) return { error: 'max' };
     const price = CONFIG.CAP_PRICE_BASE * Math.pow(CONFIG.CAP_RATIO, level); // ⚖BALANCE
-    if (s.progress.cafeLevel < sk.unlockLevel) return { error: 'locked' }; // R7.1
     if (s.progress.coins < price) return { error: 'noFunds' };             // R7.3
     s.progress.coins -= price;
     s.skills.capacidad.owned = true;
     s.skills.capacidad.level = level + 1;
     return s;
   }
-  // v2.3/v2.15 R7.2 — skills modelo USOS (destroy/swap/refresh/queueSkip/tables/unlock):
+  // v2.3/v2.15/v2.16 R7.2 — skills modelo USOS (destroy/swap/refresh/queueSkip/tables/unlock):
   // CADA uso se compra (sin base gratis): usesBought += 1 y uses += 1 (mid-run
   // usable ya; NO uses = usesBought — eso devolvería gastados). openRun repone
-  // uses = usesBought. Precio = price * 1.35^usesBought (compras acumuladas).
+  // uses = usesBought. Precio = price * 1.35^usesBought. v2.16: sin gate cafeLevel.
   {
     const sk2 = s.skills[power];
     // v2.4: tope de usos/partida = MAX_USES_PER_SKILL (5) para destroy/swap/
     // refresh/queueSkip; 'tables' sin ese tope (su capa real = baldosas dormant).
     const cap = power === 'tables' ? Infinity : CONFIG.MAX_USES_PER_SKILL;
     const cost = Math.round(sk2.price * Math.pow(1.35, sk2.usesBought || 0));
-    if (s.progress.cafeLevel < sk2.unlockLevel) return { error: 'locked' };  // R7.1
     if ((sk2.usesBought || 0) >= cap) return { error: 'maxUses' };           // v2.4
     if (s.progress.coins < cost) return { error: 'noFunds' };                // R7.3
     s.progress.coins -= cost;

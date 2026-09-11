@@ -342,11 +342,11 @@ test('T5.4 sin saldo => error noFunds', () => {
 // ---------------------------------------------------------------------------
 // T6 — poderes / arbol
 // ---------------------------------------------------------------------------
-test('T6.1 desbloqueo por nivel', () => {
-  let s = richState(); s.progress.cafeLevel = 2;
-  assert.equal(buySkill(s, 'swapPiles').error, 'locked');     // needs 3
-  assert.equal(buySkill(s, 'destroyPile').error, 'locked');   // needs 5
-  assert.ok(!buySkill(s, 'refreshPool').error);               // needs 1
+test('T6.1 v2.16 sin gate cafeLevel: skills comprables desde el inicio', () => {
+  let s = richState(); s.progress.cafeLevel = 1; s.progress.coins = 1e9;
+  assert.ok(!buySkill(s, 'swapPiles').error, 'v2.16: swapPiles comprable sin LV');
+  assert.ok(!buySkill(s, 'destroyPile').error, 'v2.16: destroyPile comprable sin LV');
+  assert.ok(!buySkill(s, 'refreshPool').error);
 });
 test('T6.2 compra exige nivel + saldo (v2.3: compra = 1 uso, uses=usesBought=1)', () => {
   let s = createGame({ progress: { coins: 100000, totalGames: 5 } });
