@@ -10,6 +10,8 @@
    All colors come from the palette tokens. No off-token hexes.
    ============================================================ */
 :root{
+  --hex-pointy:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
+  --hex-flat:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);
   --bg-primary:#f7d1e1; --panel:#f8f1d5; --wood:#b6947c; --wood-dark:#9a7a63;
   --accent:#f6a7c1; --accent-2:#ffb2c1; --highlight:#fff5b2;
   --tile-mint:#7fd6a4; --tile-blue:#7cc4f5; --tile-pink:#ff8fa3; --tile-blush:#ffab72;
@@ -111,10 +113,11 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
    per-row centering breaks the half-hex offset between rows. */
 .board-wrap{overflow-x:auto;padding:10px 4px;position:relative} /* v2: 32 baldosas SIEMPRE visibles (sin max-height); relative = ancla del hint móvil */
 :root{ --hx:34px; --cw:calc(var(--hx)*1.732); --ch:calc(var(--hx)*2); }
-.board{position:relative;margin:0 auto}
+.board{position:relative;margin:0 auto;--hexclip:var(--hex-pointy)}
+.board.flat,.cell.hex-flat{--hexclip:var(--hex-flat)}
 .boardrow{position:absolute;display:flex;gap:0} /* pointy: celdas contiguas (centros √3*hx) */
 .cell{position:relative;width:var(--cw);height:var(--ch);cursor:pointer;flex:0 0 auto}
-.hexbg{position:absolute;inset:0;background:var(--wood);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+.hexbg{position:absolute;inset:0;background:var(--wood);clip-path:var(--hexclip)}
 .cell.blocked .hexbg{background:var(--lock)}
 /* true hexagon borders: state colors fill the OUTER hex (--hb) and an inner
    ::after hex (inset --hbw) re-covers the center -> a perfect 6-sided ring.
@@ -129,13 +132,13 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .cell.serve-target:not(.blocked) .hexbg::before,.board.actmode .cell.dormant.act-eligible .hexbg::before,
 .cell.casc .hexbg::before,.expand-slot .hexbg::before{
   content:"";position:absolute;inset:0;background:var(--hb);
-  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+  clip-path:var(--hexclip)}
 .cell.calm .hexbg::after,.cell.targetable:not(.blocked) .hexbg::after,
 .cell.targetmode .hexbg::after,.cell.swapmode .hexbg::after,
 .cell.serve-target:not(.blocked) .hexbg::after,.board.actmode .cell.dormant.act-eligible .hexbg::after,
 .cell.casc .hexbg::after,.expand-slot .hexbg::after{
   content:"";position:absolute;inset:var(--hbw,3px);background:inherit;
-  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+  clip-path:var(--hexclip)}
 /* stacks are CENTERED on the hex and lifted upward via --lift (one shared
    formula: tile i gets --lift:-i*step) — same clip-path as .hexbg so a single
    tile covers its hex exactly. */
@@ -146,14 +149,14 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
    Todas las fichas llevan el mismo bisel → el top deja de verse "plano". */
 .tile{position:absolute;left:50%;top:50%;translate:-50% calc(-50% + var(--lift,0px));width:var(--cw);height:var(--ch)}
 .tile::before{content:"";position:absolute;inset:0;background:color-mix(in srgb,var(--tc),#000 30%);
-  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
+  clip-path:var(--hexclip);
   transform:translateY(calc(var(--hx)*0.055))}
 .tface{position:absolute;inset:0;display:block;transform:translateY(calc(var(--hx)*-0.015));
   background:color-mix(in srgb,var(--tc),#000 22%);
-  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+  clip-path:var(--hexclip)}
 .tface::before{content:"";position:absolute;inset:1.5px;
   background:linear-gradient(180deg,color-mix(in srgb,var(--tc),#fff 16%),var(--tc) 55%);
-  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+  clip-path:var(--hexclip)}
 /* top:-16px clears the topmost tile of a full 3-tile stack now that tiles are
    centered on the hex (the lifted top tile pokes above the hex top) */
 .stack .badge{position:absolute;top:-16px;left:50%;translate:-50% 0;z-index:5;background:var(--highlight);
@@ -163,9 +166,9 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .calmk::before{content:"";position:absolute;inset:2px;background:var(--danger);
   clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
 .lockovl{position:absolute;inset:0;z-index:3;display:flex;align-items:center;justify-content:center;
-  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:var(--ink);font-size:20px}
+  clip-path:var(--hexclip);background:var(--ink);font-size:20px}
 .lockovl::before{content:"";position:absolute;inset:2px;background:var(--lock);
-  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+  clip-path:var(--hexclip)}
 .lockovl span{position:relative;z-index:1}
 /* expansion: free adjacent hex positions, highlighted; tap one to place a tile */
 .expand-slot .hexbg{background:var(--accent-2);opacity:.45;--hb:var(--accent)}
@@ -3434,7 +3437,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40, tables 80×1.25;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.19.2';
+const GAME_VERSION = 'v2.19.3';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };
