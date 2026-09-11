@@ -412,7 +412,7 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   <span class="x" data-close="skillsModal">✕</span>
   <h3>🌿 Café Skills</h3>
   <div style="text-align:center;font-size:12px;color:var(--ink-soft);font-weight:700;margin-bottom:8px">
-    Café Level <b id="curLv" style="color:var(--ink)">1</b> — reach a node's level to unlock it.
+    Buy skills anytime — coins only. Upgrade uses by buying again.
   </div>
   <div id="skillsBox"></div>
   <p style="font-size:11px;color:var(--ink-soft);font-weight:700;text-align:center;margin-top:8px">
@@ -1708,7 +1708,6 @@ function buySkill(state, power) {
   // v2 R15.1 — serveManual: modelo TOGGLE (owned, SIN uses)
   if (power === 'serveManual') {
     if (sk.owned) return { error: 'owned' };
-    if (s.progress.cafeLevel < sk.unlockLevel) return { error: 'locked' }; // R7.1
     if (s.progress.coins < sk.price) return { error: 'noFunds' };          // R7.3
     s.progress.coins -= sk.price;
     s.skills.serveManual.owned = true;        // autoServe ya viene true (toggle)
@@ -1719,7 +1718,6 @@ function buySkill(state, power) {
     const level = sk.level || 0;
     if (level >= 3) return { error: 'max' };
     const price = CONFIG.PREVIEW_PRICE * (level + 1);   // p.ej. 80*level
-    if (s.progress.cafeLevel < sk.unlockLevel) return { error: 'locked' }; // R7.1
     if (s.progress.coins < price) return { error: 'noFunds' };             // R7.3
     s.progress.coins -= price;
     s.skills.previewPool.owned = true;
@@ -1732,24 +1730,22 @@ function buySkill(state, power) {
     const capMax = CONFIG.MAX_CLIENTS - CONFIG.MIN_CLIENTS;   // 80 (R16.1)
     if (level >= capMax) return { error: 'max' };
     const price = CONFIG.CAP_PRICE_BASE * Math.pow(CONFIG.CAP_RATIO, level); // ⚖BALANCE
-    if (s.progress.cafeLevel < sk.unlockLevel) return { error: 'locked' }; // R7.1
     if (s.progress.coins < price) return { error: 'noFunds' };             // R7.3
     s.progress.coins -= price;
     s.skills.capacidad.owned = true;
     s.skills.capacidad.level = level + 1;
     return s;
   }
-  // v2.3/v2.15 R7.2 — skills modelo USOS (destroy/swap/refresh/queueSkip/tables/unlock):
+  // v2.3/v2.15/v2.16 R7.2 — skills modelo USOS (destroy/swap/refresh/queueSkip/tables/unlock):
   // CADA uso se compra (sin base gratis): usesBought += 1 y uses += 1 (mid-run
   // usable ya; NO uses = usesBought — eso devolvería gastados). openRun repone
-  // uses = usesBought. Precio = price * 1.35^usesBought (compras acumuladas).
+  // uses = usesBought. Precio = price * 1.35^usesBought. v2.16: sin gate cafeLevel.
   {
     const sk2 = s.skills[power];
     // v2.4: tope de usos/partida = MAX_USES_PER_SKILL (5) para destroy/swap/
     // refresh/queueSkip; 'tables' sin ese tope (su capa real = baldosas dormant).
     const cap = power === 'tables' ? Infinity : CONFIG.MAX_USES_PER_SKILL;
     const cost = Math.round(sk2.price * Math.pow(1.35, sk2.usesBought || 0));
-    if (s.progress.cafeLevel < sk2.unlockLevel) return { error: 'locked' };  // R7.1
     if ((sk2.usesBought || 0) >= cap) return { error: 'maxUses' };           // v2.4
     if (s.progress.coins < cost) return { error: 'noFunds' };                // R7.3
     s.progress.coins -= cost;
@@ -2145,7 +2141,7 @@ function confetti(){ if(state.settings.reducedMotion) return;
     p.style.top=(Math.random()*24)+'px'; c.appendChild(p); }
   document.body.appendChild(c); setTimeout(()=>c.remove(),900);
 }
-const ERRT={ noFunds:'Not enough coins', blocked:'That tile is locked', locked:'Needs a higher café level 💭',
+const ERRT={ noFunds:'Not enough coins', blocked:'That tile is locked', locked:'Not available yet 💭',
   occupied:'That tile is occupied — place on an empty tile',
   noUses:'No uses left this café', notReady:'Those pieces don\'t match it / wrong color', emptyPool:'Nothing to place',
   emptySlot:'Tray slot is empty', noOrder:'No order there', noCell:'No tile there', same:'Pick two different tiles', owned:'Already owned',
@@ -2178,7 +2174,7 @@ function renderMenu(){
         ${spr('cat_client_3',54)}${spr('machine_coffee',50)}${spr('icon_coin',42)}
       </div>
       <button class="btn btn-primary" id="btnOpen">🐾 Open Shop</button>
-      <div class="stats">Cafés closed: <b>${p.totalGames}</b> · LV <b>${p.cafeLevel}</b> · 🪙 <b>${fmt(p.coins)}</b></div>
+      <div class="stats">Cafés closed: <b>${p.totalGames}</b> · 🪙 <b>${fmt(p.coins)}</b></div>
       <div style="text-align:center;font-size:11px;color:var(--ink-soft);font-weight:700">☕ Cozy Cat Café ${GAME_VERSION}</div>
       <div style="display:flex;gap:10px">
         <button class="btn btn-sec" id="btnShop">🛒 Shop</button>
@@ -2198,8 +2194,6 @@ function renderRun(){
     <div class="scene active">
       <div class="topbar">
         <div class="chip">🪙<span id="coinNum">${fmt(state.progress.coins)}</span></div>
-        <div class="chip sm">🐾 LV ${state.progress.cafeLevel}</div>
-        <div class="chip sm" id="unlockChip" title="Stacks placed until the next creature (R13.4)">🐾<span id="unlockNum">${(state.run.placedCounter||0)}/${CONFIG.UNLOCK_PLACED_PILES}</span></div>
         <div class="chip sm" id="idleChip" title="Idle income">✨<span id="idleAmt">0</span></div>
         <div class="spacer"></div>
         <button class="iconbtn" id="btnShop">🛒</button>
@@ -2673,8 +2667,6 @@ function flyToClient(order,cellId){
 // entre eslabones de la cascada (sin re-render completo ni persist).
 function updateCoins(){
   const cn=$('#coinNum'); if(cn) cn.textContent=fmt(state.progress.coins);
-  const un=$('#unlockNum');
-  if(un) un.textContent=`${(state.run&&state.run.placedCounter)||0}/${CONFIG.UNLOCK_PLACED_PILES}`;
 }
 // playCascade(base, authoritative) — renderiza cada eslabón intermedio con
 // sleep(CONFIG.CASCADE_STEP_MS) entre ellos; al final adopta el estado
@@ -2919,7 +2911,6 @@ function showShop(){
     <button class="btn btn-sm" data-tables="1">${fmt(tPrice)}🪙</button></div>`;
   // v2.1 — TIENDA ÚNICA: skills ACTIVAS + sus "+1 uso" viven aquí (el modal
   // Skills desaparece; la lógica buySkill/buyUsesUp no cambia — solo UI).
-  const lvl = p.cafeLevel;
   const actDefs=[
     ['refreshPool','power_refresh','Refresh pool','Draw 3 new stacks'],
     ['swapPiles','power_swap','Swap piles','Exchange two stacks'],
@@ -2929,24 +2920,23 @@ function showShop(){
   ];
   const actRows = actDefs.map(d=>{
     const s=state.skills[d[0]]; const usesModel = CONFIG.USES_SKILLS.includes(d[0]);
-    const locked = lvl < s.unlockLevel && !s.owned;
+    // v2.16: sin gate cafeLevel — todas las skills comprables desde el inicio.
     // v2.3 R7.2: un solo botón — 1ª compra desbloquea (incluye 1 uso), la
     // recompra suma +1 uso/partida. Precio siguiente = price * 1.35^usesBought.
     const nextP = usesModel ? Math.round(s.price * Math.pow(1.35, s.usesBought||0)) : s.price;
     const badge = s.owned && usesModel ? `<span class="ownedbadge">${s.uses||0} uses/run</span>` : '';
-    const main = `<button class="btn btn-sm ${locked?'locked':''}" data-buy="${d[0]}" ${locked?'disabled':''}>${fmt(nextP)}🪙</button>`;
-    return `<div class="rowcard"><div class="rowinfo"><b>${d[2]}</b><span>LV ${s.unlockLevel}+ · ${d[3]}</span></div>
+    const main = `<button class="btn btn-sm" data-buy="${d[0]}">${fmt(nextP)}🪙</button>`;
+    return `<div class="rowcard"><div class="rowinfo"><b>${d[2]}</b><span>${d[3]}</span></div>
       <div style="display:flex;gap:6px;align-items:center">${badge}${main}</div></div>`;
   }).join('');
   // capacidad (antes en Skills): LEVELS 0..80
   const cap=state.skills.capacidad, capLv=cap.level||0,
         capMax=CONFIG.MAX_CLIENTS-CONFIG.MIN_CLIENTS,
-        capPrice=Math.round(CONFIG.CAP_PRICE_BASE*Math.pow(CONFIG.CAP_RATIO,capLv)),
-        capLocked=lvl<cap.unlockLevel;
+        capPrice=Math.round(CONFIG.CAP_PRICE_BASE*Math.pow(CONFIG.CAP_RATIO,capLv));
   const capRow = `<div class="rowcard"><div class="rowinfo"><b>Capacity +1 client</b>
-      <span>LV ${cap.unlockLevel}+ · level ${capLv}/${capMax} · queue = ${totalClients(state)} clients</span></div>
+      <span>level ${capLv}/${capMax} · queue = ${totalClients(state)} clients</span></div>
     ${capLv>=capMax ? `<span class="ownedbadge">MAX ${capLv}/${capMax}</span>`
-      : `<button class="btn btn-sm ${capLocked?'locked':''}" data-buy="capacidad" ${capLocked?'disabled':''}>${fmt(capPrice)}🪙</button>`}
+      : `<button class="btn btn-sm" data-buy="capacidad">${fmt(capPrice)}🪙</button>`}
   </div>`;
   $('#shopBox').innerHTML = `
     <div class="shopsec">⚡ Active upgrades</div>
@@ -3087,7 +3077,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40, tables 80×1.25;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.15.0';
+const GAME_VERSION = 'v2.16.0';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };
