@@ -179,6 +179,21 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .cell.dormant{opacity:.55;pointer-events:none}
 .board.actmode .cell.dormant.act-eligible{pointer-events:auto;cursor:pointer;opacity:.85}
 .board.actmode .cell.dormant.act-eligible .hexbg{--hb:var(--tile-mint);filter:drop-shadow(0 0 4px var(--tile-mint))}
+
+/* v2.19.1 — 90°/270° view: flat-top hexes (pointy lattice rotated 90° = flat lattice).
+   Tiles stay upright; only cell placement + hex orientation change. */
+.board.flat .cell{width:var(--ch);height:var(--cw)}
+.board.flat .tile{width:var(--ch);height:var(--cw)}
+.board.flat .hexbg,
+.board.flat .hexbg::before,
+.board.flat .hexbg::after,
+.board.flat .tile::before,
+.board.flat .tface,
+.board.flat .tface::before,
+.board.flat .lockovl,
+.board.flat .lockovl::before{
+  clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)}
+
 /* v2 cascada animada (R12.2): anillo + pop en celdas afectadas por eslabón */
 .cell.casc .hexbg{--hb:var(--highlight);--hbw:4px;filter:drop-shadow(0 0 8px var(--highlight))}
 .cell.casc .stack{animation:cascPop .9s cubic-bezier(.4,0,.2,1)}
@@ -786,55 +801,51 @@ function renderBoard(){
       }
     }
   }
-  // POINTY-TOP (Catan) — group by axial row (r); rows ABSOLUTE with pointy offsets:
-  // same-row centers √3*hx apart (cell width √3*hx, gap 0), alternate rows
-  // offset 0.866*hx (√3/2*hx), row pitch 1.5*hx (cell height 2*hx).
-  // 32 cells in rows [4,5,6,6,5,6]; axial {q,r} coords unchanged (R14.1 minimal
-  // left = (rowMinQ-minQ)*rowStepX + (odd?altOffX:0)).
-  const byRow=new Map();
-  occ.forEach((v,kMinusR)=>{ const rr=v.p.r; if(!byRow.has(rr)) byRow.set(rr,[]); byRow.get(rr).push(v); });
-  const rows=[...byRow.keys()].sort((a,b)=>a-b);
-  const minR=rows.length?rows[0]:0;
-  const minQ=Math.min(...[...occ.values()].map(v=>v.p.q+Math.floor(v.p.r/2))); // v2-shape: columna plegada q+floor(r/2)
-  const hxN=hx(), chN=hxN*2;              // pointy: alto celda = 2*hx
-  const rowStepX=hxN*1.732, altOffX=hxN*0.866, rowPitch=hxN*1.5;
-  let html=""; // v2.2 mobile-first: extensión REAL por fila (fix: las filas impares
-               // arrancan a +1.5*hx, así que la extensión del panal es
-               // max(left+rowW)-min(left) ≈ 27.5hx para 7-9-9-7 — NO 26hx; con el
-               // maxW viejo (26hx) el wrap tenía scroll-x interno y se recortaban
-               // baldosas. Se mide fila a fila y se SHIFTEA todo por minLeft.)
-  const rowMetas=rows.map(rf=>{
-    const k=rf-minR, odd=((rf%2)+2)%2;    // true axial parity (robust to sparse r)
-    const items=byRow.get(rf).sort((a,b)=>a.p.q-b.p.q);
-    const rowMinQ=items[0].p.q+Math.floor(rf/2); // v2-shape: columna plegada q+floor(r/2)
-    const left=(rowMinQ-minQ)*rowStepX+(odd?altOffX:0), top=k*rowPitch;
-    const rowW=(items.length-1)*rowStepX+hxN*2;  // borde izq. 1ª celda → borde der. última
-    return {rf,odd,items,left,top,rowW};
-  });
-  const shift=rowMetas.length?Math.min(...rowMetas.map(m=>m.left)):0;
-  const boxW=rowMetas.length?Math.max(...rowMetas.map(m=>m.left+m.rowW))-shift:0;
-  // v2.2 anti-recorte: las fichas levantadas (--lift negativo) sobresalen por
-  // ARRIBA de la 1ª fila y quedaban detrás de la barra de clientes. Headroom
-  // DENTRO de .board: 10 = altura máx de pila (stackStep por ficha).
+  // v2.19.1 — view rotation remaps hex CENTERS (not a CSS rotate of the board).
+  // Pointy world (q,r) → pixel; 90/270 swap axes so the lattice becomes flat-top
+  // and we draw flat hexes. 0/180 stay pointy. Tiles stay upright in the cell.
+  const rot=((state.settings&&state.settings.boardRot)|0)%360;
+  const hxN=hx();
+  const viewCenter=(q,r)=>{
+    const x=hxN*1.732*(q+r/2), y=hxN*1.5*r;
+    if(rot===90) return {x:y, y:-x};
+    if(rot===180) return {x:-x, y:-y};
+    if(rot===270) return {x:-y, y:x};
+    return {x,y};
+  };
+  const flat=rot===90||rot===270;
+  const cw=flat?hxN*2:hxN*1.732;
+  const ch=flat?hxN*1.732:hxN*2;
+  const pts=[...occ.values()].map(v=>({...v, ...viewCenter(v.p.q,v.p.r)}));
+  const minX=Math.min(...pts.map(p=>p.x));
+  const minY=Math.min(...pts.map(p=>p.y));
+  const maxX=Math.max(...pts.map(p=>p.x));
+  const maxY=Math.max(...pts.map(p=>p.y));
   const liftPad=10*stackStep();
-  const maxH=rows.length*rowPitch-rowPitch+chN+liftPad;
-  for(const m of rowMetas){
-    html+=`<div class="boardrow${m.odd?' alt':''}" data-row="${m.rf}" style="left:${m.left-shift}px;top:${m.top+liftPad}px">`;
-    for(const v of m.items){
-      if(v.slot) html+=`<div class="cell expand-slot" data-pos="${v.p.q},${v.p.r}" title="Place table here"><div class="hexbg"></div><div class="exicon">＋</div></div>`;
-      else html+=cellHTML(v.cell, v.idx);
+  let html='';
+  for(const v of pts){
+    const left=(v.x-minX);
+    const top=(v.y-minY)+liftPad;
+    if(v.slot){
+      html+=`<div class="cell expand-slot" data-pos="${v.p.q},${v.p.r}" title="Place table here" style="position:absolute;left:${left}px;top:${top}px"><div class="hexbg"></div><div class="exicon">＋</div></div>`;
+    } else {
+      const raw=cellHTML(v.cell, v.idx);
+      html+=raw.replace('<div class="cell', `<div style="position:absolute;left:${left}px;top:${top}px" class="cell`);
     }
-    html+='</div>';
   }
-  box.classList.toggle('actmode', ui.mode==='activate'); // 🪧 habilita pointer-events en dormant
-  box.style.width=boxW+'px';
-  box.style.height=maxH+'px';
+  box.classList.toggle('actmode', ui.mode==='activate');
+  box.classList.toggle('flat', flat);
+  box.style.width=((maxX-minX)+cw)+'px';
+  box.style.height=((maxY-minY)+ch+liftPad)+'px';
+  box.style.position='relative';
+  box.style.left=''; box.style.top=''; box.style.transform='';
+  const wrap=box.parentElement;
+  if(wrap){ wrap.style.height=''; wrap.style.overflow=''; wrap.style.position='relative'; }
   box.innerHTML=html;
   $$('#board .cell').forEach(c=>c.addEventListener('click',()=>{
     if(c.dataset.pos){ placeTileFlow(c.dataset.pos); return; }
     tapTile(+c.dataset.id);
   }));
-  applyBoardRot();
 }
 function renderPool(){
   const box=$('#pool'); if(!box) return;
@@ -1363,27 +1374,11 @@ function openTheCafe(){
   persist(); renderAll();
   maybeStartTutorial(); // v2.18: first-run overlay after café is open
 }
-function applyBoardRot(){
-  const board=$('#board'), wrap=board&&board.parentElement;
-  if(!board||!wrap) return;
-  const rot=((state&&state.settings&&state.settings.boardRot)|0)%360;
-  const w=parseFloat(board.style.width)||board.offsetWidth||0;
-  const h=parseFloat(board.style.height)||board.offsetHeight||0;
-  const swapped=rot===90||rot===270;
-  wrap.style.position='relative';
-  wrap.style.height=(swapped?w:h)+16+'px';
-  wrap.style.overflow='hidden';
-  board.style.position='absolute';
-  board.style.left='50%';
-  board.style.top='50%';
-  board.style.transformOrigin='center center';
-  board.style.transform='translate(-50%,-50%) rotate('+rot+'deg)';
-}
 function rotateBoard(){
   if(!state.settings) state.settings={ reducedMotion:false, seenTutorial:true, boardRot:0 };
   state.settings.boardRot = ((state.settings.boardRot|0)+90)%360;
   persist();
-  applyBoardRot();
+  renderBoard();
 }
 function bindRotateBoard(){
   const b=$('#btnRotate'); if(!b) return;
@@ -1731,7 +1726,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40, tables 80×1.25;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.19.0';
+const GAME_VERSION = 'v2.19.1';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };
