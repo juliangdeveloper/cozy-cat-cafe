@@ -64,12 +64,12 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 
 /* scene */
 .scene{display:none}.scene.active{display:block}
-.idledecor{display:flex;gap:10px;align-items:flex-end;padding:6px;margin:8px 0;
+.idledecor{display:flex;gap:10px;align-items:center;padding:6px;margin:8px 0;
   background:rgba(182,148,124,.3);border-radius:12px;border:2px dashed var(--wood-dark);flex-wrap:wrap}
 .idleempty{width:100%;text-align:center;font-size:12px;font-weight:700;color:var(--ink-soft);padding:4px 0}
-.dit{display:flex;flex-direction:column;align-items:center;gap:2px}
-.dit .dl{font-size:10px;font-weight:700;color:var(--ink-soft)}
-.dit img,.dit .o{width:44px;height:44px;object-fit:contain}
+.dit{display:flex;flex-direction:column;align-items:center;gap:2px;width:52px}
+.dit .dl{font-size:10px;font-weight:700;color:var(--ink-soft);line-height:1.1;text-align:center}
+.dit img,.dit .o{width:44px!important;height:44px!important;object-fit:contain}
 
 .queuebar{display:flex;align-items:center;gap:8px}
 .queuecount{font-weight:800;font-size:12px;background:var(--highlight);border:2px solid var(--ink);border-radius:999px;padding:2px 8px;white-space:nowrap}
@@ -626,7 +626,6 @@ function renderRun(){
     <div class="scene active">
       <div class="topbar">
         <div class="chip">🪙<span id="coinNum">${fmt(state.progress.coins)}</span></div>
-        <div class="chip sm" id="idleChip" title="Idle income">✨<span id="idleAmt">0</span></div>
         <div class="spacer"></div>
         <button class="iconbtn" id="btnShop">🛒</button>
         <button class="iconbtn" id="btnSave">💾</button>
@@ -655,10 +654,11 @@ function renderIdle(){
     return;
   }
   let h='';
-  for(let i=1;i<=w;i++) h+=`<div class="dit">${spr('cat_worker',44)}<span class="dl">worker ${i}</span></div>`;
-  h+=`<div class="dit">${spr('idle_tips_plate',40)}<span class="dl">tips</span></div>`;
-  for(let i=1;i<=f;i++) h+=`<div class="dit">${spr('idle_fame_star',30)}<span class="dl">fame</span></div>`;
-  for(let i=1;i<=m;i++) h+=`<div class="dit">${spr('machine_coffee',44)}<span class="dl">espresso</span></div>`;
+  const DECOR=44;
+  for(let i=1;i<=w;i++) h+=`<div class="dit">${spr('cat_worker',DECOR)}<span class="dl">worker ${i}</span></div>`;
+  h+=`<div class="dit">${spr('idle_tips_plate',DECOR)}<span class="dl">tips</span></div>`;
+  for(let i=1;i<=f;i++) h+=`<div class="dit">${spr('idle_fame_star',DECOR)}<span class="dl">fame</span></div>`;
+  for(let i=1;i<=m;i++) h+=`<div class="dit">${spr('machine_coffee',DECOR)}<span class="dl">espresso</span></div>`;
   box.innerHTML=h;
 }
 function renderOrders(){
@@ -1485,12 +1485,8 @@ function showShop(){ if(tutActive && (TUT_STEPS[tutStep]||{}).sel!=='#btnShop') 
 function startLoop(){
   setInterval(()=>{
     if(!state || !state.run) return;
-    const prev=state.progress.coins;
     state=tickIdle(state,1);
-    const gain=Math.round(state.progress.coins-prev);
     const cn=$('#coinNum'); if(cn) cn.textContent=fmt(state.progress.coins);
-    const ia=$('#idleAmt'); if(ia) ia.textContent = gain>0? '+'+gain : '0';
-    if(gain>0){ const chip=$('#idleChip'); if(chip){ chip.classList.add('pops'); setTimeout(()=>chip.classList.remove('pops'),250); } }
     persist();
   },1000);
 }
@@ -1661,7 +1657,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40, tables 80×1.25;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.18.2';
+const GAME_VERSION = 'v2.18.3';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };
