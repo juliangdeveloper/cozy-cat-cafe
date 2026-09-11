@@ -43,7 +43,7 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
 
 /* buttons */
 .btn{font-family:var(--font-ui);font-weight:800;border:2px solid var(--ink);cursor:pointer;border-radius:16px;
-  box-shadow:0 4px 0 var(--wood-dark);color:var(--ink);transition:transform .12s,box-shadow .12s,filter .12s}
+  box-shadow:0 4px 0 var(--wood-dark);color:var(--ink);transition:transform .12s,box-shadow .12s,filter .12s;position:relative}
 .btn:hover{filter:brightness(1.05);transform:translateY(-2px)}
 .btn:active{box-shadow:0 1px 0 var(--wood-dark);transform:translateY(3px)}
 .btn-primary{background:var(--accent);font-family:var(--font-display);font-weight:800;font-size:22px;
@@ -253,6 +253,11 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .pow .holdfill{position:absolute;inset:0;border-radius:10px;pointer-events:none;
   background:conic-gradient(var(--tile-mint) calc(var(--hold-p,0)*1%), transparent 0);
   opacity:.55;mix-blend-mode:multiply}
+.run-actions{display:flex;gap:8px;align-items:stretch;margin-top:4px}
+.run-actions #btnRotate{flex:0 0 72px;padding:0 8px;font-size:18px}
+.run-actions #btnClose{flex:1;overflow:hidden}
+.run-actions #btnClose .holdfill{position:absolute;inset:0;border-radius:14px;pointer-events:none;
+  background:conic-gradient(var(--danger) calc(var(--hold-p,0)*1%), transparent 0);opacity:.5}
 .hint{display:none} /* v2.7: la zona de mensajes bajo el tablero se elimina (#hint fuera del DOM) */
 
 /* modals */
@@ -636,10 +641,14 @@ function renderRun(){
       <div class="pool" id="pool"></div>
       <div class="preview" id="preview" style="display:none"></div>
       <div class="powerbar" id="powerbar"></div>
-      <button class="btn btn-sec" id="btnClose" style="width:100%">🚪 Close café (keep coins)</button>
+      <div class="run-actions">
+        <button type="button" class="btn btn-sec" id="btnRotate" title="Rotate board 90°">↻ 90°</button>
+        <button type="button" class="btn btn-sec" id="btnClose">🚪 Hold 3s to close</button>
+      </div>
     </div>`;
   $('#btnShop').onclick=showShop; $('#btnSave').onclick=showSave;
-  $('#btnClose').onclick=()=>doClose('manual');
+  bindRotateBoard();
+  bindCloseHold();
   renderIdle(); renderOrders(); renderBoard(); renderPool(); renderPreview(); renderPowers();
   if(tutActive) showTutStep();
 }
@@ -825,6 +834,7 @@ function renderBoard(){
     if(c.dataset.pos){ placeTileFlow(c.dataset.pos); return; }
     tapTile(+c.dataset.id);
   }));
+  applyBoardRot();
 }
 function renderPool(){
   const box=$('#pool'); if(!box) return;
@@ -1353,6 +1363,70 @@ function openTheCafe(){
   persist(); renderAll();
   maybeStartTutorial(); // v2.18: first-run overlay after café is open
 }
+function applyBoardRot(){
+  const board=$('#board'), wrap=board&&board.parentElement;
+  if(!board||!wrap) return;
+  const rot=((state&&state.settings&&state.settings.boardRot)|0)%360;
+  const w=parseFloat(board.style.width)||board.offsetWidth||0;
+  const h=parseFloat(board.style.height)||board.offsetHeight||0;
+  const swapped=rot===90||rot===270;
+  wrap.style.position='relative';
+  wrap.style.height=(swapped?w:h)+16+'px';
+  wrap.style.overflow='hidden';
+  board.style.position='absolute';
+  board.style.left='50%';
+  board.style.top='50%';
+  board.style.transformOrigin='center center';
+  board.style.transform='translate(-50%,-50%) rotate('+rot+'deg)';
+}
+function rotateBoard(){
+  if(!state.settings) state.settings={ reducedMotion:false, seenTutorial:true, boardRot:0 };
+  state.settings.boardRot = ((state.settings.boardRot|0)+90)%360;
+  persist();
+  applyBoardRot();
+}
+function bindRotateBoard(){
+  const b=$('#btnRotate'); if(!b) return;
+  b.addEventListener('click', ()=>{ if(ui.anim||tutActive) return; rotateBoard(); });
+}
+function bindCloseHold(){
+  const p=$('#btnClose'); if(!p) return;
+  let holdTimer=null, raf=null, holdStart=0, holdDone=false;
+  const HOLD_MS=(CONFIG.CLOSE_HOLD_MS|0)||3000;
+  const clearHold=()=>{
+    if(holdTimer){ clearTimeout(holdTimer); holdTimer=null; }
+    if(raf){ cancelAnimationFrame(raf); raf=null; }
+    p.classList.remove('holding');
+    p.style.removeProperty('--hold-p');
+    const fill=p.querySelector('.holdfill'); if(fill) fill.remove();
+  };
+  const tickFill=()=>{
+    const pct=Math.min(100, ((performance.now()-holdStart)/HOLD_MS)*100);
+    p.style.setProperty('--hold-p', pct.toFixed(1));
+    if(pct<100) raf=requestAnimationFrame(tickFill);
+  };
+  const onDown=(ev)=>{
+    if(ui.anim||tutActive) return;
+    if(ev.button!=null && ev.button!==0) return;
+    holdDone=false; holdStart=performance.now();
+    p.classList.add('holding');
+    if(!p.querySelector('.holdfill')){
+      const f=document.createElement('div'); f.className='holdfill'; p.prepend(f);
+    }
+    raf=requestAnimationFrame(tickFill);
+    holdTimer=setTimeout(()=>{
+      holdDone=true; clearHold();
+      doClose('manual');
+    }, HOLD_MS);
+  };
+  const onUp=()=>{ if(!holdDone) clearHold(); };
+  p.addEventListener('pointerdown', onDown);
+  p.addEventListener('pointerup', onUp);
+  p.addEventListener('pointerleave', onUp);
+  p.addEventListener('pointercancel', ()=>clearHold());
+  p.addEventListener('click', ev=>{ ev.preventDefault(); ev.stopPropagation(); });
+  p.addEventListener('contextmenu', ev=>ev.preventDefault());
+}
 function doClose(reason){ if(tutActive && reason==='manual') return; const res=closeRun(state, reason); state=res; persist();
   $('#closeTitle').textContent = reason==='allServed' ? '☕ All cats served!' : reason==='full' ? 'Full & cleared!' : 'Café closed';
   $('#closeMsg').textContent = reason==='allServed' ? 'A perfect closing — every order served!' :
@@ -1542,7 +1616,7 @@ const TUT_STEPS = [
   { sel: '#pool',     text: 'Tap a tray, then a table — stack food.' },
   { sel: '#orders',   text: 'Matching piles serve themselves — cats take the food.' },
   { sel: '#queueCount', text: 'Goal: serve every customer.' },
-  { sel: '#btnClose', text: 'Stuck? Close café — you keep the coins.' },
+  { sel: '#btnClose', text: 'Stuck? Hold Close 3s — you keep the coins.' },
   { sel: '#btnShop',  text: 'Shop 🛒 — spend coins on skills.' },
 ];
 let tutStep = 0;
@@ -1657,7 +1731,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40, tables 80×1.25;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.18.3';
+const GAME_VERSION = 'v2.19.0';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };

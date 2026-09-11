@@ -43,6 +43,7 @@ export const CONFIG = {
   DEBRIS_BONUS_PER: 25,             // v2 escombros: bonus por escombro limpiado
   CASCADE_STEP_MS: 600,             // v2.2.1: ms entre eslabones (antes 1600 — muy lento para seguir el orden)
   TABLES_HOLD_MS: 550,              // v2.17: press-and-hold Tables → batch activateAroundUnlocked
+  CLOSE_HOLD_MS: 3000,              // v2.19: hold Close café 3s to confirm
   TABLES_ACTIVATE_MIN_NEIGHBORS: 2, // v2.17 R14.6: unlock requires ≥2 already-unlocked neighbors
   PREVIEW_PRICE: 80,                // v2 R15.1 precio previewPool = PREVIEW_PRICE * level
   PILE_SIZE_WEIGHTS: [9, 8, 7, 6, 5, 4, 3], // v2.9 R3.1: peso del tamaño 1..7 —
@@ -196,7 +197,7 @@ export function createGame(init = {}) {
     },
     run: null,
     metaClose: null,
-    settings: { reducedMotion: false, seenTutorial: false },  // v2.18 first-run tutorial
+    settings: { reducedMotion: false, seenTutorial: false, boardRot: 0 },  // v2.18 tutorial; v2.19 boardRot
   };
   return deepMerge(base, init);
 }
@@ -1675,6 +1676,7 @@ export function deserializeState(json) {
       // treat missing as TRUE so existing players never see the overlay.
       if (!s.settings) s.settings = { reducedMotion: false };
       if (s.settings.seenTutorial == null) s.settings.seenTutorial = true;
+      if (s.settings.boardRot == null) s.settings.boardRot = 0;
       return s;
     }
     return createGame();
