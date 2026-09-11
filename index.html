@@ -126,13 +126,13 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .cell.serve-target:not(.blocked) .hexbg{--hb:var(--accent-2);filter:drop-shadow(0 0 4px var(--accent-2))}
 .cell.calm .hexbg::before,.cell.targetable:not(.blocked) .hexbg::before,
 .cell.targetmode .hexbg::before,.cell.swapmode .hexbg::before,
-.cell.serve-target:not(.blocked) .hexbg::before,.board.actmode .cell.dormant .hexbg::before,
+.cell.serve-target:not(.blocked) .hexbg::before,.board.actmode .cell.dormant.act-eligible .hexbg::before,
 .cell.casc .hexbg::before,.expand-slot .hexbg::before{
   content:"";position:absolute;inset:0;background:var(--hb);
   clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
 .cell.calm .hexbg::after,.cell.targetable:not(.blocked) .hexbg::after,
 .cell.targetmode .hexbg::after,.cell.swapmode .hexbg::after,
-.cell.serve-target:not(.blocked) .hexbg::after,.board.actmode .cell.dormant .hexbg::after,
+.cell.serve-target:not(.blocked) .hexbg::after,.board.actmode .cell.dormant.act-eligible .hexbg::after,
 .cell.casc .hexbg::after,.expand-slot .hexbg::after{
   content:"";position:absolute;inset:var(--hbw,3px);background:inherit;
   clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
@@ -175,10 +175,10 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 @keyframes pulseGlow{0%,100%{box-shadow:0 0 0 0 rgba(246,167,193,.0)}50%{box-shadow:0 0 0 9px rgba(246,167,193,.4)}}
 
 /* v2 board dual (R14): dormant = visible pero apagada (se activa/compra en
-   partida o tienda); el modo 🪧 Activar re-habilita su pointer-events */
+   partida o tienda); v2.17 actmode solo re-habilita dormants elegibles (≥2 vecinos) */
 .cell.dormant{opacity:.55;pointer-events:none}
-.board.actmode .cell.dormant{pointer-events:auto;cursor:pointer}
-.board.actmode .cell.dormant .hexbg{--hb:var(--tile-mint);filter:drop-shadow(0 0 4px var(--tile-mint))}
+.board.actmode .cell.dormant.act-eligible{pointer-events:auto;cursor:pointer;opacity:.85}
+.board.actmode .cell.dormant.act-eligible .hexbg{--hb:var(--tile-mint);filter:drop-shadow(0 0 4px var(--tile-mint))}
 /* v2 cascada animada (R12.2): anillo + pop en celdas afectadas por eslabón */
 .cell.casc .hexbg{--hb:var(--highlight);--hbw:4px;filter:drop-shadow(0 0 8px var(--highlight))}
 .cell.casc .stack{animation:cascPop .9s cubic-bezier(.4,0,.2,1)}
@@ -247,6 +247,12 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .pow[data-mode=destroy].selected{outline:3px solid var(--danger)}
 .pow[data-mode=swap].selected{outline:3px solid var(--tile-blue)}
 .pow[data-mode=refresh].selected{outline:3px solid var(--tile-mint)}
+.pow[data-mode=activate].selected{outline:3px solid var(--tile-mint)}
+/* v2.17 hold-Tables: radial filler on the Tables power button */
+.pow.holding{outline:3px solid var(--tile-mint)}
+.pow .holdfill{position:absolute;inset:0;border-radius:10px;pointer-events:none;
+  background:conic-gradient(var(--tile-mint) calc(var(--hold-p,0)*1%), transparent 0);
+  opacity:.55;mix-blend-mode:multiply}
 .hint{display:none} /* v2.7: la zona de mensajes bajo el tablero se elimina (#hint fuera del DOM) */
 
 /* modals */
@@ -454,9 +460,11 @@ import {
   buyColor, buyUsesUp, usesUpPrice,   // v2.1 UI: colores R13.7 + mejora de usos R17.2
   serializeState, deserializeState, importSave, mulberry32,
   // v2 — R13/R14/R15: roster, cascada, baldosas, toggle auto-serve, preview
-  ROSTER, resolveCascade, activateTile, runTilePrice, permTilePrice, toggleServe, previewPool, pay,
+  ROSTER, resolveCascade, activateTile, activateAroundUnlocked, runTilePrice, permTilePrice, toggleServe, previewPool, pay,
   // v2.2 — R14.4: compra permanente 'tables' en tienda
   buyTablesUp,
+  // v2.17 — 2-neighbor unlock + hold-Tables batch
+  isActivateEligible, unlockedNeighborCount, sweepDebrisRuns,
   HEX_ADJ, topGroup, topRunCount,
   // v3 — R12.1: motor de merge hexasort original (espejo cascadeLinks)
   bfsMergeGroups, computeBestChain, r2Target,
@@ -531,7 +539,8 @@ const ERRT={ noFunds:'Not enough coins', blocked:'That tile is locked', locked:'
   noUses:'No uses left this café', notReady:'Those pieces don\'t match it / wrong color', emptyPool:'Nothing to place',
   emptySlot:'Tray slot is empty', noOrder:'No order there', noCell:'No tile there', same:'Pick two different tiles', owned:'Already owned',
   noKind:'Unknown expansion', noSystem:'Unknown system', maxed:'Maxed out',
-  maxUses:'Max uses per run reached (5)' };   // v2.4 tope de usos por skill
+  maxUses:'Max uses per run reached (5)',   // v2.4 tope de usos por skill
+  needTwoNeighbors:'Need 2 unlocked neighbor tables', noneEligible:'No eligible tables nearby' };
 const err = r => toast(ERRT[(r&&r.error)||''] || (r&&r.error)||'');
 // v2.4.1 — pasadas de estabilización "apenas entre": resuelve cascadas pendientes
 // (clientes recién entrados con tope servible) con animación, hasta estabilizar.
@@ -677,6 +686,7 @@ function cellHTML(cell, idx){
   let cls='cell';
   if(cell.blocked) cls+=' blocked';
   if(cell.dormant) cls+=' dormant';          // v2 R14.2: apagada (32-baldosa dual board, v2-shape)
+  if(cell.dormant && ui.mode==='activate' && isActivateEligible(state, cell)) cls+=' act-eligible'; // v2.17 R14.6
   // v2.8: calamidad SIN marcador visual (ni rombo ni anillo) — se ve 100% normal
   if(ui.mode==='destroy') cls+=' targetmode';
   if(ui.mode==='unlock') cls+=' targetmode';
@@ -833,17 +843,75 @@ function renderPowers(){
     return `<div class="pow ${!s.owned?'locked':''} ${depleted?'depleted':''} ${ui.mode===d.mode?'selected':''}" data-mode="${d.mode}" data-skill="${d.skill}">
       ${String(d.icon).startsWith('power_') ? spr(d.icon,18) : `<span style="font-size:15px;line-height:1">${d.icon}</span>`}<span>${d.label}</span>${uses}</div>`;
   }).join('');
-  $$('#powerbar .pow').forEach(p=>p.addEventListener('click',()=>{
-    if(ui.anim) return;
+  $$('#powerbar .pow').forEach(p=>{
     const skill=p.dataset.skill, mode=p.dataset.mode;
+    // v2.17: Tables — short tap = mode toggle; press-and-hold = batch activateAroundUnlocked
+    if(mode==='activate'){
+      let holdTimer=null, raf=null, holdStart=0, holdDone=false;
+      const HOLD_MS = (CONFIG.TABLES_HOLD_MS|0) || 550;
+      const clearHold=()=>{
+        if(holdTimer){ clearTimeout(holdTimer); holdTimer=null; }
+        if(raf){ cancelAnimationFrame(raf); raf=null; }
+        p.classList.remove('holding');
+        p.style.removeProperty('--hold-p');
+        const fill=p.querySelector('.holdfill'); if(fill) fill.remove();
+      };
+      const tickFill=()=>{
+        const pct=Math.min(100, ((performance.now()-holdStart)/HOLD_MS)*100);
+        p.style.setProperty('--hold-p', pct.toFixed(1));
+        if(pct<100) raf=requestAnimationFrame(tickFill);
+      };
+      const onDown=(ev)=>{
+        if(ui.anim) return;
+        if(ev.button!=null && ev.button!==0) return;
+        const gs=state.skills.tables||{owned:false};
+        if(!gs.owned){ /* tap will open shop via click */ return; }
+        if((gs.uses|0)<=0){ toast(ERRT.noUses); return; }
+        holdDone=false; holdStart=performance.now();
+        p.classList.add('holding');
+        if(!p.querySelector('.holdfill')){
+          const f=document.createElement('div'); f.className='holdfill'; p.prepend(f);
+        }
+        raf=requestAnimationFrame(tickFill);
+        holdTimer=setTimeout(()=>{
+          holdDone=true; clearHold();
+          const res=activateAroundUnlocked(state, Math.random);
+          if(res.error==='locked'){ toast('Unlock "Tables" in the Shop 🛒'); return; }
+          if(res.error==='noUses'){ toast(ERRT.noUses); return; }
+          if(res.error==='noneEligible'){ toast('No eligible tables nearby (need 2 neighbors)'); return; }
+          if(res.error){ err(res); return; }
+          state=res; ui.mode=null;
+          const n=state.run.runTilesActivated;
+          toast(`Tables expanded ✨ (${state.skills.tables.uses} uses left)`);
+          renderAll();
+        }, HOLD_MS);
+      };
+      const onUp=(ev)=>{
+        if(holdDone){ ev.preventDefault(); ev.stopPropagation(); clearHold(); return; }
+        const elapsed=performance.now()-holdStart;
+        clearHold();
+        // short tap (< hold): toggle activate mode (existing behavior)
+        if(elapsed>0 && elapsed<HOLD_MS){
+          const gs=state.skills.tables||{owned:false};
+          if(!gs.owned){ showShop(); toast('Buy this power in the Shop (🛒)'); return; }
+          if((gs.uses|0)<=0){ toast(ERRT.noUses); return; }
+          ui.mode = ui.mode==='activate'?null:'activate'; ui.slot=false; ui.servingOrder=null;
+          renderPowers(); renderBoard();
+        }
+      };
+      p.addEventListener('pointerdown', onDown);
+      p.addEventListener('pointerup', onUp);
+      p.addEventListener('pointerleave', ()=>{ if(!holdDone) clearHold(); });
+      p.addEventListener('pointercancel', ()=>{ clearHold(); });
+      p.addEventListener('click', (ev)=>{ ev.preventDefault(); ev.stopPropagation(); }); // handled by pointerup
+      return;
+    }
+    p.addEventListener('click',()=>{
+    if(ui.anim) return;
     // v2.2 guard agotado: toast y salida ANTES de entrar al modo (espejo del
     // guard ensureOwnedUses de game.js; la lógica de gastar usos NO cambia)
     const gs=state.skills[skill]||{owned:true};
     if(gs.owned && typeof gs.uses==='number' && gs.uses<=0){ toast(ERRT.noUses); return; }
-    if(mode==='activate'){                    // v2.2 R14.3: modo activar baldosa apagada (skill 'tables')
-      ui.mode = ui.mode==='activate'?null:'activate'; ui.slot=false; ui.servingOrder=null;
-      renderPowers(); renderBoard(); return;
-    }
     if(mode==='autoserve'){                   // v2 R15.1: toggleServe
       const r=toggleServe(state);
       if(r.error){ err(r); } else { state=r; toast('Auto-serve '+(state.skills.serveManual.autoServe?'ON':'OFF')); }
@@ -862,7 +930,8 @@ function renderPowers(){
     if(mode==='refresh'){ refreshFlow(); return; }
     ui.mode = ui.mode===mode?null:mode; ui.swapFirst=null;
     renderPowers(); renderBoard();
-  }));
+  });
+  });
 }
 function refreshFlow(){ const r=useRefreshPool(state); if(r.error){ err(r); } else { state=r; toast('New tray drawn ✓'); renderAll(); } }
 
@@ -966,22 +1035,16 @@ function cascadeLinks(state){
       }
       if(Array.isArray(s.run.activeClients)) s.run.activeClients=s.run.activeClients.filter(o=>!o.served);
     }
-    // (iii) umbral de escombros: grupo contiguo >= DEBRIS_THRESHOLD se elimina
-    s.run.board.forEach((c,i)=>{
-      if(!c||!c.stack||!c.stack.length) return;
-      const st=c.stack; let j=0;
-      while(j<st.length){
-        let k=j; while(k<st.length&&st[k]===st[j]) k++;
-        const runLen=k-j;
-        if(runLen>=CONFIG.DEBRIS_THRESHOLD){
-          st.splice(j,runLen);
-          s.progress.coins+=CONFIG.DEBRIS_BONUS_PER*runLen;
-          debris.push(i); acted=true;
-        } else j=k;
-      }
-    });
+    // v2.17: sin escombros en el eslabón — 10+ siguen participando en merges
     if(!acted) break;
     links.push({snap:structuredClone(s),served,debris,merged});
+  }
+  // (iii) v2.17 R12.3 — barrido de escombros SOLO tras estabilizar la cadena
+  if(s.run&&Array.isArray(s.run.board)){
+    const hit=sweepDebrisRuns(s.run.board, s.progress);
+    if(hit.length){
+      links.push({snap:structuredClone(s),served:[],debris:hit,merged:[]});
+    }
   }
   return links;
 }
@@ -1135,6 +1198,7 @@ function activateFlow(id){
   if(!cell||!cell.dormant){ toast('That tile is already active'); return; }
   const res=activateTile(state, id, Math.random);
   if(res.error==='locked'){ toast('Unlock "Tables" in the Shop 🛒'); return; }
+  if(res.error==='needTwoNeighbors'){ toast('Need 2 unlocked neighbor tables'); return; }
   if(res.error){ err(res); return; }
   state=res; ui.mode=null;
   const el=$(`#board .cell[data-id="${id}"]`); if(el) floatOn(el,'🪧');
@@ -1462,7 +1526,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40, tables 80×1.25;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.16.0';
+const GAME_VERSION = 'v2.17.0';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };

@@ -126,13 +126,13 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .cell.serve-target:not(.blocked) .hexbg{--hb:var(--accent-2);filter:drop-shadow(0 0 4px var(--accent-2))}
 .cell.calm .hexbg::before,.cell.targetable:not(.blocked) .hexbg::before,
 .cell.targetmode .hexbg::before,.cell.swapmode .hexbg::before,
-.cell.serve-target:not(.blocked) .hexbg::before,.board.actmode .cell.dormant .hexbg::before,
+.cell.serve-target:not(.blocked) .hexbg::before,.board.actmode .cell.dormant.act-eligible .hexbg::before,
 .cell.casc .hexbg::before,.expand-slot .hexbg::before{
   content:"";position:absolute;inset:0;background:var(--hb);
   clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
 .cell.calm .hexbg::after,.cell.targetable:not(.blocked) .hexbg::after,
 .cell.targetmode .hexbg::after,.cell.swapmode .hexbg::after,
-.cell.serve-target:not(.blocked) .hexbg::after,.board.actmode .cell.dormant .hexbg::after,
+.cell.serve-target:not(.blocked) .hexbg::after,.board.actmode .cell.dormant.act-eligible .hexbg::after,
 .cell.casc .hexbg::after,.expand-slot .hexbg::after{
   content:"";position:absolute;inset:var(--hbw,3px);background:inherit;
   clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
@@ -175,10 +175,10 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 @keyframes pulseGlow{0%,100%{box-shadow:0 0 0 0 rgba(246,167,193,.0)}50%{box-shadow:0 0 0 9px rgba(246,167,193,.4)}}
 
 /* v2 board dual (R14): dormant = visible pero apagada (se activa/compra en
-   partida o tienda); el modo 🪧 Activar re-habilita su pointer-events */
+   partida o tienda); v2.17 actmode solo re-habilita dormants elegibles (≥2 vecinos) */
 .cell.dormant{opacity:.55;pointer-events:none}
-.board.actmode .cell.dormant{pointer-events:auto;cursor:pointer}
-.board.actmode .cell.dormant .hexbg{--hb:var(--tile-mint);filter:drop-shadow(0 0 4px var(--tile-mint))}
+.board.actmode .cell.dormant.act-eligible{pointer-events:auto;cursor:pointer;opacity:.85}
+.board.actmode .cell.dormant.act-eligible .hexbg{--hb:var(--tile-mint);filter:drop-shadow(0 0 4px var(--tile-mint))}
 /* v2 cascada animada (R12.2): anillo + pop en celdas afectadas por eslabón */
 .cell.casc .hexbg{--hb:var(--highlight);--hbw:4px;filter:drop-shadow(0 0 8px var(--highlight))}
 .cell.casc .stack{animation:cascPop .9s cubic-bezier(.4,0,.2,1)}
@@ -247,6 +247,12 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .pow[data-mode=destroy].selected{outline:3px solid var(--danger)}
 .pow[data-mode=swap].selected{outline:3px solid var(--tile-blue)}
 .pow[data-mode=refresh].selected{outline:3px solid var(--tile-mint)}
+.pow[data-mode=activate].selected{outline:3px solid var(--tile-mint)}
+/* v2.17 hold-Tables: radial filler on the Tables power button */
+.pow.holding{outline:3px solid var(--tile-mint)}
+.pow .holdfill{position:absolute;inset:0;border-radius:10px;pointer-events:none;
+  background:conic-gradient(var(--tile-mint) calc(var(--hold-p,0)*1%), transparent 0);
+  opacity:.55;mix-blend-mode:multiply}
 .hint{display:none} /* v2.7: la zona de mensajes bajo el tablero se elimina (#hint fuera del DOM) */
 
 /* modals */
@@ -484,6 +490,8 @@ const CONFIG = {
   DEBRIS_THRESHOLD: 10,             // v2 escombros: umbral para entrar en tablero
   DEBRIS_BONUS_PER: 25,             // v2 escombros: bonus por escombro limpiado
   CASCADE_STEP_MS: 600,             // v2.2.1: ms entre eslabones (antes 1600 — muy lento para seguir el orden)
+  TABLES_HOLD_MS: 550,              // v2.17: press-and-hold Tables → batch activateAroundUnlocked
+  TABLES_ACTIVATE_MIN_NEIGHBORS: 2, // v2.17 R14.6: unlock requires ≥2 already-unlocked neighbors
   PREVIEW_PRICE: 80,                // v2 R15.1 precio previewPool = PREVIEW_PRICE * level
   PILE_SIZE_WEIGHTS: [9, 8, 7, 6, 5, 4, 3], // v2.9 R3.1: peso del tamaño 1..7 —
                                     // menos fichas más común pero SUTIL (7 sigue
@@ -684,6 +692,25 @@ function isHexAdjacent(a, b) {
   if (!a || !b) return false;
   if (a.q === b.q && a.r === b.r) return false;
   return HEX_ADJ.some(([dq, dr]) => a.q + dq === b.q && a.r + dr === b.r);
+}
+
+// v2.17 R14.6 — nº de vecinos YA desbloqueados (dormant===false) de una celda.
+// Las celdas blocked del núcleo/activadas cuentan: son mesas desbloqueadas.
+function unlockedNeighborCount(state, cell) {
+  const board = state && state.run && state.run.board;
+  if (!board || !cell) return 0;
+  let n = 0;
+  for (const other of board) {
+    if (!other || other.dormant) continue;
+    if (isHexAdjacent(cell, other)) n += 1;
+  }
+  return n;
+}
+
+// v2.17 — elegible para activateTile / hold-batch: dormant, no blocked, ≥2 unlocked neighbors.
+function isActivateEligible(state, cell) {
+  if (!cell || !cell.dormant || cell.blocked) return false;
+  return unlockedNeighborCount(state, cell) >= (CONFIG.TABLES_ACTIVATE_MIN_NEIGHBORS || 2);
 }
 
 // every free axial position that touches >=1 occupied cell (valid drag targets)
@@ -1384,6 +1411,9 @@ function activateTile(state, cellId, rng) {
   const sk = s.skills && s.skills.tables;
   if (!sk || !sk.owned) return { error: 'locked', state: s };   // R7.8
   if ((sk.uses | 0) <= 0) return { error: 'noUses', state: s }; // R14.3 v2.2
+  // v2.17 R14.6: solo si toca ≥2 mesas ya desbloqueadas (núcleo inicial ya
+  // desbloqueado; primeras expansiones = anillos mid-edge del radio 2).
+  if (!isActivateEligible(s, cell)) return { error: 'needTwoNeighbors', state: s };
   cell.dormant = false;                                // activa ESTA partida
   // v2.8 R8.1: revelar pila de calamidad oculta en baldosas (si la hay)
   if (cell.hiddenStack && cell.hiddenStack.length) {
@@ -1396,6 +1426,40 @@ function activateTile(state, cellId, rng) {
   // calamidades entran UNA sola vez por partida (flag run.calamitiesApplied;
   // applyCalamities es no-op si ya aplicaron o si no se cruzó el umbral).
   s = applyCalamities(s, rng);
+  return s;
+}
+
+// ---------------------------------------------------------------------------
+// v2.17 R14.3b — activateAroundUnlocked(state, rng): batch del hold-Tables.
+// Snapshot de elegibles al INICIO: dormant + vecinas del set desbloqueado
+// actual + ≥2 vecinos desbloqueados (R14.6). Orden estable = índice de board
+// ascendente. Activa en serie vía activateTile hasta agotar uses o candidatos.
+// ---------------------------------------------------------------------------
+function activateAroundUnlocked(state, rng) {
+  let s = clone(state);
+  if (!s.run || !Array.isArray(s.run.board)) return { error: 'noRun', state: s };
+  const sk = s.skills && s.skills.tables;
+  if (!sk || !sk.owned) return { error: 'locked', state: s };
+  if ((sk.uses | 0) <= 0) return { error: 'noUses', state: s };
+  // Snapshot: vecinos del set desbloqueado AHORA (no crece mid-batch).
+  const unlocked = s.run.board.filter((c) => c && !c.dormant);
+  const candidates = [];
+  s.run.board.forEach((c, i) => {
+    if (!c || !c.dormant || c.blocked) return;
+    if (!unlocked.some((u) => isHexAdjacent(c, u))) return; // around unlocked set
+    if (!isActivateEligible(s, c)) return;                  // R14.6 ≥2
+    candidates.push(i);
+  });
+  candidates.sort((a, b) => a - b); // board-scan order
+  const activated = [];
+  for (const idx of candidates) {
+    if ((s.skills.tables.uses | 0) <= 0) break;
+    const res = activateTile(s, idx, rng);
+    if (res && res.error) continue; // skip if somehow ineligible after prior
+    s = res;
+    activated.push(idx);
+  }
+  if (!activated.length) return { error: 'noneEligible', state: s };
   return s;
 }
 
@@ -1493,12 +1557,42 @@ function serveOrder(state, orderId, cellId) {
 function rngFallback() { return Math.random; }
 
 // ---------------------------------------------------------------------------
-// resolveCascade(state) [R12.2] — PURA: clona, itera eslabones hasta estabilizar
-// y retorna { state, steps }. Eslabón: (i) merge hacia celdas modificadas en
-// esta cascada (R12.1); (ii) auto-servir pedidos flotantes (cell===null) con
-// match determinista, si skills.serveManual.autoServe !== false; (iii) umbral
-// de escombros (grupo contiguo >= DEBRIS_THRESHOLD eliminado, bonus por ficha).
-// Estable desde el inicio => steps 0. Sin CASCADE_STEP_MS: síncrona.
+// sweepDebrisRuns(board, progress) — v2.17 R12.3: destruye runs contiguas
+// >= DEBRIS_THRESHOLD en TODAS las celdas; coins += DEBRIS_BONUS_PER * qty.
+// Retorna índices de celdas tocadas. NO reentra merge: se llama SOLO tras
+// estabilizar merges/auto-serves de la acción del jugador.
+// ---------------------------------------------------------------------------
+function sweepDebrisRuns(board, progress) {
+  const hit = [];
+  if (!Array.isArray(board)) return hit;
+  board.forEach((c, i) => {
+    if (!c || !c.stack || !c.stack.length) return;
+    const st = c.stack;
+    let j = 0;
+    let touched = false;
+    while (j < st.length) {
+      let k = j;
+      while (k < st.length && st[k] === st[j]) k++;
+      const runLen = k - j;
+      if (runLen >= CONFIG.DEBRIS_THRESHOLD) {
+        st.splice(j, runLen);
+        if (progress) progress.coins += CONFIG.DEBRIS_BONUS_PER * runLen;
+        touched = true;
+      } else {
+        j = k;
+      }
+    }
+    if (touched) hit.push(i);
+  });
+  return hit;
+}
+
+// ---------------------------------------------------------------------------
+// resolveCascade(state) [R12.2 / v2.17] — PURA: clona, itera eslabones hasta
+// estabilizar y retorna { state, steps }. Eslabón: (i) merge (R12.1); (ii)
+// auto-servir flotantes si autoServe !== false. Tras estabilizar merges/serves:
+// (iii) sweepDebrisRuns — umbral 10+ SOLO al final de la cadena (las pilas 10+
+// permanecen durante merges para seguir participando). Estable => steps 0.
 // ---------------------------------------------------------------------------
 function resolveCascade(state) {
   const s = clone(state);
@@ -1591,28 +1685,15 @@ function resolveCascade(state) {
         // consumir del board de forma NO determinista.
       }
     }
-    // (iii) umbral de escombros: todo grupo contiguo >= DEBRIS_THRESHOLD se
-    // elimina; coins += DEBRIS_BONUS_PER * tamaño (R12.3). La celda remanente
-    // queda como imán para el merge del siguiente eslabón.
-    s.run.board.forEach((c, i) => {
-      if (!c || !c.stack || !c.stack.length) return;
-      const st = c.stack;
-      let j = 0;
-      while (j < st.length) {
-        let k = j;
-        while (k < st.length && st[k] === st[j]) k++;
-        const runLen = k - j;
-        if (runLen >= CONFIG.DEBRIS_THRESHOLD) {
-          st.splice(j, runLen);
-          s.progress.coins += CONFIG.DEBRIS_BONUS_PER * runLen;
-          acted = true;   // v3: sin imanes — el barrido global del próximo eslabón lo cubre
-        } else {
-          j = k;
-        }
-      }
-    });
+    // v2.17: SIN destrucción umbral aquí — las pilas 10+ siguen en tablero
+    // para participar en merges posteriores de ESTA cadena.
     if (!acted) break;
     steps += 1;
+  }
+  // (iii) v2.17 R12.3 — barrido de escombros SOLO tras estabilizar merges/serves
+  if (s.run && Array.isArray(s.run.board)) {
+    const hit = sweepDebrisRuns(s.run.board, s.progress);
+    if (hit.length) steps += 1;
   }
   // v2.1 R16.4: refill inmediato — UNA vez al FINAL de la cascada. Los clientes
   // recién llegados quedan visibles para la SIGUIENTE cascada / serveOrder;
@@ -2146,7 +2227,8 @@ const ERRT={ noFunds:'Not enough coins', blocked:'That tile is locked', locked:'
   noUses:'No uses left this café', notReady:'Those pieces don\'t match it / wrong color', emptyPool:'Nothing to place',
   emptySlot:'Tray slot is empty', noOrder:'No order there', noCell:'No tile there', same:'Pick two different tiles', owned:'Already owned',
   noKind:'Unknown expansion', noSystem:'Unknown system', maxed:'Maxed out',
-  maxUses:'Max uses per run reached (5)' };   // v2.4 tope de usos por skill
+  maxUses:'Max uses per run reached (5)',   // v2.4 tope de usos por skill
+  needTwoNeighbors:'Need 2 unlocked neighbor tables', noneEligible:'No eligible tables nearby' };
 const err = r => toast(ERRT[(r&&r.error)||''] || (r&&r.error)||'');
 // v2.4.1 — pasadas de estabilización "apenas entre": resuelve cascadas pendientes
 // (clientes recién entrados con tope servible) con animación, hasta estabilizar.
@@ -2292,6 +2374,7 @@ function cellHTML(cell, idx){
   let cls='cell';
   if(cell.blocked) cls+=' blocked';
   if(cell.dormant) cls+=' dormant';          // v2 R14.2: apagada (32-baldosa dual board, v2-shape)
+  if(cell.dormant && ui.mode==='activate' && isActivateEligible(state, cell)) cls+=' act-eligible'; // v2.17 R14.6
   // v2.8: calamidad SIN marcador visual (ni rombo ni anillo) — se ve 100% normal
   if(ui.mode==='destroy') cls+=' targetmode';
   if(ui.mode==='unlock') cls+=' targetmode';
@@ -2448,17 +2531,75 @@ function renderPowers(){
     return `<div class="pow ${!s.owned?'locked':''} ${depleted?'depleted':''} ${ui.mode===d.mode?'selected':''}" data-mode="${d.mode}" data-skill="${d.skill}">
       ${String(d.icon).startsWith('power_') ? spr(d.icon,18) : `<span style="font-size:15px;line-height:1">${d.icon}</span>`}<span>${d.label}</span>${uses}</div>`;
   }).join('');
-  $$('#powerbar .pow').forEach(p=>p.addEventListener('click',()=>{
-    if(ui.anim) return;
+  $$('#powerbar .pow').forEach(p=>{
     const skill=p.dataset.skill, mode=p.dataset.mode;
+    // v2.17: Tables — short tap = mode toggle; press-and-hold = batch activateAroundUnlocked
+    if(mode==='activate'){
+      let holdTimer=null, raf=null, holdStart=0, holdDone=false;
+      const HOLD_MS = (CONFIG.TABLES_HOLD_MS|0) || 550;
+      const clearHold=()=>{
+        if(holdTimer){ clearTimeout(holdTimer); holdTimer=null; }
+        if(raf){ cancelAnimationFrame(raf); raf=null; }
+        p.classList.remove('holding');
+        p.style.removeProperty('--hold-p');
+        const fill=p.querySelector('.holdfill'); if(fill) fill.remove();
+      };
+      const tickFill=()=>{
+        const pct=Math.min(100, ((performance.now()-holdStart)/HOLD_MS)*100);
+        p.style.setProperty('--hold-p', pct.toFixed(1));
+        if(pct<100) raf=requestAnimationFrame(tickFill);
+      };
+      const onDown=(ev)=>{
+        if(ui.anim) return;
+        if(ev.button!=null && ev.button!==0) return;
+        const gs=state.skills.tables||{owned:false};
+        if(!gs.owned){ /* tap will open shop via click */ return; }
+        if((gs.uses|0)<=0){ toast(ERRT.noUses); return; }
+        holdDone=false; holdStart=performance.now();
+        p.classList.add('holding');
+        if(!p.querySelector('.holdfill')){
+          const f=document.createElement('div'); f.className='holdfill'; p.prepend(f);
+        }
+        raf=requestAnimationFrame(tickFill);
+        holdTimer=setTimeout(()=>{
+          holdDone=true; clearHold();
+          const res=activateAroundUnlocked(state, Math.random);
+          if(res.error==='locked'){ toast('Unlock "Tables" in the Shop 🛒'); return; }
+          if(res.error==='noUses'){ toast(ERRT.noUses); return; }
+          if(res.error==='noneEligible'){ toast('No eligible tables nearby (need 2 neighbors)'); return; }
+          if(res.error){ err(res); return; }
+          state=res; ui.mode=null;
+          const n=state.run.runTilesActivated;
+          toast(`Tables expanded ✨ (${state.skills.tables.uses} uses left)`);
+          renderAll();
+        }, HOLD_MS);
+      };
+      const onUp=(ev)=>{
+        if(holdDone){ ev.preventDefault(); ev.stopPropagation(); clearHold(); return; }
+        const elapsed=performance.now()-holdStart;
+        clearHold();
+        // short tap (< hold): toggle activate mode (existing behavior)
+        if(elapsed>0 && elapsed<HOLD_MS){
+          const gs=state.skills.tables||{owned:false};
+          if(!gs.owned){ showShop(); toast('Buy this power in the Shop (🛒)'); return; }
+          if((gs.uses|0)<=0){ toast(ERRT.noUses); return; }
+          ui.mode = ui.mode==='activate'?null:'activate'; ui.slot=false; ui.servingOrder=null;
+          renderPowers(); renderBoard();
+        }
+      };
+      p.addEventListener('pointerdown', onDown);
+      p.addEventListener('pointerup', onUp);
+      p.addEventListener('pointerleave', ()=>{ if(!holdDone) clearHold(); });
+      p.addEventListener('pointercancel', ()=>{ clearHold(); });
+      p.addEventListener('click', (ev)=>{ ev.preventDefault(); ev.stopPropagation(); }); // handled by pointerup
+      return;
+    }
+    p.addEventListener('click',()=>{
+    if(ui.anim) return;
     // v2.2 guard agotado: toast y salida ANTES de entrar al modo (espejo del
     // guard ensureOwnedUses de game.js; la lógica de gastar usos NO cambia)
     const gs=state.skills[skill]||{owned:true};
     if(gs.owned && typeof gs.uses==='number' && gs.uses<=0){ toast(ERRT.noUses); return; }
-    if(mode==='activate'){                    // v2.2 R14.3: modo activar baldosa apagada (skill 'tables')
-      ui.mode = ui.mode==='activate'?null:'activate'; ui.slot=false; ui.servingOrder=null;
-      renderPowers(); renderBoard(); return;
-    }
     if(mode==='autoserve'){                   // v2 R15.1: toggleServe
       const r=toggleServe(state);
       if(r.error){ err(r); } else { state=r; toast('Auto-serve '+(state.skills.serveManual.autoServe?'ON':'OFF')); }
@@ -2477,7 +2618,8 @@ function renderPowers(){
     if(mode==='refresh'){ refreshFlow(); return; }
     ui.mode = ui.mode===mode?null:mode; ui.swapFirst=null;
     renderPowers(); renderBoard();
-  }));
+  });
+  });
 }
 function refreshFlow(){ const r=useRefreshPool(state); if(r.error){ err(r); } else { state=r; toast('New tray drawn ✓'); renderAll(); } }
 
@@ -2581,22 +2723,16 @@ function cascadeLinks(state){
       }
       if(Array.isArray(s.run.activeClients)) s.run.activeClients=s.run.activeClients.filter(o=>!o.served);
     }
-    // (iii) umbral de escombros: grupo contiguo >= DEBRIS_THRESHOLD se elimina
-    s.run.board.forEach((c,i)=>{
-      if(!c||!c.stack||!c.stack.length) return;
-      const st=c.stack; let j=0;
-      while(j<st.length){
-        let k=j; while(k<st.length&&st[k]===st[j]) k++;
-        const runLen=k-j;
-        if(runLen>=CONFIG.DEBRIS_THRESHOLD){
-          st.splice(j,runLen);
-          s.progress.coins+=CONFIG.DEBRIS_BONUS_PER*runLen;
-          debris.push(i); acted=true;
-        } else j=k;
-      }
-    });
+    // v2.17: sin escombros en el eslabón — 10+ siguen participando en merges
     if(!acted) break;
     links.push({snap:structuredClone(s),served,debris,merged});
+  }
+  // (iii) v2.17 R12.3 — barrido de escombros SOLO tras estabilizar la cadena
+  if(s.run&&Array.isArray(s.run.board)){
+    const hit=sweepDebrisRuns(s.run.board, s.progress);
+    if(hit.length){
+      links.push({snap:structuredClone(s),served:[],debris:hit,merged:[]});
+    }
   }
   return links;
 }
@@ -2750,6 +2886,7 @@ function activateFlow(id){
   if(!cell||!cell.dormant){ toast('That tile is already active'); return; }
   const res=activateTile(state, id, Math.random);
   if(res.error==='locked'){ toast('Unlock "Tables" in the Shop 🛒'); return; }
+  if(res.error==='needTwoNeighbors'){ toast('Need 2 unlocked neighbor tables'); return; }
   if(res.error){ err(res); return; }
   state=res; ui.mode=null;
   const el=$(`#board .cell[data-id="${id}"]`); if(el) floatOn(el,'🪧');
@@ -3077,7 +3214,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40, tables 80×1.25;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.16.0';
+const GAME_VERSION = 'v2.17.0';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };

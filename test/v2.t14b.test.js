@@ -80,8 +80,8 @@ test('T14i [R14.3 v2.2] activateTile: consume 1 uso de tables, NO cobra coins', 
   need('activateTile'); need('runTilePrice');
   const s = mkGame(1);
   s.skills.tables = { owned: true, uses: 2, usesBought: 0 };
-  const cell = s.run.board.find(c => c.dormant && !c.blocked);
-  assert.ok(cell, 'RED: debe existir una celda dormant que activar');
+  const cell = s.run.board.find(c => c.dormant && !c.blocked && G.isActivateEligible(s, c));
+  assert.ok(cell, 'RED: debe existir una celda dormant elegible (≥2 vecinos)');
   const coins0 = s.progress.coins;
   const st = unwind(G.activateTile(s, cell.id), s);
   const target = st.run.board.find(c => c.id === cell.id);

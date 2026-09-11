@@ -29,14 +29,18 @@ const playableIdx = (s) => s.run.board
   .map((c, i) => ({ c, i })).filter((x) => !x.c.dormant && !x.c.blocked).map((x) => x.i);
 const dormantIdx = (s) => s.run.board
   .map((c, i) => ({ c, i })).filter((x) => x.c.dormant && !x.c.blocked).map((x) => x.i);
+const eligibleIdx = (s) => s.run.board
+  .map((c, i) => ({ c, i }))
+  .filter((x) => x.c.dormant && !x.c.blocked && G.isActivateEligible(s, x.c))
+  .map((x) => x.i);
 
-// activar `k` baldosas (con rng determinista por paso) sobre la run dada
+// activar `k` baldosas elegibles (v2.17 R14.6: ≥2 unlocked neighbors)
 function activate(s, k, seed = 7) {
   let st = s;
   for (let j = 0; j < k; j++) {
-    const d = dormantIdx(st);
+    const d = eligibleIdx(st);
     if (!d.length) break;
-    st = unwind(G.activateTile(st, d[j % d.length], mulberry32(seed * 100 + j)), st);
+    st = unwind(G.activateTile(st, d[0], mulberry32(seed * 100 + j)), st);
     if (st.error) break;
   }
   return st;

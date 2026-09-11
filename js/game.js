@@ -42,6 +42,8 @@ export const CONFIG = {
   DEBRIS_THRESHOLD: 10,             // v2 escombros: umbral para entrar en tablero
   DEBRIS_BONUS_PER: 25,             // v2 escombros: bonus por escombro limpiado
   CASCADE_STEP_MS: 600,             // v2.2.1: ms entre eslabones (antes 1600 — muy lento para seguir el orden)
+  TABLES_HOLD_MS: 550,              // v2.17: press-and-hold Tables → batch activateAroundUnlocked
+  TABLES_ACTIVATE_MIN_NEIGHBORS: 2, // v2.17 R14.6: unlock requires ≥2 already-unlocked neighbors
   PREVIEW_PRICE: 80,                // v2 R15.1 precio previewPool = PREVIEW_PRICE * level
   PILE_SIZE_WEIGHTS: [9, 8, 7, 6, 5, 4, 3], // v2.9 R3.1: peso del tamaño 1..7 —
                                     // menos fichas más común pero SUTIL (7 sigue
@@ -242,6 +244,25 @@ export function isHexAdjacent(a, b) {
   if (!a || !b) return false;
   if (a.q === b.q && a.r === b.r) return false;
   return HEX_ADJ.some(([dq, dr]) => a.q + dq === b.q && a.r + dr === b.r);
+}
+
+// v2.17 R14.6 — nº de vecinos YA desbloqueados (dormant===false) de una celda.
+// Las celdas blocked del núcleo/activadas cuentan: son mesas desbloqueadas.
+export function unlockedNeighborCount(state, cell) {
+  const board = state && state.run && state.run.board;
+  if (!board || !cell) return 0;
+  let n = 0;
+  for (const other of board) {
+    if (!other || other.dormant) continue;
+    if (isHexAdjacent(cell, other)) n += 1;
+  }
+  return n;
+}
+
+// v2.17 — elegible para activateTile / hold-batch: dormant, no blocked, ≥2 unlocked neighbors.
+export function isActivateEligible(state, cell) {
+  if (!cell || !cell.dormant || cell.blocked) return false;
+  return unlockedNeighborCount(state, cell) >= (CONFIG.TABLES_ACTIVATE_MIN_NEIGHBORS || 2);
 }
 
 // every free axial position that touches >=1 occupied cell (valid drag targets)
@@ -942,6 +963,9 @@ export function activateTile(state, cellId, rng) {
   const sk = s.skills && s.skills.tables;
   if (!sk || !sk.owned) return { error: 'locked', state: s };   // R7.8
   if ((sk.uses | 0) <= 0) return { error: 'noUses', state: s }; // R14.3 v2.2
+  // v2.17 R14.6: solo si toca ≥2 mesas ya desbloqueadas (núcleo inicial ya
+  // desbloqueado; primeras expansiones = anillos mid-edge del radio 2).
+  if (!isActivateEligible(s, cell)) return { error: 'needTwoNeighbors', state: s };
   cell.dormant = false;                                // activa ESTA partida
   // v2.8 R8.1: revelar pila de calamidad oculta en baldosas (si la hay)
   if (cell.hiddenStack && cell.hiddenStack.length) {
@@ -954,6 +978,40 @@ export function activateTile(state, cellId, rng) {
   // calamidades entran UNA sola vez por partida (flag run.calamitiesApplied;
   // applyCalamities es no-op si ya aplicaron o si no se cruzó el umbral).
   s = applyCalamities(s, rng);
+  return s;
+}
+
+// ---------------------------------------------------------------------------
+// v2.17 R14.3b — activateAroundUnlocked(state, rng): batch del hold-Tables.
+// Snapshot de elegibles al INICIO: dormant + vecinas del set desbloqueado
+// actual + ≥2 vecinos desbloqueados (R14.6). Orden estable = índice de board
+// ascendente. Activa en serie vía activateTile hasta agotar uses o candidatos.
+// ---------------------------------------------------------------------------
+export function activateAroundUnlocked(state, rng) {
+  let s = clone(state);
+  if (!s.run || !Array.isArray(s.run.board)) return { error: 'noRun', state: s };
+  const sk = s.skills && s.skills.tables;
+  if (!sk || !sk.owned) return { error: 'locked', state: s };
+  if ((sk.uses | 0) <= 0) return { error: 'noUses', state: s };
+  // Snapshot: vecinos del set desbloqueado AHORA (no crece mid-batch).
+  const unlocked = s.run.board.filter((c) => c && !c.dormant);
+  const candidates = [];
+  s.run.board.forEach((c, i) => {
+    if (!c || !c.dormant || c.blocked) return;
+    if (!unlocked.some((u) => isHexAdjacent(c, u))) return; // around unlocked set
+    if (!isActivateEligible(s, c)) return;                  // R14.6 ≥2
+    candidates.push(i);
+  });
+  candidates.sort((a, b) => a - b); // board-scan order
+  const activated = [];
+  for (const idx of candidates) {
+    if ((s.skills.tables.uses | 0) <= 0) break;
+    const res = activateTile(s, idx, rng);
+    if (res && res.error) continue; // skip if somehow ineligible after prior
+    s = res;
+    activated.push(idx);
+  }
+  if (!activated.length) return { error: 'noneEligible', state: s };
   return s;
 }
 
@@ -1051,12 +1109,42 @@ export function serveOrder(state, orderId, cellId) {
 function rngFallback() { return Math.random; }
 
 // ---------------------------------------------------------------------------
-// resolveCascade(state) [R12.2] — PURA: clona, itera eslabones hasta estabilizar
-// y retorna { state, steps }. Eslabón: (i) merge hacia celdas modificadas en
-// esta cascada (R12.1); (ii) auto-servir pedidos flotantes (cell===null) con
-// match determinista, si skills.serveManual.autoServe !== false; (iii) umbral
-// de escombros (grupo contiguo >= DEBRIS_THRESHOLD eliminado, bonus por ficha).
-// Estable desde el inicio => steps 0. Sin CASCADE_STEP_MS: síncrona.
+// sweepDebrisRuns(board, progress) — v2.17 R12.3: destruye runs contiguas
+// >= DEBRIS_THRESHOLD en TODAS las celdas; coins += DEBRIS_BONUS_PER * qty.
+// Retorna índices de celdas tocadas. NO reentra merge: se llama SOLO tras
+// estabilizar merges/auto-serves de la acción del jugador.
+// ---------------------------------------------------------------------------
+export function sweepDebrisRuns(board, progress) {
+  const hit = [];
+  if (!Array.isArray(board)) return hit;
+  board.forEach((c, i) => {
+    if (!c || !c.stack || !c.stack.length) return;
+    const st = c.stack;
+    let j = 0;
+    let touched = false;
+    while (j < st.length) {
+      let k = j;
+      while (k < st.length && st[k] === st[j]) k++;
+      const runLen = k - j;
+      if (runLen >= CONFIG.DEBRIS_THRESHOLD) {
+        st.splice(j, runLen);
+        if (progress) progress.coins += CONFIG.DEBRIS_BONUS_PER * runLen;
+        touched = true;
+      } else {
+        j = k;
+      }
+    }
+    if (touched) hit.push(i);
+  });
+  return hit;
+}
+
+// ---------------------------------------------------------------------------
+// resolveCascade(state) [R12.2 / v2.17] — PURA: clona, itera eslabones hasta
+// estabilizar y retorna { state, steps }. Eslabón: (i) merge (R12.1); (ii)
+// auto-servir flotantes si autoServe !== false. Tras estabilizar merges/serves:
+// (iii) sweepDebrisRuns — umbral 10+ SOLO al final de la cadena (las pilas 10+
+// permanecen durante merges para seguir participando). Estable => steps 0.
 // ---------------------------------------------------------------------------
 export function resolveCascade(state) {
   const s = clone(state);
@@ -1149,28 +1237,15 @@ export function resolveCascade(state) {
         // consumir del board de forma NO determinista.
       }
     }
-    // (iii) umbral de escombros: todo grupo contiguo >= DEBRIS_THRESHOLD se
-    // elimina; coins += DEBRIS_BONUS_PER * tamaño (R12.3). La celda remanente
-    // queda como imán para el merge del siguiente eslabón.
-    s.run.board.forEach((c, i) => {
-      if (!c || !c.stack || !c.stack.length) return;
-      const st = c.stack;
-      let j = 0;
-      while (j < st.length) {
-        let k = j;
-        while (k < st.length && st[k] === st[j]) k++;
-        const runLen = k - j;
-        if (runLen >= CONFIG.DEBRIS_THRESHOLD) {
-          st.splice(j, runLen);
-          s.progress.coins += CONFIG.DEBRIS_BONUS_PER * runLen;
-          acted = true;   // v3: sin imanes — el barrido global del próximo eslabón lo cubre
-        } else {
-          j = k;
-        }
-      }
-    });
+    // v2.17: SIN destrucción umbral aquí — las pilas 10+ siguen en tablero
+    // para participar en merges posteriores de ESTA cadena.
     if (!acted) break;
     steps += 1;
+  }
+  // (iii) v2.17 R12.3 — barrido de escombros SOLO tras estabilizar merges/serves
+  if (s.run && Array.isArray(s.run.board)) {
+    const hit = sweepDebrisRuns(s.run.board, s.progress);
+    if (hit.length) steps += 1;
   }
   // v2.1 R16.4: refill inmediato — UNA vez al FINAL de la cascada. Los clientes
   // recién llegados quedan visibles para la SIGUIENTE cascada / serveOrder;
