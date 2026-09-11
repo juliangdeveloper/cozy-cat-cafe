@@ -191,8 +191,18 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .board.flat .tface,
 .board.flat .tface::before,
 .board.flat .lockovl,
-.board.flat .lockovl::before{
+.board.flat .lockovl::before,
+.cell.hex-flat .hexbg,
+.cell.hex-flat .hexbg::before,
+.cell.hex-flat .hexbg::after,
+.cell.hex-flat .tile::before,
+.cell.hex-flat .tface,
+.cell.hex-flat .tface::before,
+.cell.hex-flat .lockovl,
+.cell.hex-flat .lockovl::before{
   clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)}
+.cell.hex-flat{width:var(--ch);height:var(--cw)}
+.cell.hex-flat .tile{width:var(--ch);height:var(--cw)}
 
 /* v2 cascada animada (R12.2): anillo + pop en celdas afectadas por eslabón */
 .cell.casc .hexbg{--hb:var(--highlight);--hbw:4px;filter:drop-shadow(0 0 8px var(--highlight))}
@@ -2500,33 +2510,37 @@ function renderBoard(){
   // and we draw flat hexes. 0/180 stay pointy. Tiles stay upright in the cell.
   const rot=((state.settings&&state.settings.boardRot)|0)%360;
   const hxN=hx();
+  const SQ3=Math.sqrt(3);
   const viewCenter=(q,r)=>{
-    const x=hxN*1.732*(q+r/2), y=hxN*1.5*r;
+    const x=hxN*SQ3*(q+r/2), y=hxN*1.5*r;
     if(rot===90) return {x:y, y:-x};
     if(rot===180) return {x:-x, y:-y};
     if(rot===270) return {x:-y, y:x};
     return {x,y};
   };
   const flat=rot===90||rot===270;
-  const cw=flat?hxN*2:hxN*1.732;
-  const ch=flat?hxN*1.732:hxN*2;
+  const cw=flat?hxN*2:hxN*SQ3;
+  const ch=flat?hxN*SQ3:hxN*2;
   const pts=[...occ.values()].map(v=>({...v, ...viewCenter(v.p.q,v.p.r)}));
+  pts.sort((a,b)=>a.y-b.y||a.x-b.x);
   const minX=Math.min(...pts.map(p=>p.x));
   const minY=Math.min(...pts.map(p=>p.y));
   const maxX=Math.max(...pts.map(p=>p.x));
   const maxY=Math.max(...pts.map(p=>p.y));
   const liftPad=10*stackStep();
   let html='';
-  for(const v of pts){
+  pts.forEach((v,zi)=>{
     const left=(v.x-minX);
     const top=(v.y-minY)+liftPad;
+    const box=`position:absolute;left:${left}px;top:${top}px;width:${cw}px;height:${ch}px;z-index:${zi}`;
+    const flatCls=flat?' hex-flat':'';
     if(v.slot){
-      html+=`<div class="cell expand-slot" data-pos="${v.p.q},${v.p.r}" title="Place table here" style="position:absolute;left:${left}px;top:${top}px"><div class="hexbg"></div><div class="exicon">＋</div></div>`;
+      html+=`<div class="cell expand-slot${flatCls}" data-pos="${v.p.q},${v.p.r}" title="Place table here" style="${box}"><div class="hexbg"></div><div class="exicon">＋</div></div>`;
     } else {
-      const raw=cellHTML(v.cell, v.idx);
-      html+=raw.replace('<div class="cell', `<div style="position:absolute;left:${left}px;top:${top}px" class="cell`);
+      html+=cellHTML(v.cell, v.idx)
+        .replace('<div class="cell', `<div style="${box}" class="cell${flatCls}`);
     }
-  }
+  });
   box.classList.toggle('actmode', ui.mode==='activate');
   box.classList.toggle('flat', flat);
   box.style.width=((maxX-minX)+cw)+'px';
@@ -3420,7 +3434,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40, tables 80×1.25;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.19.1';
+const GAME_VERSION = 'v2.19.2';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };
