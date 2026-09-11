@@ -12,6 +12,7 @@
 :root{
   --hex-pointy:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
   --hex-flat:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);
+  --hexclip:var(--hex-pointy);
   --bg-primary:#f7d1e1; --panel:#f8f1d5; --wood:#b6947c; --wood-dark:#9a7a63;
   --accent:#f6a7c1; --accent-2:#ffb2c1; --highlight:#fff5b2;
   --tile-mint:#7fd6a4; --tile-blue:#7cc4f5; --tile-pink:#ff8fa3; --tile-blush:#ffab72;
@@ -258,7 +259,7 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .ttile::before{content:"";position:absolute;inset:0;background:color-mix(in srgb,var(--tc),#000 30%);
   clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
   transform:translateY(calc(var(--hx)*0.055))}
-.ttile .tface{transform:translateY(calc(var(--hx)*-0.015))}
+.ttile .tface,.ttile .tface::before{transform:translateY(calc(var(--hx)*-0.015));clip-path:var(--hex-pointy)}
 .poolempty{font-size:10px;color:var(--wood-dark);font-weight:700;text-align:center;width:100%;align-self:flex-end;padding-bottom:6px}
 
 /* powers */
@@ -1743,7 +1744,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40, tables 80×1.25;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.19.3';
+const GAME_VERSION = 'v2.19.4';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };
