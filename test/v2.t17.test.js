@@ -222,8 +222,11 @@ test('T17f [R17.2 v2.3] buyUsesUp: usesBought+1, openRun uses=usesBought, precio
   s = unwind(G.buySkill(s, 'destroyPile'), s);
   assert.equal(s.skills.destroyPile.usesBought, 1, 'RED: v2.3 la compra ya cuenta como 1 uso');
   const c0 = s.progress.coins;
+  // gastar el uso de la compra antes de buyUsesUp
+  s.skills.destroyPile.uses = 0;
   const st = unwind(G.buyUsesUp(s, 'destroyPile'), s);
   assert.equal(st.skills.destroyPile.usesBought, 2, 'RED: buyUsesUp → usesBought+1 [R17.2]');
+  assert.equal(st.skills.destroyPile.uses, 1, 'RED: v2.15 buyUsesUp mid-run → uses+1 sin restaurar');
   assert.ok(Math.abs((c0 - st.progress.coins) - G.CONFIG.USES_UP_BASE * G.CONFIG.USES_UP_RATIO ** 1) < 1e-2,
     'RED: buyUsesUp cuesta 60*1.6^usesBought=96 (usesBought ya es 1 tras la compra)');
   const c1 = st.progress.coins;

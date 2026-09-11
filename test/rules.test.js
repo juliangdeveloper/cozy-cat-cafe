@@ -359,7 +359,13 @@ test('T6.2 compra exige nivel + saldo (v2.3: compra = 1 uso, uses=usesBought=1)'
   const before = s.progress.coins;
   s = buySkill(s, 'destroyPile');
   assert.equal(s.skills.destroyPile.usesBought, 2);
+  assert.equal(s.skills.destroyPile.uses, 2);          // v2.15: +1 por compra (sin gastar aún)
   assert.ok(before - s.progress.coins === Math.round(250 * 1.35));
+  // mid-run: gastar 2, recomprar → uses=1 (no 3)
+  s.skills.destroyPile.uses = 0;
+  s = buySkill(s, 'destroyPile');
+  assert.equal(s.skills.destroyPile.usesBought, 3);
+  assert.equal(s.skills.destroyPile.uses, 1, 'v2.15: recompra mid-run suma +1, no restaura gastados');
 });
 test('T6.2b compra sin saldo => noFunds', () => {
   assert.equal(buySkill(createGame(), 'refreshPool').error, 'noFunds');

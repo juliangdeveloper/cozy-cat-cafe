@@ -161,6 +161,7 @@ test('T14e [R14.4 v2.2] buyTablesUp: permTiles+1, usesBought+1, owned; precio PE
   const st = unwind(G.buyTablesUp(s), s);
   assert.equal(st.progress.permTiles, perm0 + 1, 'RED: buyTablesUp debe hacer progress.permTiles+1 [R14.4]');
   assert.equal(st.skills.tables.usesBought, 1, 'RED: buyTablesUp debe hacer skills.tables.usesBought+1 [R14.4 v2.2]');
+  assert.equal(st.skills.tables.uses, 1, 'RED: v2.15 buyTablesUp debe hacer uses+1 al comprar');
   assert.equal(st.skills.tables.owned, true, 'RED: la 1ª compra debe marcar skills.tables.owned=true');
   assert.ok(Math.abs((coins0 - st.progress.coins) - price) < 1e-6,
     'RED: coins debe descontar exactamente permTilePrice [R14.4]');
@@ -195,4 +196,17 @@ test('T14f [R14.4 v2.2] buyTablesUp NO activa la celda; tras openRun (uses repue
     'RED: con techo/usos disponibles, activateTile debe activar la baldosa [R14.2,R14.4]');
   assert.equal(st3.run.runTilesActivated, (st2.run.runTilesActivated || 0) + 1,
     'RED: la activación temporal cuenta en runTilesActivated [R14.3]');
+});
+
+// ---------------------------------------------------------------------------
+// T14g — [v2.15] buyTablesUp mid-run: usesBought+=1 y uses+=1 sin devolver gastados.
+// ---------------------------------------------------------------------------
+test('T14g [R14.4 v2.15] buyTablesUp mid-run: uses += 1 sin restaurar gastados', () => {
+  need('buyTablesUp');
+  const s = mkGame(1);
+  s.progress.coins = 1e9;
+  s.skills.tables = { owned: true, uses: 0, usesBought: 2 }; // compró 2, gastó/nunca recibió 2
+  const st = unwind(G.buyTablesUp(s), s);
+  assert.equal(st.skills.tables.usesBought, 3, 'RED: usesBought debe ser 3');
+  assert.equal(st.skills.tables.uses, 1, 'RED: mid-run compra suma +1 uso, no uses=usesBought');
 });
