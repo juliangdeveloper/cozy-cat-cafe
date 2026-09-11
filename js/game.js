@@ -960,9 +960,9 @@ export function activateTile(state, cellId, rng) {
 // ---------------------------------------------------------------------------
 // v2.2 R14.4 — buyTablesUp (reemplaza a buyPermTile): compra permanente en la
 // TIENDA. Sube el techo histórico permTiles (+1) Y skills.tables.usesBought
-// (+1 mesa activable por partida; openRun repone uses = 1 + usesBought).
-// La 1ª compra marca tables como owned. La celda elegida NO se activa aquí.
-// Precio = permTilePrice = TABLES_PERM_BASE * 1.35^permTiles.
+// (+1 mesa activable por partida). Mid-run: uses += 1 (sin devolver gastados);
+// openRun repone uses = usesBought. La 1ª compra marca tables.owned.
+// La celda elegida NO se activa aquí. Precio = TABLES_PERM_BASE * RATIO^permTiles.
 // ---------------------------------------------------------------------------
 export function buyTablesUp(state) {
   const s = clone(state);
@@ -977,6 +977,7 @@ export function buyTablesUp(state) {
   if (s.progress.coins < price) return { error: 'noFunds', state: s };
   s.progress.permTiles += 1;                                    // techo permanente
   s.skills.tables.usesBought = (s.skills.tables.usesBought || 0) + 1;  // mesas/partida
+  s.skills.tables.uses = (s.skills.tables.uses || 0) + 1;       // v2.15: +1 uso ya (sin devolver gastados)
   s.skills.tables.owned = true;
   s.progress.coins -= price;
   return s;
@@ -1296,9 +1297,9 @@ export function buySkill(state, power) {
     s.skills.capacidad.level = level + 1;
     return s;
   }
-  // v2.3 R7.2 — skills modelo USOS (destroyPile/swapPiles/refreshPool/queueSkip):
-  // CADA uso se compra (sin base gratis): la 1ª compra desbloquea y ES el 1er
-  // uso (usesBought 0→1); recomprar = +1 uso por partida. openRun repone
+  // v2.3/v2.15 R7.2 — skills modelo USOS (destroy/swap/refresh/queueSkip/tables/unlock):
+  // CADA uso se compra (sin base gratis): usesBought += 1 y uses += 1 (mid-run
+  // usable ya; NO uses = usesBought — eso devolvería gastados). openRun repone
   // uses = usesBought. Precio = price * 1.35^usesBought (compras acumuladas).
   {
     const sk2 = s.skills[power];
@@ -1312,7 +1313,7 @@ export function buySkill(state, power) {
     s.progress.coins -= cost;
     sk2.usesBought = (sk2.usesBought || 0) + 1;   // la compra ES un uso
     sk2.owned = true;
-    sk2.uses = sk2.usesBought;                    // repuesto inmediato
+    sk2.uses = (sk2.uses || 0) + 1;               // v2.15: +1 uso ya (sin devolver gastados)
     return s;
   }
 }
@@ -1338,10 +1339,10 @@ export function useQueueSkip(state) {
 }
 
 // ---------------------------------------------------------------------------
-// v2.1 R17.2 — MEJORA DE USOS (tienda): cada skill modelo 'uses'
-// (destroyPile/swapPiles/refreshPool/queueSkip) puede subir +1 uso por partida.
-// Precio = USES_UP_BASE * USES_UP_RATIO^comprasDelSkill (exponencial, sin
-// tope — auto-limita). Estructura state.skills[p].usesBought (acumulado).
+// v2.1/v2.15 R17.2 — MEJORA DE USOS (tienda): cada skill modelo 'uses'
+// (destroyPile/swapPiles/refreshPool/queueSkip/…) puede subir +1 uso por partida.
+// Precio = USES_UP_BASE * USES_UP_RATIO^comprasDelSkill (exponencial).
+// Mid-run: usesBought += 1 y uses += 1 (sin devolver gastados).
 // openRun repone uses = usesBought (v2.3: cada uso se compra, sin base).
 // ---------------------------------------------------------------------------
 export function usesUpPrice(state, power) {
@@ -1364,7 +1365,8 @@ export function buyUsesUp(state, power) {
   if (!cur.owned) return { error: 'locked' };                        // R7.1: mejora lo comprado
   const price = CONFIG.USES_UP_BASE * Math.pow(CONFIG.USES_UP_RATIO, cur.usesBought || 0);
   if (s.progress.coins < price) return { error: 'noFunds' };         // R7.3
-  cur.usesBought = (cur.usesBought || 0) + 1;                        // acumulado (sin tope)
+  cur.usesBought = (cur.usesBought || 0) + 1;                        // acumulado
+  cur.uses = (cur.uses || 0) + 1;                                    // v2.15: +1 uso ya
   s.progress.coins -= price;
   return s;
 }

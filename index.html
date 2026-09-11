@@ -808,7 +808,7 @@ function renderPowers(){
     {skill:'swapPiles',icon:'power_swap',label:'Swap',mode:'swap'},
     {skill:'refreshPool',icon:'power_refresh',label:'Refresh',mode:'refresh'},
     // v2.2 R14.3 — activar baldosa dormant ESTA partida (skill 'tables', modelo usos)
-    {skill:'tables',icon:'power_activate',label:'Activate',mode:'activate'},
+    {skill:'tables',icon:'power_activate',label:'Tables',mode:'activate'},
     // v2.8 R7.8: Unlock — desbloquea un candado y revela su pila oculta
     {skill:'unlockLocks',icon:'🔓',label:'Unlock',mode:'unlock'},
   ];
@@ -1138,7 +1138,7 @@ function activateFlow(id){
   const cell=state.run.board[id];
   if(!cell||!cell.dormant){ toast('That tile is already active'); return; }
   const res=activateTile(state, id, Math.random);
-  if(res.error==='locked'){ toast('Unlock "Tables per run" in the Shop 🛒'); return; }
+  if(res.error==='locked'){ toast('Unlock "Tables" in the Shop 🛒'); return; }
   if(res.error){ err(res); return; }
   state=res; ui.mode=null;
   const el=$(`#board .cell[data-id="${id}"]`); if(el) floatOn(el,'🪧');
@@ -1295,7 +1295,7 @@ function showShop(){
   // partida (usesBought); la 1ª compra marca owned. Precio permTilePrice.
   const tables = state.skills.tables || { owned: false, usesBought: 0 };
   const tPrice = Math.round(permTilePrice(state));
-  const tablesRow = `<div class="rowcard"><div class="rowinfo"><b>Tables per run</b>
+  const tablesRow = `<div class="rowcard"><div class="rowinfo"><b>Tables</b>
     <span>${tables.owned ? `${tables.usesBought} → +1 per run` : 'unlock: activate dormant tiles each run'}</span></div>
     <button class="btn btn-sm" data-tables="1">${fmt(tPrice)}🪙</button></div>`;
   // v2.1 — TIENDA ÚNICA: skills ACTIVAS + sus "+1 uso" viven aquí (el modal
@@ -1336,9 +1336,8 @@ function showShop(){
     ${tablesRow}
     <div class="shopsec">☕ Passive upgrades</div>
     ${colorRow}
-    <div class="rowcard"><div class="rowinfo"><b>Extra table</b><span>${p.clients} → ${p.clients+1} cats</span></div>
-      <button class="btn btn-sm" data-exp="clients">${fmt(price('clients'))}🪙</button></div>
-    <!-- v2 fix (audit): filas "Bigger floor" (R6.2 OBSOLETA-v2, flujo muerto en
+    <!-- v2.15: Extra table (progress.clients) eliminada — huérfano v1; Capacity es la
+         expansión de clientes. Bigger floor (R6.2 OBSOLETA-v2, flujo muerto en
          tablero dual 32 fijo, v2-shape) y "Menu variety" (R6.3 OBSOLETA-v2, gastaba monedas
          en productsBought sin efecto — colores ahora son buyColor R13.7) ELIMINADAS -->
     <div class="rowcard"><div class="rowinfo"><b>Big-tip bonus</b><span>mult ${p.econ.multLevel} (superlinear)</span></div>
@@ -1469,7 +1468,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40, tables 80×1.25;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.14.0';
+const GAME_VERSION = 'v2.15.0';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };
