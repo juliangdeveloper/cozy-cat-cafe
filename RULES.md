@@ -77,7 +77,7 @@ export { createGame, CONFIG,
 
   "run": null,                         // null = sin partida activa (menú); si no, R2
 
-  "settings": { "reducedMotion": false }
+  "settings": { "reducedMotion": false, "seenTutorial": false }  // v2.18
 }
 ```
 
@@ -86,6 +86,7 @@ export { createGame, CONFIG,
 - `R1.2` — **Guardado**: snapshot del state en cada mutación transaccional (colocar/servir/cerrar/comprar/offline). **Carga**: al arrancar lee el blob; si no existe → state inicial (`createGame()`); si existe → restore íntegro (roundtrip idéntico: JSON.stringify(load(save)) === save). → US-40, G4.
 - `R1.3` — **Export/Import**: exportar = descargar el blob como `cozy-cat-cafe-v1.json`; importar = validar `version===1`, shape mínima y reemplazar el blob. Import inválido se rechaza sin tocar el save actual. → US-41, G4.
 - `R1.4` — Guardia de migración: si `version !== 1` en el momento de cargar → **reset a `createGame()`** y descarta el blob anterior (sin crash). → US-40.
+- `R1.5` — **[v2.18] First-run tutorial:** `settings.seenTutorial` defaults to `false` in `createGame`. UI shows a 4-step spotlight overlay after the café opens (run scene). Skip or completing step 4 → `seenTutorial = true` + persist (never auto-show again on that save). **Old saves** (v2.16/v2.17) without the flag: `deserializeState` sets `seenTutorial = true` so existing players skip it. New-game reset (`createGame`) shows the tutorial again.
 
 ### R2. Ciclo de partida (abrir/cerrar/reabrir)
 ```js

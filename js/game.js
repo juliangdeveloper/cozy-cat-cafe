@@ -196,7 +196,7 @@ export function createGame(init = {}) {
     },
     run: null,
     metaClose: null,
-    settings: { reducedMotion: false },
+    settings: { reducedMotion: false, seenTutorial: false },  // v2.18 first-run tutorial
   };
   return deepMerge(base, init);
 }
@@ -1671,6 +1671,10 @@ export function deserializeState(json) {
         if (s.run.orderSeq == null) s.run.orderSeq = (s.run.orders || []).length;
         if (s.run.rosterIndex == null) s.run.rosterIndex = 5;   // R13.3 v2.1
       }
+      // v2.18 — first-run tutorial flag. Old saves (v2.16/v2.17) lack the key;
+      // treat missing as TRUE so existing players never see the overlay.
+      if (!s.settings) s.settings = { reducedMotion: false };
+      if (s.settings.seenTutorial == null) s.settings.seenTutorial = true;
       return s;
     }
     return createGame();
