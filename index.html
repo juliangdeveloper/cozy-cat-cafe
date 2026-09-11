@@ -391,16 +391,25 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 @media(hover:none){.btn:hover{transform:none;filter:none}}
 @media(prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01s!important;transition:none!important}}
 
-/* v2.18 — first-run spotlight tutorial */
-#tutOverlay{position:fixed;inset:0;z-index:80;display:none;pointer-events:none}
-#tutOverlay.show{display:block}
-.tut-hole{position:absolute;border-radius:14px;pointer-events:none;
-  box-shadow:0 0 0 9999px rgba(121,72,53,.55);outline:3px solid var(--highlight);
+/* v2.18 — first-run spotlight tutorial.
+   Overlay blocks non-playable UI. Board + trays stay above the dim so the
+   player can keep placing. Spotlighted controls are raised; Close is visual-only. */
+#tutOverlay{position:fixed;inset:0;z-index:80;display:none;pointer-events:none;background:transparent}
+#tutOverlay.show{display:block;pointer-events:auto;background:rgba(121,72,53,.55)}
+body.tut-on .board-wrap,body.tut-on .pool{position:relative;z-index:90}
+body.tut-on .tut-spot{position:relative;z-index:90;outline:3px solid var(--highlight);border-radius:12px}
+body.tut-on .tut-spot-block{pointer-events:none!important}
+body.tut-on.tut-raise-shop .topbar{z-index:90}
+body.tut-on.tut-raise-shop .topbar .chip,
+body.tut-on.tut-raise-shop #btnSave{pointer-events:none}
+body.tut-on.tut-raise-shop #btnShop{pointer-events:auto}
+body.tut-on #shopModal.show{z-index:100}
+.tut-hole{position:absolute;border-radius:14px;pointer-events:none;outline:3px solid var(--highlight);
   transition:left .2s,top .2s,width .2s,height .2s}
 .tut-card{pointer-events:auto;position:fixed;left:50%;transform:translateX(-50%);
   width:min(420px,calc(100% - 24px));background:var(--panel);border:3px solid var(--ink);
   border-radius:16px;padding:14px 14px 12px;box-shadow:0 5px 0 var(--wood-dark);
-  z-index:1;max-width:92vw}
+  z-index:101;max-width:92vw}
 .tut-card p{margin:0 0 12px;font-weight:800;font-size:15px;text-align:center;line-height:1.35;color:var(--ink)}
 .tut-actions{display:flex;gap:10px;justify-content:center}
 .tut-actions .btn{flex:1;min-height:44px}
@@ -633,6 +642,7 @@ function renderRun(){
   $('#btnShop').onclick=showShop; $('#btnSave').onclick=showSave;
   $('#btnClose').onclick=()=>doClose('manual');
   renderIdle(); renderOrders(); renderBoard(); renderPool(); renderPreview(); renderPowers();
+  if(tutActive) showTutStep();
 }
 function renderIdle(){
   // colapsable mobile-first: plegado por defecto <=560px (el tablero es lo primero)
@@ -1343,7 +1353,7 @@ function openTheCafe(){
   persist(); renderAll();
   maybeStartTutorial(); // v2.18: first-run overlay after café is open
 }
-function doClose(reason){ const res=closeRun(state, reason); state=res; persist();
+function doClose(reason){ if(tutActive && reason==='manual') return; const res=closeRun(state, reason); state=res; persist();
   $('#closeTitle').textContent = reason==='allServed' ? '☕ All cats served!' : reason==='full' ? 'Full & cleared!' : 'Café closed';
   $('#closeMsg').textContent = reason==='allServed' ? 'A perfect closing — every order served!' :
     reason==='full' ? 'No room to sort. You kept all your coins.' : 'You closed and kept all your coins.';
@@ -1356,7 +1366,7 @@ function doClose(reason){ const res=closeRun(state, reason); state=res; persist(
 // ============================================================================
 function showSave(){ $('#saveModal').classList.add('show'); }
 
-function showShop(){
+function showShop(){ if(tutActive && (TUT_STEPS[tutStep]||{}).sel!=='#btnShop') return; 
   const p=state.progress;
   const price = k => Math.round(CONFIG.EXPAND[k].price(state));
   const multC = p.econ.multLevel>=CONFIG.MULT_MAX ? null : CONFIG.MULT_PRICE_BASE*(p.econ.multLevel+1);
@@ -1551,16 +1561,29 @@ function maybeStartTutorial(){
 }
 function startTutorial(){
   tutActive = true; tutStep = 0;
+  document.body.classList.add('tut-on');
   const ov = $('#tutOverlay'); if(!ov) return;
   ov.classList.add('show');
   showTutStep();
   requestAnimationFrame(()=>showTutStep()); // layout after paint
+}
+function applyTutLayer(){
+  document.body.classList.toggle('tut-on', tutActive);
+  document.body.classList.toggle('tut-raise-shop', tutActive && (TUT_STEPS[tutStep]||{}).sel==='#btnShop');
+  $$('.tut-spot').forEach(el=>{ el.classList.remove('tut-spot','tut-spot-block'); });
+  if(!tutActive) return;
+  const step = TUT_STEPS[tutStep]; if(!step) return;
+  const el = $(step.sel);
+  if(!el) return;
+  el.classList.add('tut-spot');
+  if(step.sel==='#btnClose') el.classList.add('tut-spot-block');
 }
 function showTutStep(){
   const step = TUT_STEPS[tutStep]; if(!step) return;
   const lab = $('#tutStepLabel'); if(lab) lab.textContent = (tutStep+1)+' / '+TUT_STEPS.length;
   const tx = $('#tutText'); if(tx) tx.textContent = step.text;
   const next = $('#tutNext'); if(next) next.textContent = tutStep >= TUT_STEPS.length-1 ? 'Done' : 'Next';
+  applyTutLayer();
   positionTut(step.sel);
 }
 function positionTut(sel){
@@ -1590,6 +1613,8 @@ function positionTut(sel){
 }
 function finishTutorial(){
   tutActive = false;
+  document.body.classList.remove('tut-on','tut-raise-shop');
+  $$('.tut-spot').forEach(el=>{ el.classList.remove('tut-spot','tut-spot-block'); });
   const ov = $('#tutOverlay'); if(ov) ov.classList.remove('show');
   if(!state.settings) state.settings = { reducedMotion: false };
   state.settings.seenTutorial = true;
@@ -1636,7 +1661,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40, tables 80×1.25;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.18.1';
+const GAME_VERSION = 'v2.18.2';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };
