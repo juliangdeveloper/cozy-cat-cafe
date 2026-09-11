@@ -43,6 +43,7 @@ const mkGame = (seed = 1) => {
 
 // primera baldosa apagada (dormant), preferendo no bloqueada
 const dormantCell = (s) =>
+  s.run.board.find(c => c.dormant && !c.blocked && G.isActivateEligible(s, c)) ||
   s.run.board.find(c => c.dormant && !c.blocked) ||
   s.run.board.find(c => c.dormant || c.blocked);
 

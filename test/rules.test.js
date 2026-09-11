@@ -11,7 +11,7 @@ import {
   buyExpansion, buyIdleUpgrade, tickIdle, applyOffline, buyColor,
   colorsUnlocked, generateBoard, orderReadyOn, topGroup, pay,
   serializeState, deserializeState, importSave, mulberry32,
-  expandTile, freeSlots, activateTile, applyCalamities,
+  expandTile, freeSlots, activateTile, unlockedNeighborCount, applyCalamities,
   previewPool,                     // v2.9 R3.1: pizarra usa la tabla ponderada
   drawPoolPiles, initBag,          // v2.10 R18: bolsita de pool
 } from '../js/game.js';
@@ -429,9 +429,10 @@ const T7 = () => {
     // para activar libremente en este harness de calamidades.
     st.skills.tables = { owned: true, uses: 99, usesBought: 0 };
     for (let j = 0; j < k; j++) {
-      const d = st.run.board.map((c, i) => ({ c, i })).filter((x) => x.c.dormant && !x.c.blocked);
+      const d = st.run.board.map((c, i) => ({ c, i }))
+        .filter((x) => x.c.dormant && !x.c.blocked && unlockedNeighborCount(st, x.c) >= 2);
       if (!d.length) break;
-      st = activateTile(st, d[j % d.length].i, mulberry32(seed * 100 + j));
+      st = activateTile(st, d[0].i, mulberry32(seed * 100 + j));
       if (st.error) break;
     }
     return st;

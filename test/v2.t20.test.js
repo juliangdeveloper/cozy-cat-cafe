@@ -166,7 +166,8 @@ test('T20.g [v2.8] applyCalamities alcanza celdas dormant (pila oculta revelable
     assert.equal(c.stack.length, 0, 'dormant sin stack visible');
   }
   // y la determinista: sembrar a mano y verificar el ciclo completo
-  const d = fin.run.board.find((c) => c.dormant && !c.calamity);
+  const d = fin.run.board.find((c) => c.dormant && !c.calamity && G.isActivateEligible(fin, c))
+    || fin.run.board.find((c) => c.dormant && !c.calamity);
   d.calamity = true; d.hiddenStack = [3];
   fin.skills.tables = { owned: true, uses: 1, usesBought: 1 };   // skill comprada
   const fin2 = G.activateTile(fin, fin.run.board.indexOf(d), () => 0.99);
