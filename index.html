@@ -465,7 +465,7 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 <div id="tutOverlay" aria-live="polite">
   <div class="tut-hole" id="tutHole" hidden></div>
   <div class="tut-card" id="tutCard">
-    <span class="tut-step" id="tutStepLabel">1 / 4</span>
+    <span class="tut-step" id="tutStepLabel">1 / 5</span>
     <p id="tutText"></p>
     <div class="tut-actions">
       <button type="button" class="btn btn-sec" id="tutSkip">Skip</button>
@@ -1533,10 +1533,11 @@ function bindGlobal(){
 // v2.18 — FIRST-RUN TUTORIAL (spotlight overlay)
 // ============================================================================
 const TUT_STEPS = [
-  { sel: '#pool',    text: 'Tap a tray, then a table — stack food.' },
-  { sel: '#orders',  text: 'Tap a cat, then a matching pile — serve.' },
-  { sel: '#btnClose',text: 'Serve the queue to close the day and keep coins.' },
-  { sel: '#btnShop', text: 'Shop 🛒 — spend coins on skills.' },
+  { sel: '#pool',     text: 'Tap a tray, then a table — stack food.' },
+  { sel: '#orders',   text: 'Matching piles serve themselves — cats take the food.' },
+  { sel: '#queueCount', text: 'Goal: serve every customer.' },
+  { sel: '#btnClose', text: 'Stuck? Close café — you keep the coins.' },
+  { sel: '#btnShop',  text: 'Shop 🛒 — spend coins on skills.' },
 ];
 let tutStep = 0;
 let tutActive = false;
@@ -1635,7 +1636,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40, tables 80×1.25;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.18.0';
+const GAME_VERSION = 'v2.18.1';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };
