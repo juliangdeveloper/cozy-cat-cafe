@@ -43,6 +43,7 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
   display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 3px 0 var(--wood-dark);
   font-size:18px}
 .iconbtn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--wood-dark)}
+.iconbtn.mute-btn{width:auto;min-width:44px;padding:0 10px;font-family:var(--font-ui);font-weight:800;font-size:13px}
 
 /* buttons */
 .btn{font-family:var(--font-ui);font-weight:800;border:2px solid var(--ink);cursor:pointer;border-radius:16px;
@@ -387,6 +388,7 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   .chip{font-size:14px;padding:4px 8px;min-width:0}
   .chip.sm{font-size:10px;padding:3px 6px}
   .iconbtn{width:32px;height:32px;font-size:15px}
+  .iconbtn.mute-btn{min-width:0;padding:0 7px;font-size:11px}
   .logo{font-size:26px}
   .menu{min-height:88vh;gap:10px;padding:12px 0}
   .btn-primary{min-height:56px;font-size:19px}
@@ -437,6 +439,14 @@ body.tut-on.tut-raise-shop .topbar{z-index:90}
 body.tut-on.tut-raise-shop .topbar .chip,
 body.tut-on.tut-raise-shop #btnSave{pointer-events:none}
 body.tut-on.tut-raise-shop #btnShop{pointer-events:auto}
+/* Mute stays tappable during the spotlight: the bar sits above the dim,
+   and every control except Mute (and Shop on its own step) stays inert. */
+body.tut-on .topbar{z-index:90}
+body.tut-on .topbar .chip,
+body.tut-on .topbar #btnSave,
+body.tut-on .topbar #btnShop{pointer-events:none}
+body.tut-on.tut-raise-shop #btnShop{pointer-events:auto}
+body.tut-on .topbar #btnMute{pointer-events:auto}
 body.tut-on #shopModal.show{z-index:100}
 .tut-hole{position:absolute;border-radius:14px;pointer-events:none;outline:3px solid var(--highlight);
   transition:left .2s,top .2s,width .2s,height .2s}
@@ -517,6 +527,7 @@ body.tut-on #shopModal.show{z-index:100}
   </div>
 </div>
 
+<script src="./vendor/howler.min.js"></script>
 <script type="module">
 // ===========================================================================
 // Cozy Cat Café × HexaSort — APP (DOM + browser lifecycle only).
@@ -543,6 +554,10 @@ import {
   // v2.1 — R16/R17: cola de clientes
   totalClients, runVictory, useQueueSkip,
 } from './js/game.js';
+import {
+  bindCafeAudio, unlockCafeAudio, noteCafeOpen, noteCafeClosed,
+  playCafeSfx, cafeAudioMuted, toggleCafeAudio,
+} from './js/ambience.js';
 
 let state = null;
 const KEY = 'cozy-cat-cafe.save.v1';
@@ -650,6 +665,7 @@ function renderMenu(){
   $('#btnOpen').onclick = openTheCafe;
   $('#btnShop').onclick = showShop;
   $('#btnSave').onclick = showSave;
+  noteCafeClosed();
 }
 
 // ============================================================================
@@ -661,6 +677,7 @@ function renderRun(){
       <div class="topbar">
         <div class="chip">🪙<span id="coinNum">${fmt(state.progress.coins)}</span></div>
         <div class="spacer"></div>
+        ${muteBtnMarkup()}
         <button class="iconbtn" id="btnShop">🛒</button>
         <button class="iconbtn" id="btnSave">💾</button>
       </div>
@@ -676,10 +693,30 @@ function renderRun(){
       </div>
     </div>`;
   $('#btnShop').onclick=showShop; $('#btnSave').onclick=showSave;
+  bindMute();
   bindRotateBoard();
   bindCloseHold();
   renderIdle(); renderOrders(); renderBoard(); renderPool(); renderPreview(); renderPowers();
+  noteCafeOpen();
   if(tutActive) showTutStep();
+}
+function muteBtnMarkup(){
+  const m = cafeAudioMuted();
+  const label = m ? 'Unmute' : 'Mute';
+  const aria = m ? 'Unmute music' : 'Mute music';
+  return `<button type="button" class="iconbtn mute-btn" id="btnMute" aria-pressed="${m?'true':'false'}" aria-label="${aria}" title="${aria}">${label}</button>`;
+}
+function bindMute(){
+  const b=$('#btnMute'); if(!b) return;
+  b.addEventListener('click', ()=>{
+    const m = toggleCafeAudio();
+    const label = m ? 'Unmute' : 'Mute';
+    const aria = m ? 'Unmute music' : 'Mute music';
+    b.textContent = label;
+    b.setAttribute('aria-pressed', m ? 'true' : 'false');
+    b.setAttribute('aria-label', aria);
+    b.title = aria;
+  });
 }
 function renderIdle(){
   // colapsable mobile-first: plegado por defecto <=560px (el tablero es lo primero)
@@ -1229,6 +1266,8 @@ async function playCascade(base,authoritative){
         if(bEl){ bEl.classList.add('shake'); setTimeout(()=>{ if(bEl) bEl.classList.remove('shake'); },480); }
         confetti();
       }
+      if((L.merged||[]).length) playCafeSfx('merge');
+      if((L.served||[]).length) playCafeSfx('serve');
       await sleepMs(CONFIG.CASCADE_STEP_MS);
     }
   } finally { ui.anim=false; }
@@ -1320,6 +1359,7 @@ async function placeFlow(cell,slot){
   if(ui.anim) return;                            // cascada en curso: input bloqueado
   const res=placeStack(state,cell,slot);
   if(res.error){ err(res); return; }
+  playCafeSfx('stack');
   const el=$(`[data-id="${cell}"]`); if(el) floatOn(el,'📥');
   normalizeOrders(res);                          // v2: pedidos nuevos nacen flotantes
   state=res; ui.slot=false;
@@ -1359,6 +1399,7 @@ function placeTileFlow(pos){
 }
 function serveOrderFlow(o,cellId){ const res=serveOrder(state,o,cellId);
   if(res && res.error){ err(res); renderAll(); return; }
+  playCafeSfx('serve');
   const got=res.progress.coins-state.progress.coins; const el=$(`[data-id="${cellId}"]`);
   // v2.4: ANIMACIÓN ENFOCADA — las fichas del pedido vuelan de la pila al
   // cliente (misma animación que el merge); el estado se adopta tras el vuelo
@@ -1382,6 +1423,7 @@ function checkServedAll(){ const r=state.run; if(!r) return;
   // v2.1 R16.4: victoria = TODA la cola servida (clientsServed === totalClients)
   if(runVictory(state)) doClose('allServed'); }
 function openTheCafe(){
+  unlockCafeAudio();
   state=openRun(state, Math.random);
   ui.slot=false; ui.mode=null; ui.servingOrder=null; ui.placeTile=false;
   ui.previewSeed=Math.floor(Math.random()*2147483647);   // semilla del preview ESTA run
@@ -1734,6 +1776,7 @@ async function boot(){
       persist();
     }
   }
+  bindCafeAudio();
   renderAll();
   bindGlobal();
   startLoop();
@@ -1744,7 +1787,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40, tables 80×1.25;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.19.4';
+const GAME_VERSION = 'v2.19.5';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };
