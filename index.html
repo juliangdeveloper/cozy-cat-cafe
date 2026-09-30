@@ -1266,7 +1266,11 @@ async function playCascade(base,authoritative){
         if(bEl){ bEl.classList.add('shake'); setTimeout(()=>{ if(bEl) bEl.classList.remove('shake'); },480); }
         confetti();
       }
-      if((L.merged||[]).length) playCafeSfx('merge');
+      // A 10+ clear is its own end-of-chain step (debris), not the merge click.
+      // That step plays the destroy payoff instead of merge. A merge that
+      // does not clear stays on the merge effect. Serve is its own event.
+      if((L.debris||[]).length) playCafeSfx('destroy');
+      else if((L.merged||[]).length) playCafeSfx('merge');
       if((L.served||[]).length) playCafeSfx('serve');
       await sleepMs(CONFIG.CASCADE_STEP_MS);
     }
@@ -1790,7 +1794,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40, tables 80×1.25;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.19.6';
+const GAME_VERSION = 'v2.19.8';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };

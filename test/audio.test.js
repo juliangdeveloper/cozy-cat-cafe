@@ -20,7 +20,7 @@ test('game.js stays free of audio', () => {
   assert.equal(game.includes('Audio('), false);
 });
 
-test('the UI hooks the loop and the three effects only on success', () => {
+test('the UI hooks the loop and the effects only on success', () => {
   const html = read('index.html');
   const amb = read('js/ambience.js');
   const game = read('js/game.js');
@@ -30,24 +30,35 @@ test('the UI hooks the loop and the three effects only on success', () => {
   assert.doesNotMatch(html, /https?:\/\/[^\s'"]*howler/i);
   assert.doesNotMatch(html, /https?:\/\/[^\s'"]*\.mp3/i);
   assert.match(amb, /hybrid-sunlatte\.mp3/);
-  for (const name of ['sfx-stack', 'sfx-merge', 'sfx-serve']) {
+  for (const name of ['sfx-stack', 'sfx-merge', 'sfx-serve', 'sfx-destroy']) {
     assert.match(amb, new RegExp(name + '\\.mp3'));
     assert.match(amb, new RegExp(name + '\\.ogg'));
   }
-  // No fourth effect name is wired.
-  assert.equal((html.match(/playCafeSfx\(/g) || []).length, 4); // place, cascade merge, cascade serve, manual serve
+  assert.match(amb, /sfx-destroy\.wav/);
+  // place, cascade destroy, cascade merge, cascade serve, manual serve. No sixth.
+  assert.equal((html.match(/playCafeSfx\(/g) || []).length, 5);
   const place = html.slice(html.indexOf('async function placeFlow'), html.indexOf('function serveOrderFlow'));
   assert.ok(place.indexOf('if(res.error)') < place.indexOf("playCafeSfx('stack')"));
   const serve = html.slice(html.indexOf('function serveOrderFlow'), html.indexOf('function checkFull'));
   assert.ok(serve.indexOf('res.error') < serve.indexOf("playCafeSfx('serve')"));
   const casc = html.slice(html.indexOf('async function playCascade'), html.indexOf('function renderPreview'));
-  assert.match(casc, /if\(\(L\.merged\|\|\[\]\)\.length\) playCafeSfx\('merge'\)/);
+  const destroyAt = casc.indexOf("playCafeSfx('destroy')");
+  const mergeAt = casc.indexOf("playCafeSfx('merge')");
+  assert.ok(destroyAt >= 0 && mergeAt > destroyAt);
+  assert.match(casc, /if\(\(L\.debris\|\|\[\]\)\.length\) playCafeSfx\('destroy'\)/);
+  assert.match(casc, /else if\(\(L\.merged\|\|\[\]\)\.length\) playCafeSfx\('merge'\)/);
   assert.match(casc, /if\(\(L\.served\|\|\[\]\)\.length\) playCafeSfx\('serve'\)/);
+  const power = html.slice(html.indexOf('function destroyFlow'), html.indexOf('async function swapFlow'));
+  assert.equal(power.includes('playCafeSfx'), false);
   assert.match(amb, /Howler\.ctx\.resume\(\)/);
   assert.match(html, /Mute music/);
   assert.match(amb, /cozy-cat-cafe\.audio\.mute/);
   assert.match(html, /unlockCafeAudio\(\)/);
   assert.match(html, /noteCafeOpen\(\)/);
+  assert.match(html, /v2\.19\.8/);
+  assert.match(amb, /visibilitychange/);
+  assert.match(amb, /hasFocus/);
+  assert.doesNotMatch(amb, /playCafeSfx\('destroy/);
 });
 
 test('mute persists, the loop waits for a gesture, and effects share that mute', async () => {
@@ -85,13 +96,22 @@ test('mute persists, the loop waits for a gesture, and effects share that mute',
     }
     playing() { return this._playing; }
     pause(id) { this._playing = false; return id; }
+    stop() { this._playing = false; this.stopped = (this.stopped || 0) + 1; }
     unload() { this._playing = false; this.dead = true; }
     state() { return 'loaded'; }
     on() { return this; }
   };
   let onPointer = null;
+  const listeners = {};
+  const remember = (type, fn) => { (listeners[type] ||= []).push(fn); };
   globalThis.document = {
-    addEventListener(type, fn) { if (type === 'pointerdown') onPointer = fn; },
+    visibilityState: 'visible',
+    _focus: true,
+    hasFocus() { return this._focus !== false; },
+    addEventListener(type, fn) { remember(type, fn); if (type === 'pointerdown') onPointer = fn; },
+  };
+  globalThis.window = {
+    addEventListener(type, fn) { remember('win:' + type, fn); },
   };
 
   const amb = await import('../js/ambience.js');
@@ -125,12 +145,16 @@ test('mute persists, the loop waits for a gesture, and effects share that mute',
   assert.ok(stack.opts.volume < music.opts.volume);
   amb.playCafeSfx('merge');
   amb.playCafeSfx('serve');
+  amb.playCafeSfx('destroy');
   amb.playCafeSfx('nope');
   const merge = created.find((h) => String(h.opts.src).includes('sfx-merge'));
   const serve = created.find((h) => String(h.opts.src).includes('sfx-serve'));
+  const destroy = created.find((h) => String(h.opts.src).includes('sfx-destroy'));
   assert.equal(merge.playCalls, 1);
   assert.equal(serve.playCalls, 1);
-  assert.equal(created.length, 4);
+  assert.equal(destroy.playCalls, 1);
+  assert.ok(destroy.opts.volume > merge.opts.volume && destroy.opts.volume < music.opts.volume);
+  assert.equal(created.length, 5);
   // A preload failure must not play an effect by itself.
   stack.opts.onloaderror();
   const stackHtml5 = created.filter((h) => h.opts && String(h.opts.src).includes('sfx-stack')).at(-1);
@@ -145,7 +169,9 @@ test('mute persists, the loop waits for a gesture, and effects share that mute',
   amb.playCafeSfx('stack');
   amb.playCafeSfx('merge');
   amb.playCafeSfx('serve');
+  amb.playCafeSfx('destroy');
   assert.equal(stack.playCalls, before, 'muted effects stay silent');
+  assert.equal(destroy.playCalls, 1, 'muted destroy stays silent');
 
   amb.noteCafeClosed();
   assert.equal(music.playing(), false);
@@ -170,4 +196,58 @@ test('mute persists, the loop waits for a gesture, and effects share that mute',
   assert.equal(retried.opts.html5, false);
   assert.equal(retried.playing(), true);
   assert.equal(retried.playCalls, 1);
+
+  const fire = (type) => { for (const fn of listeners[type] || []) fn(); };
+  const muteKey = () => store.get('cozy-cat-cafe.audio.mute');
+  assert.equal(muteKey(), '0');
+
+  // Background tab / minimized window / phone: visibility hidden, even if focus lies.
+  globalThis.document.visibilityState = 'hidden';
+  globalThis.document._focus = true;
+  fire('visibilitychange');
+  assert.equal(retried.playing(), false, 'a hidden page stops the loop');
+  assert.equal(muteKey(), '0', 'hiding does not write the mute flag');
+  const hiddenPlays = stackHtml5.playCalls;
+  const hiddenDestroy = destroy.playCalls;
+  amb.playCafeSfx('stack');
+  amb.playCafeSfx('merge');
+  amb.playCafeSfx('serve');
+  amb.playCafeSfx('destroy');
+  assert.equal(stackHtml5.playCalls, hiddenPlays, 'effects stay silent while hidden');
+  assert.equal(destroy.playCalls, hiddenDestroy, 'a hidden page does not play the clear');
+
+  globalThis.document.visibilityState = 'visible';
+  fire('visibilitychange');
+  const resumed = created.filter((h) => h.opts && h.opts.loop).at(-1);
+  assert.equal(resumed.playing(), true, 'showing the page starts the loop again');
+  assert.equal(muteKey(), '0');
+
+  // A blur that does not actually drop document focus must not cut the loop.
+  // Mobile blur is unreliable; hasFocus() is what makes it safe to listen.
+  fire('win:blur');
+  assert.equal(resumed.playing(), true, 'a blur while the document still has focus keeps playing');
+  assert.equal(muteKey(), '0');
+
+  // Another window has focus, but this tab is still "visible".
+  // Wait out the short "this blur is the click that rebuilt the page" window.
+  await new Promise((r) => setTimeout(r, 450));
+  globalThis.document._focus = false;
+  fire('win:blur');
+  assert.equal(resumed.playing(), false, 'losing window focus stops the loop');
+  assert.equal(muteKey(), '0');
+  globalThis.document._focus = true;
+  fire('win:focus');
+  const again = created.filter((h) => h.opts && h.opts.loop).at(-1);
+  assert.equal(again.playing(), true);
+  assert.equal(muteKey(), '0');
+
+  assert.equal(amb.toggleCafeAudio(), true);
+  assert.equal(muteKey(), '1');
+  globalThis.document.visibilityState = 'hidden';
+  fire('visibilitychange');
+  globalThis.document.visibilityState = 'visible';
+  fire('visibilitychange');
+  assert.equal(again.playing(), false, 'a muted café stays silent when focus returns');
+  assert.equal(muteKey(), '1');
+  assert.equal(amb.cafeAudioMuted(), true);
 });

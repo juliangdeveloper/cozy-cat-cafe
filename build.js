@@ -43,6 +43,9 @@ const AUDIO_MIME = {
   'sfx-merge.mp3': 'audio/mpeg',
   'sfx-serve.ogg': 'audio/ogg',
   'sfx-serve.mp3': 'audio/mpeg',
+  'sfx-destroy.ogg': 'audio/ogg',
+  'sfx-destroy.mp3': 'audio/mpeg',
+  'sfx-destroy.wav': 'audio/wav',
 };
 
 // Cadenas prohibidas en el output COMPLETO (dist/index.html). Nota: la URI de
