@@ -10,12 +10,15 @@
 // R2  -> los fuentes (index.html, js/game.js) SOLO se leen, jamás se modifican.
 // R3  -> sprites embebidos (SPRITES_DATA + SPRITES_PNG) conservando el fallback
 //        onerror -> placeholders de código (G7) exactamente igual que en dev.
+// R4  -> audio local: howler.min.js se inlina (no CDN, no <script src> en dist).
+//        Los mp3/ogg se embeben como data URI para que file:// reproduzca sin
+//        XHR, y además se copian a dist/vendor y dist/assets/audio para Pages.
 // R5  -> fail-fast: verifica el dist generado y sale != 0 si aparece algo
 //        prohibido.
 //
 // Determinista (sin timestamps ni Math.random) e idempotente.
 // ============================================================================
-import { readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, unlinkSync, copyFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import { dirname, join } from 'node:path';
@@ -24,9 +27,23 @@ import { fileURLToPath } from 'node:url';
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const SRC_HTML = join(ROOT, 'index.html');
 const SRC_GAME = join(ROOT, 'js', 'game.js');
+const SRC_AMB = join(ROOT, 'js', 'ambience.js');
+const SRC_HOWLER = join(ROOT, 'vendor', 'howler.min.js');
 const SRC_JSON = join(ROOT, 'assets', 'sprites.json');
 const SRC_PNG = join(ROOT, 'assets', 'sprites.png');
+const AUDIO_DIR = join(ROOT, 'assets', 'audio');
 const OUT_HTML = join(ROOT, 'dist', 'index.html');
+const HOWLER_TAG = '<script src="./vendor/howler.min.js"></script>\n';
+// Both formats ship. The bundle embeds them so file:// does not XHR a path.
+const AUDIO_MIME = {
+  'hybrid-sunlatte.mp3': 'audio/mpeg',
+  'sfx-stack.ogg': 'audio/ogg',
+  'sfx-stack.mp3': 'audio/mpeg',
+  'sfx-merge.ogg': 'audio/ogg',
+  'sfx-merge.mp3': 'audio/mpeg',
+  'sfx-serve.ogg': 'audio/ogg',
+  'sfx-serve.mp3': 'audio/mpeg',
+};
 
 // Cadenas prohibidas en el output COMPLETO (dist/index.html). Nota: la URI de
 // datos y el base64 no contienen estos tokens (verificado en tiempo de build).
@@ -40,9 +57,11 @@ const FORBIDDEN_FULL = [
   '<script src',
   ".js'",
   '.js"',
-  'http',
   'file:',
 ];
+// Bare "http" is NOT forbidden: howler compares the "http:" / "https:"
+// protocols, and base64 audio can contain those four letters. Remote URLs
+// (http:// and https://) stay forbidden — no CDN, no remote audio.
 const ES_IMPORT_SHAPE = /import\s*\{|import\s*['"]|import\s*\*|import\s*\(|import\s+[A-Za-z_$][\w$]*\s+from\b/;
 
 // Nombres de ámbito top-level de un bloque de código (para detectar colisiones
@@ -63,7 +82,9 @@ const fail = (msg) => {
 // ---------------------------------------------------------------------------
 // 1) Leer fuentes (SÓLO lectura, R2).
 // ---------------------------------------------------------------------------
-const html = readFileSync(SRC_HTML, 'utf8');
+let html = readFileSync(SRC_HTML, 'utf8');
+if (!html.includes(HOWLER_TAG)) fail('falta el <script> local de vendor/howler.min.js');
+html = html.replace(HOWLER_TAG, '');
 const gameSrc = readFileSync(SRC_GAME, 'utf8');
 const jsonRaw = readFileSync(SRC_JSON, 'utf8');
 const pngB64 = readFileSync(SRC_PNG).toString('base64');
@@ -86,7 +107,10 @@ let app = html.slice(i0 + OPEN_TAG.length, i1);
 const importRe = /import\s*\{[\s\S]*?\}\s*from\s*['"]\.\/js\/game\.js['"];\s*/;
 if (!importRe.test(app)) fail('no se encontró el bloque import de js/game.js');
 app = app.replace(importRe, '');
-if (/from\s*['"]\.\//.test(app)) fail('sigue habiendo un from relativo tras quitar el import');
+const ambImportRe = /import\s*\{[\s\S]*?\}\s*from\s*['"]\.\/js\/ambience\.js['"];\s*/;
+if (!ambImportRe.test(app)) fail('no se encontró el import de js/ambience.js');
+app = app.replace(ambImportRe, '');
+if (/from\s*['"]\.\//.test(app)) fail('sigue habiendo un from relativo tras quitar los imports');
 
 // 4) Reemplazar el comentario de cabecera de la app (ahora es un bundle).
 app = app.replace(
@@ -152,11 +176,43 @@ app = app.replace(loadRe, () => newLoad);
 // ---------------------------------------------------------------------------
 // 9) Ensamblar y escribir dist/index.html.
 // ---------------------------------------------------------------------------
-const bundle = `${game}\n\n// ---- APP (DOM + browser lifecycle) -------------------------------\n${app}\n`;
+// Ambience stays out of game.js. Strip its exports and swap the local audio
+// paths for data URIs so the single file plays under file:// (no XHR).
+let amb = readFileSync(SRC_AMB, 'utf8')
+  .split('\n')
+  .map((l) => (l.startsWith('export ') ? l.slice('export '.length) : l))
+  .join('\n');
+if (/^export\s/m.test(amb)) fail('quedó un export en ambience.js');
+for (const file of Object.keys(AUDIO_MIME)) {
+  const rel = `./assets/audio/${file}`;
+  if (!amb.includes(rel)) fail(`ambience.js no referencia ${rel}`);
+  const uri = `data:${AUDIO_MIME[file]};base64,${readFileSync(join(AUDIO_DIR, file)).toString('base64')}`;
+  amb = amb.split(rel).join(uri);
+}
+if (amb.includes('./assets/audio/')) fail('ambience.js todavía apunta a assets/audio tras embeber');
+const ambClash = [...topNames(amb)].filter((n) => topNames(game).has(n) || appNames.has(n));
+if (ambClash.length) fail(`colisión de ambience.js con game/app: ${ambClash.join(', ')}`);
+
+const howlerSrc = readFileSync(SRC_HOWLER, 'utf8');
+if (!howlerSrc.includes('howler.js v2.2.4')) fail('vendor/howler.min.js no es Howler 2.2.4');
+if (/https?:\/\//i.test(howlerSrc)) fail('vendor/howler.min.js contiene una URL remota');
+
+const bundle = `${howlerSrc}\n\n// ---- AMBIENCE (Hybrid Sunlatte + stack/merge/serve) ----\n${amb}\n\n${game}\n\n// ---- APP (DOM + browser lifecycle) -------------------------------\n${app}\n`;
 const outHtml = `${html.slice(0, i0 + OPEN_TAG.length)}\n${bundle}${html.slice(i1)}`;
 
 mkdirSync(join(ROOT, 'dist'), { recursive: true });
 writeFileSync(OUT_HTML, outHtml, 'utf8');
+
+// Pages serves dist/ as a directory. Ship the vendored player and every
+// audio file next to the inlined copies so the deploy contains the real files.
+const distAudio = join(ROOT, 'dist', 'assets', 'audio');
+const distVendor = join(ROOT, 'dist', 'vendor');
+mkdirSync(distAudio, { recursive: true });
+mkdirSync(distVendor, { recursive: true });
+copyFileSync(SRC_HOWLER, join(distVendor, 'howler.min.js'));
+for (const file of Object.keys(AUDIO_MIME)) {
+  copyFileSync(join(AUDIO_DIR, file), join(distAudio, file));
+}
 
 // ---------------------------------------------------------------------------
 // 10) R5 fail-fast: verificación programática del output.
@@ -172,6 +228,14 @@ if (!bundle.includes('data:image/png;base64,'))
   problems.push('el script module inline NO contiene data:image/png;base64');
 if (!bundle.includes('const SPRITES_DATA')) problems.push('falta const SPRITES_DATA en el bundle');
 if (!bundle.includes('cozy-cat-cafe.save.v1')) problems.push('falta la clave de localStorage cozy-cat-cafe.save.v1');
+if (/https?:\/\//i.test(outHtml)) problems.push('URL remota http:// o https:// presente');
+if (!bundle.includes('Howler.ctx.resume')) problems.push('falta Howler.ctx.resume() (reanudar Web Audio en iOS)');
+if (!bundle.includes('data:audio/mpeg;base64,')) problems.push('falta el audio mp3 embebido');
+if (!bundle.includes('data:audio/ogg;base64,')) problems.push('falta el audio ogg embebido');
+if (!bundle.includes('howler.js v2.2.4')) problems.push('el player vendido no quedó inlined');
+if (bundle.includes('./assets/audio/') || bundle.includes('./vendor/howler'))
+  problems.push('el bundle todavía referencia audio o howler por ruta');
+if (!bundle.includes('cozy-cat-cafe.audio.mute')) problems.push('falta la clave de mute cozy-cat-cafe.audio.mute');
 
 if (problems.length) fail(problems.join('\n       - '));
 

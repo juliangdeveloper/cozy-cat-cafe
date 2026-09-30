@@ -15,7 +15,9 @@ const html = readFileSync(join(base, 'index.html'), 'utf-8');
 const m = html.match(/<script type="module">([\s\S]*?)<\/script>/);
 if (!m) throw new Error('no module script');
 
-const dom = new JSDOM(html.replace(/<script type="module">[\s\S]*?<\/script>/, ''), {
+const dom = new JSDOM(html
+  .replace(/<script src="\.\/vendor\/howler\.min\.js"><\/script>\s*/, '')
+  .replace(/<script type="module">[\s\S]*?<\/script>/, ''), {
   runScripts: 'dangerously', pretendToBeVisual: true,
   url: 'http://localhost/',
 });
@@ -67,7 +69,9 @@ const importBlock = [
  'HEX_ADJ','topGroup'].join(', ');
 const header = `import {${importBlock}} from '../js/game.js';\n`;
 const appCode = m[1];
-const appBody = appCode.replace(/import \{[\s\S]*?from '\.\/js\/game\.js';/, '');
+const appBody = appCode
+  .replace(/import \{[\s\S]*?from '\.\/js\/game\.js';/, '')
+  .replace(/from '\.\/js\/ambience\.js'/g, "from '../js/ambience.js'");
 const bridge = header + appBody + '\nwindow.__boot = boot;\n';
 const tmp = join(base, 'test', '.app_runner.mjs');
 writeFileSync(tmp, bridge);
