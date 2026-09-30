@@ -1,7 +1,8 @@
 // ============================================================================
 // Cozy Cat Café — ambience + three board effects.
 // Browser audio only. js/game.js must not import this module.
-// Locked loop: Hybrid Sunlatte. Effects: stack, merge, serve.
+// Locked loop: Hybrid Sunlatte. Effects: stack, merge, serve, and the
+// 10+ chain-clear payoff (destroy).
 // Mute is shared and stored in localStorage (survives reload).
 // ============================================================================
 
@@ -11,6 +12,8 @@ const ambMuteKey = 'cozy-cat-cafe.audio.mute';
 const ambMusicVol = 0.62;
 const ambSfxVol = 0.22;
 const ambServeVol = 0.26;
+// Louder than the merge click, still under the loop. This is the clear payoff.
+const ambDestroyVol = 0.38;
 
 const ambLoopSrc = ['./assets/audio/hybrid-sunlatte.mp3'];
 const ambLoopFmt = ['mp3'];
@@ -18,8 +21,15 @@ const ambSfxSrc = {
   stack: ['./assets/audio/sfx-stack.ogg', './assets/audio/sfx-stack.mp3'],
   merge: ['./assets/audio/sfx-merge.ogg', './assets/audio/sfx-merge.mp3'],
   serve: ['./assets/audio/sfx-serve.ogg', './assets/audio/sfx-serve.mp3'],
+  destroy: ['./assets/audio/sfx-destroy.ogg', './assets/audio/sfx-destroy.mp3', './assets/audio/sfx-destroy.wav'],
 };
-const ambSfxFmt = ['ogg', 'mp3'];
+const ambSfxFmt = {
+  stack: ['ogg', 'mp3'],
+  merge: ['ogg', 'mp3'],
+  serve: ['ogg', 'mp3'],
+  destroy: ['ogg', 'mp3', 'wav'],
+};
+const ambSfxNames = ['stack', 'merge', 'serve', 'destroy'];
 
 let ambMusic = null;
 let ambMusicId = null;
@@ -28,8 +38,8 @@ let ambWantPlay = false;
 let ambMusicHtml5 = true;
 let ambWatch = 0;
 let ambRetryTimer = 0;
-let ambSfx = { stack: null, merge: null, serve: null };
-let ambSfxHtml5 = { stack: false, merge: false, serve: false };
+let ambSfx = { stack: null, merge: null, serve: null, destroy: null };
+let ambSfxHtml5 = { stack: false, merge: false, serve: false, destroy: false };
 let ambMuted = false;
 let ambUnlocked = false;
 let ambRunOpen = false;
@@ -151,12 +161,12 @@ function ambEnsure() {
       },
     });
   }
-  const vols = { stack: ambSfxVol, merge: ambSfxVol, serve: ambServeVol };
-  for (const name of ['stack', 'merge', 'serve']) {
+  const vols = { stack: ambSfxVol, merge: ambSfxVol, serve: ambServeVol, destroy: ambDestroyVol };
+  for (const name of ambSfxNames) {
     if (ambSfx[name]) continue;
     ambSfx[name] = new Howl({
       src: ambSfxSrc[name],
-      format: ambSfxFmt,
+      format: ambSfxFmt[name],
       loop: false,
       volume: vols[name],
       html5: !!ambSfxHtml5[name],
@@ -298,11 +308,12 @@ export function noteCafeClosed() {
   ambPauseMusic();
 }
 
-// name is 'stack' | 'merge' | 'serve'. Ignored until a gesture unlocks audio,
-// and ignored while muted. Unknown names are a no-op (no extra effects).
+// name is 'stack' | 'merge' | 'serve' | 'destroy'. Ignored until a gesture
+// unlocks audio, while muted, and while the page is hidden or unfocused.
+// Unknown names are a no-op (no extra effects).
 export function playCafeSfx(name) {
   if (!ambUnlocked || ambMuted || !ambHearable()) return;
-  if (name !== 'stack' && name !== 'merge' && name !== 'serve') return;
+  if (!ambSfxNames.includes(name)) return;
   if (!ambEnsure()) return;
   const howl = ambSfx[name];
   if (!howl) return;
@@ -320,7 +331,7 @@ export function unlockCafeAudio() {
 }
 
 function ambSilenceSfx() {
-  for (const name of ['stack', 'merge', 'serve']) {
+  for (const name of ambSfxNames) {
     const howl = ambSfx[name];
     if (!howl) continue;
     try {
