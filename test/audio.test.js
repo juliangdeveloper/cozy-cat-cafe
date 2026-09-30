@@ -48,6 +48,10 @@ test('the UI hooks the loop and the three effects only on success', () => {
   assert.match(amb, /cozy-cat-cafe\.audio\.mute/);
   assert.match(html, /unlockCafeAudio\(\)/);
   assert.match(html, /noteCafeOpen\(\)/);
+  assert.match(html, /v2\.19\.7/);
+  assert.match(amb, /visibilitychange/);
+  assert.match(amb, /hasFocus/);
+  assert.doesNotMatch(amb, /playCafeSfx\('destroy/);
 });
 
 test('mute persists, the loop waits for a gesture, and effects share that mute', async () => {
@@ -85,13 +89,22 @@ test('mute persists, the loop waits for a gesture, and effects share that mute',
     }
     playing() { return this._playing; }
     pause(id) { this._playing = false; return id; }
+    stop() { this._playing = false; this.stopped = (this.stopped || 0) + 1; }
     unload() { this._playing = false; this.dead = true; }
     state() { return 'loaded'; }
     on() { return this; }
   };
   let onPointer = null;
+  const listeners = {};
+  const remember = (type, fn) => { (listeners[type] ||= []).push(fn); };
   globalThis.document = {
-    addEventListener(type, fn) { if (type === 'pointerdown') onPointer = fn; },
+    visibilityState: 'visible',
+    _focus: true,
+    hasFocus() { return this._focus !== false; },
+    addEventListener(type, fn) { remember(type, fn); if (type === 'pointerdown') onPointer = fn; },
+  };
+  globalThis.window = {
+    addEventListener(type, fn) { remember('win:' + type, fn); },
   };
 
   const amb = await import('../js/ambience.js');
@@ -170,4 +183,55 @@ test('mute persists, the loop waits for a gesture, and effects share that mute',
   assert.equal(retried.opts.html5, false);
   assert.equal(retried.playing(), true);
   assert.equal(retried.playCalls, 1);
+
+  const fire = (type) => { for (const fn of listeners[type] || []) fn(); };
+  const muteKey = () => store.get('cozy-cat-cafe.audio.mute');
+  assert.equal(muteKey(), '0');
+
+  // Background tab / minimized window / phone: visibility hidden, even if focus lies.
+  globalThis.document.visibilityState = 'hidden';
+  globalThis.document._focus = true;
+  fire('visibilitychange');
+  assert.equal(retried.playing(), false, 'a hidden page stops the loop');
+  assert.equal(muteKey(), '0', 'hiding does not write the mute flag');
+  const hiddenPlays = stackHtml5.playCalls;
+  amb.playCafeSfx('stack');
+  amb.playCafeSfx('merge');
+  amb.playCafeSfx('serve');
+  assert.equal(stackHtml5.playCalls, hiddenPlays, 'effects stay silent while hidden');
+
+  globalThis.document.visibilityState = 'visible';
+  fire('visibilitychange');
+  const resumed = created.filter((h) => h.opts && h.opts.loop).at(-1);
+  assert.equal(resumed.playing(), true, 'showing the page starts the loop again');
+  assert.equal(muteKey(), '0');
+
+  // A blur that does not actually drop document focus must not cut the loop.
+  // Mobile blur is unreliable; hasFocus() is what makes it safe to listen.
+  fire('win:blur');
+  assert.equal(resumed.playing(), true, 'a blur while the document still has focus keeps playing');
+  assert.equal(muteKey(), '0');
+
+  // Another window has focus, but this tab is still "visible".
+  // Wait out the short "this blur is the click that rebuilt the page" window.
+  await new Promise((r) => setTimeout(r, 450));
+  globalThis.document._focus = false;
+  fire('win:blur');
+  assert.equal(resumed.playing(), false, 'losing window focus stops the loop');
+  assert.equal(muteKey(), '0');
+  globalThis.document._focus = true;
+  fire('win:focus');
+  const again = created.filter((h) => h.opts && h.opts.loop).at(-1);
+  assert.equal(again.playing(), true);
+  assert.equal(muteKey(), '0');
+
+  assert.equal(amb.toggleCafeAudio(), true);
+  assert.equal(muteKey(), '1');
+  globalThis.document.visibilityState = 'hidden';
+  fire('visibilitychange');
+  globalThis.document.visibilityState = 'visible';
+  fire('visibilitychange');
+  assert.equal(again.playing(), false, 'a muted café stays silent when focus returns');
+  assert.equal(muteKey(), '1');
+  assert.equal(amb.cafeAudioMuted(), true);
 });
