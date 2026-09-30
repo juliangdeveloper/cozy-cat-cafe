@@ -1,7 +1,8 @@
 // ============================================================================
 // Cozy Cat Café — ambience + three board effects.
 // Browser audio only. js/game.js must not import this module.
-// Locked loop: Hybrid Sunlatte. Effects: stack, merge, serve.
+// Locked loop: Hybrid Sunlatte. Effects: stack, merge, serve, and the
+// 10+ chain-clear payoff (destroy).
 // Mute is shared and stored in localStorage (survives reload).
 // ============================================================================
 
@@ -11,6 +12,8 @@ const ambMuteKey = 'cozy-cat-cafe.audio.mute';
 const ambMusicVol = 0.62;
 const ambSfxVol = 0.22;
 const ambServeVol = 0.26;
+// Louder than the merge click, still under the loop. This is the clear payoff.
+const ambDestroyVol = 0.38;
 
 const ambLoopSrc = ['./assets/audio/hybrid-sunlatte.mp3'];
 const ambLoopFmt = ['mp3'];
@@ -18,8 +21,15 @@ const ambSfxSrc = {
   stack: ['./assets/audio/sfx-stack.ogg', './assets/audio/sfx-stack.mp3'],
   merge: ['./assets/audio/sfx-merge.ogg', './assets/audio/sfx-merge.mp3'],
   serve: ['./assets/audio/sfx-serve.ogg', './assets/audio/sfx-serve.mp3'],
+  destroy: ['./assets/audio/sfx-destroy.ogg', './assets/audio/sfx-destroy.mp3', './assets/audio/sfx-destroy.wav'],
 };
-const ambSfxFmt = ['ogg', 'mp3'];
+const ambSfxFmt = {
+  stack: ['ogg', 'mp3'],
+  merge: ['ogg', 'mp3'],
+  serve: ['ogg', 'mp3'],
+  destroy: ['ogg', 'mp3', 'wav'],
+};
+const ambSfxNames = ['stack', 'merge', 'serve', 'destroy'];
 
 let ambMusic = null;
 let ambMusicId = null;
@@ -28,12 +38,14 @@ let ambWantPlay = false;
 let ambMusicHtml5 = true;
 let ambWatch = 0;
 let ambRetryTimer = 0;
-let ambSfx = { stack: null, merge: null, serve: null };
-let ambSfxHtml5 = { stack: false, merge: false, serve: false };
+let ambSfx = { stack: null, merge: null, serve: null, destroy: null };
+let ambSfxHtml5 = { stack: false, merge: false, serve: false, destroy: false };
 let ambMuted = false;
 let ambUnlocked = false;
 let ambRunOpen = false;
 let ambGestureBound = false;
+let ambHeard = true;
+let ambGestureAt = 0;
 
 function ambReadMute() {
   try { return localStorage.getItem(ambMuteKey) === '1'; }
@@ -46,6 +58,23 @@ function ambWriteMute(muted) {
 
 function ambHowlerReady() {
   return typeof Howl === 'function' && typeof Howler !== 'undefined';
+}
+
+// Page Visibility is the reliable signal: background tab, minimized window,
+// and a phone sending the browser to the background all set visibilityState
+// to "hidden". Another desktop window can take focus while this tab stays
+// "visible", so document.hasFocus() covers that case. Mobile blur/focus is
+// not reliable on its own (it can miss an app switch, or fire for browser
+// UI), so a blur only counts when hasFocus() agrees. This is not the Mute
+// button and must not write cozy-cat-cafe.audio.mute.
+function ambHearable() {
+  if (typeof document === 'undefined') return true;
+  if (document.visibilityState === 'hidden') return false;
+  // The tap that opened the shop is still this gesture. Focus may dip while
+  // the page rebuilds; that is not "the window went away."
+  if (Date.now() - ambGestureAt < 400) return true;
+  if (typeof document.hasFocus === 'function' && document.hasFocus() === false) return false;
+  return true;
 }
 
 // iOS keeps the Web Audio context suspended until a gesture resumes it.
@@ -132,12 +161,12 @@ function ambEnsure() {
       },
     });
   }
-  const vols = { stack: ambSfxVol, merge: ambSfxVol, serve: ambServeVol };
-  for (const name of ['stack', 'merge', 'serve']) {
+  const vols = { stack: ambSfxVol, merge: ambSfxVol, serve: ambServeVol, destroy: ambDestroyVol };
+  for (const name of ambSfxNames) {
     if (ambSfx[name]) continue;
     ambSfx[name] = new Howl({
       src: ambSfxSrc[name],
-      format: ambSfxFmt,
+      format: ambSfxFmt[name],
       loop: false,
       volume: vols[name],
       html5: !!ambSfxHtml5[name],
@@ -151,7 +180,7 @@ function ambEnsure() {
 }
 
 function ambIssuePlay() {
-  if (!ambWantPlay || !ambMusic || ambMuted || !ambUnlocked || !ambRunOpen) return;
+  if (!ambWantPlay || !ambMusic || ambMuted || !ambUnlocked || !ambRunOpen || !ambHearable()) return;
   if (ambInFlight || ambMusicPlaying()) return;
   const howl = ambMusic;
   ambInFlight = true;
@@ -175,12 +204,12 @@ function ambScheduleRetry() {
   ambRetryTimer = setTimeout(() => {
     ambRetryTimer = 0;
     ambInFlight = false;
-    if (ambWantPlay && !ambMuted && ambUnlocked && ambRunOpen && !ambMusicPlaying()) ambIssuePlay();
+    if (ambWantPlay && !ambMuted && ambUnlocked && ambRunOpen && ambHearable() && !ambMusicPlaying()) ambIssuePlay();
   }, 700);
 }
 
 function ambFailMusic() {
-  if (ambFailing || ambMusicPlaying()) return;
+  if (ambFailing || ambMusicPlaying() || !ambHearable()) return;
   ambFailing = true;
   ambInFlight = false;
   try {
@@ -198,7 +227,7 @@ function ambFailMusic() {
   } finally {
     ambFailing = false;
   }
-  if (!ambMusicPlaying()) ambScheduleRetry();
+  if (!ambMusicPlaying() && ambHearable()) ambScheduleRetry();
 }
 
 // Replay only a sound that just failed while playing. A preload error must
@@ -212,7 +241,7 @@ function ambFailSfx(name, fromPlay) {
   if (prev && typeof prev.unload === 'function') prev.unload();
   ambSfx[name] = null;
   ambEnsure();
-  if (fromPlay && ambSfxWanted === name && ambSfx[name]) ambSfx[name].play();
+  if (fromPlay && ambHearable() && !ambMuted && ambSfxWanted === name && ambSfx[name]) ambSfx[name].play();
 }
 
 function ambArmWatch() {
@@ -222,7 +251,7 @@ function ambArmWatch() {
 
 function ambWatchTick() {
   ambWatch = 0;
-  if (!ambWantPlay || ambMuted || !ambRunOpen || !ambUnlocked || !ambMusic) return;
+  if (!ambHearable() || !ambWantPlay || ambMuted || !ambRunOpen || !ambUnlocked || !ambMusic) return;
   if (ambMusicPlaying()) return;
   const state = typeof ambMusic.state === 'function' ? ambMusic.state() : 'loaded';
   if (state === 'loading') {
@@ -235,7 +264,7 @@ function ambWatchTick() {
 }
 
 function ambStartMusic() {
-  if (!ambRunOpen || !ambUnlocked || ambMuted) return;
+  if (!ambRunOpen || !ambUnlocked || ambMuted || !ambHearable()) return;
   ambWantPlay = true;
   if (!ambEnsure() || !ambMusic) return;
   ambResumeCtx();
@@ -279,11 +308,12 @@ export function noteCafeClosed() {
   ambPauseMusic();
 }
 
-// name is 'stack' | 'merge' | 'serve'. Ignored until a gesture unlocks audio,
-// and ignored while muted. Unknown names are a no-op (no extra effects).
+// name is 'stack' | 'merge' | 'serve' | 'destroy'. Ignored until a gesture
+// unlocks audio, while muted, and while the page is hidden or unfocused.
+// Unknown names are a no-op (no extra effects).
 export function playCafeSfx(name) {
-  if (!ambUnlocked || ambMuted) return;
-  if (name !== 'stack' && name !== 'merge' && name !== 'serve') return;
+  if (!ambUnlocked || ambMuted || !ambHearable()) return;
+  if (!ambSfxNames.includes(name)) return;
   if (!ambEnsure()) return;
   const howl = ambSfx[name];
   if (!howl) return;
@@ -300,7 +330,50 @@ export function unlockCafeAudio() {
   ambStartMusic();
 }
 
+function ambSilenceSfx() {
+  for (const name of ambSfxNames) {
+    const howl = ambSfx[name];
+    if (!howl) continue;
+    try {
+      if (typeof howl.stop === 'function') howl.stop();
+      else if (typeof howl.pause === 'function') howl.pause();
+    } catch (e) { /* already stopped */ }
+  }
+}
+
+// Open Shop replaces the whole page and Chrome blurs the window in that same
+// moment, even though the tab is still visible. A blur that arrives with the
+// tap is that rebuild, not the player leaving. A later blur (another window)
+// still silences. A hidden tab always silences, including during the tap.
+function ambBlurIsRebuild() {
+  if (typeof document === 'undefined' || document.visibilityState === 'hidden') return false;
+  return Date.now() - ambGestureAt < 400;
+}
+
+// Drop the loop and any effect that is still ringing. The saved mute flag
+// stays untouched; coming back calls ambStartMusic, which respects it.
+function ambSyncHearing() {
+  if (ambBlurIsRebuild()) {
+    // Chrome may already have suspended the element when focus dipped.
+    // Start it again; this blur belongs to the tap, not to leaving.
+    const wasAway = !ambHeard;
+    ambHeard = true;
+    if (!ambMuted && (wasAway || !ambMusicPlaying())) ambStartMusic();
+    return;
+  }
+  const hear = ambHearable();
+  if (hear === ambHeard) return;
+  ambHeard = hear;
+  if (!hear) {
+    ambSilenceSfx();
+    ambPauseMusic();
+    return;
+  }
+  if (!ambMuted) ambStartMusic();
+}
+
 function ambOnGesture(e) {
+  ambGestureAt = Date.now();
   const muteTap = e && e.target && typeof e.target.closest === 'function' && e.target.closest('#btnMute');
   ambUnlocked = true;
   // A stuck first play() must not keep the rest of the session silent.
@@ -317,4 +390,11 @@ export function bindCafeAudio() {
   ambGestureBound = true;
   document.addEventListener('pointerdown', ambOnGesture, true);
   document.addEventListener('keydown', ambOnGesture, true);
+  document.addEventListener('visibilitychange', ambSyncHearing);
+  const host = typeof window !== 'undefined' ? window : null;
+  if (host && typeof host.addEventListener === 'function') {
+    host.addEventListener('blur', ambSyncHearing);
+    host.addEventListener('focus', ambSyncHearing);
+  }
+  ambSyncHearing();
 }
