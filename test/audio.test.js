@@ -29,7 +29,14 @@ test('the UI hooks the loop and the effects only on success', () => {
   assert.match(html, /vendor\/howler\.min\.js/);
   assert.doesNotMatch(html, /https?:\/\/[^\s'"]*howler/i);
   assert.doesNotMatch(html, /https?:\/\/[^\s'"]*\.mp3/i);
-  assert.match(amb, /hybrid-sunlatte\.mp3/);
+  assert.match(amb, /hybrid-sunlatte-90s\.ogg/);
+  assert.match(amb, /hybrid-sunlatte-90s\.mp3/);
+  assert.match(amb, /hybrid-sunlatte-90s\.wav/);
+  const oggAt = amb.indexOf('hybrid-sunlatte-90s.ogg');
+  const mp3At = amb.indexOf('hybrid-sunlatte-90s.mp3');
+  const wavAt = amb.indexOf('hybrid-sunlatte-90s.wav');
+  assert.ok(oggAt >= 0 && oggAt < mp3At && mp3At < wavAt, 'ogg is the loop, then mp3, then wav');
+  assert.equal(amb.includes('hybrid-sunlatte.mp3'), false);
   for (const name of ['sfx-stack', 'sfx-merge', 'sfx-serve', 'sfx-destroy']) {
     assert.match(amb, new RegExp(name + '\\.mp3'));
     assert.match(amb, new RegExp(name + '\\.ogg'));
@@ -55,7 +62,7 @@ test('the UI hooks the loop and the effects only on success', () => {
   assert.match(amb, /cozy-cat-cafe\.audio\.mute/);
   assert.match(html, /unlockCafeAudio\(\)/);
   assert.match(html, /noteCafeOpen\(\)/);
-  assert.match(html, /v2\.19\.8/);
+  assert.match(html, /v2\.19\.9/);
   assert.match(amb, /visibilitychange/);
   assert.match(amb, /hasFocus/);
   assert.doesNotMatch(amb, /playCafeSfx\('destroy/);
@@ -130,7 +137,12 @@ test('mute persists, the loop waits for a gesture, and effects share that mute',
   const music = created.find((h) => h.opts && h.opts.loop === true);
   assert.ok(music, 'Hybrid Sunlatte Howl is created on the gesture');
   assert.ok(music.opts.volume >= 0.5 && music.opts.volume <= 0.75);
-  assert.deepEqual(music.opts.src, ['./assets/audio/hybrid-sunlatte.mp3']);
+  assert.deepEqual(music.opts.src, [
+    './assets/audio/hybrid-sunlatte-90s.ogg',
+    './assets/audio/hybrid-sunlatte-90s.mp3',
+    './assets/audio/hybrid-sunlatte-90s.wav',
+  ]);
+  assert.deepEqual(music.opts.format, ['ogg', 'mp3', 'wav']);
   assert.equal(music.playing(), true);
   assert.equal(music.playCalls, 1);
   assert.equal(music.opts.html5, true);

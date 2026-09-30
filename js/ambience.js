@@ -1,8 +1,9 @@
 // ============================================================================
 // Cozy Cat Café — ambience + three board effects.
 // Browser audio only. js/game.js must not import this module.
-// Locked loop: Hybrid Sunlatte. Effects: stack, merge, serve, and the
-// 10+ chain-clear payoff (destroy).
+// Locked loop: Hybrid Sunlatte, the long cut (ogg first so the loop
+// seam does not pick up the mp3 encoder gap). Effects: stack, merge,
+// serve, and the 10+ chain-clear payoff (destroy).
 // Mute is shared and stored in localStorage (survives reload).
 // ============================================================================
 
@@ -15,8 +16,14 @@ const ambServeVol = 0.26;
 // Louder than the merge click, still under the loop. This is the clear payoff.
 const ambDestroyVol = 0.38;
 
-const ambLoopSrc = ['./assets/audio/hybrid-sunlatte.mp3'];
-const ambLoopFmt = ['mp3'];
+// Ogg is the playing loop. The mp3 carries encoder priming and can click
+// or gap when it repeats. Wav is only the last fallback.
+const ambLoopSrc = [
+  './assets/audio/hybrid-sunlatte-90s.ogg',
+  './assets/audio/hybrid-sunlatte-90s.mp3',
+  './assets/audio/hybrid-sunlatte-90s.wav',
+];
+const ambLoopFmt = ['ogg', 'mp3', 'wav'];
 const ambSfxSrc = {
   stack: ['./assets/audio/sfx-stack.ogg', './assets/audio/sfx-stack.mp3'],
   merge: ['./assets/audio/sfx-merge.ogg', './assets/audio/sfx-merge.mp3'],
@@ -93,10 +100,10 @@ function ambResumeCtx() {
   catch (e) { return null; }
 }
 
-// Howler will not call HTMLMediaElement.play() until the mp3 has loaded, which
-// is after the tap. Chrome and Safari then reject that late play() and the
-// loop stays silent. The node already exists once the Howl is constructed, so
-// play() it in this same turn while the gesture is still valid.
+// Howler will not call HTMLMediaElement.play() until the loop file has loaded,
+// which is after the tap. Chrome and Safari then reject that late play() and
+// the loop stays silent. The node already exists once the Howl is constructed,
+// so play() it in this same turn while the gesture is still valid.
 function ambHtml5Node(howl) {
   if (!howl || howl._webAudio) return null;
   const sounds = howl._sounds;
@@ -147,7 +154,7 @@ function ambEnsure() {
       format: ambLoopFmt,
       loop: true,
       volume: ambMusicVol,
-      // HTML5 audio decodes this mp3 where the Web Audio buffer stays silent.
+      // HTML5 audio decodes this loop where the Web Audio buffer stays silent.
       // A play/load error rebuilds it once on Web Audio and tries again.
       html5: ambMusicHtml5,
       preload: true,
