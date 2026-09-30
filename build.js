@@ -36,7 +36,9 @@ const OUT_HTML = join(ROOT, 'dist', 'index.html');
 const HOWLER_TAG = '<script src="./vendor/howler.min.js"></script>\n';
 // Both formats ship. The bundle embeds them so file:// does not XHR a path.
 const AUDIO_MIME = {
-  'hybrid-sunlatte.mp3': 'audio/mpeg',
+  'hybrid-sunlatte-90s.ogg': 'audio/ogg',
+  'hybrid-sunlatte-90s.mp3': 'audio/mpeg',
+  'hybrid-sunlatte-90s.wav': 'audio/wav',
   'sfx-stack.ogg': 'audio/ogg',
   'sfx-stack.mp3': 'audio/mpeg',
   'sfx-merge.ogg': 'audio/ogg',
