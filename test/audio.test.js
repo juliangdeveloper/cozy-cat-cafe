@@ -42,8 +42,13 @@ test('the UI hooks the loop and the effects only on success', () => {
     assert.match(amb, new RegExp(name + '\\.ogg'));
   }
   assert.match(amb, /sfx-destroy\.wav/);
-  // place, cascade destroy, cascade merge, cascade serve, manual serve. No sixth.
-  assert.equal((html.match(/playCafeSfx\(/g) || []).length, 5);
+  // place, cascade destroy, cascade merge, cascade serve, manual serve,
+  // plus the restart tick and the victory close.
+  assert.equal((html.match(/playCafeSfx\(/g) || []).length, 7);
+  assert.match(html, /playCafeSfx\('reset'\)/);
+  assert.match(html, /playCafeSfx\('close'\)/);
+  assert.match(amb, /reset:/);
+  assert.match(amb, /close:/);
   const place = html.slice(html.indexOf('async function placeFlow'), html.indexOf('function serveOrderFlow'));
   assert.ok(place.indexOf('if(res.error)') < place.indexOf("playCafeSfx('stack')"));
   const serve = html.slice(html.indexOf('function serveOrderFlow'), html.indexOf('function checkFull'));
@@ -62,7 +67,7 @@ test('the UI hooks the loop and the effects only on success', () => {
   assert.match(amb, /cozy-cat-cafe\.audio\.mute/);
   assert.match(html, /unlockCafeAudio\(\)/);
   assert.match(html, /noteCafeOpen\(\)/);
-  assert.match(html, /v2\.20\.0/);
+  assert.match(html, /v2\.21\.0/);
   assert.match(amb, /visibilitychange/);
   assert.match(amb, /hasFocus/);
   assert.doesNotMatch(amb, /playCafeSfx\('destroy/);
@@ -166,7 +171,9 @@ test('mute persists, the loop waits for a gesture, and effects share that mute',
   assert.equal(serve.playCalls, 1);
   assert.equal(destroy.playCalls, 1);
   assert.ok(destroy.opts.volume > merge.opts.volume && destroy.opts.volume < music.opts.volume);
-  assert.equal(created.length, 5);
+  assert.equal(created.length, 7);
+  const synth = created.filter((h) => h.opts && String(h.opts.src).includes('data:audio/wav'));
+  assert.equal(synth.length, 2);
   // A preload failure must not play an effect by itself.
   stack.opts.onloaderror();
   const stackHtml5 = created.filter((h) => h.opts && String(h.opts.src).includes('sfx-stack')).at(-1);

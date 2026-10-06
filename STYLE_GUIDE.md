@@ -6,6 +6,10 @@
 
 ---
 
+## v2.21 — una pantalla
+
+No hay botón OPEN SHOP ni pantalla de cierre. La escena de juego es la interfaz entera (barra, cola, tablero, bandeja, poderes), con una tira de calamidad arriba (icono I/II + barra `--danger` sobre `--wood`) y, al ganar, un velo en la misma escena: luces bajas, gato anfitrión, una frase. El hold de reinicio usa el mismo fill cónico que el cierre, en `--danger`. Tokens sin cambios.
+
 ## 1. DIRECCIÓN DE ARTE — Declaración
 
 > **Warm Vintage Café.** Interiores de madera cálida, tazas de porcelana y pastelería

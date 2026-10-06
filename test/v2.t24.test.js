@@ -15,7 +15,7 @@ test('T24a createGame().settings.seenTutorial === false', () => {
     'RED: fresh game must start with seenTutorial false (show tutorial)');
 });
 
-test('T24b deserialize v2.16-like JSON without seenTutorial → true (old players skip)', () => {
+test('T24b old save without epoch loads and drops persistent meta', () => {
   const old = {
     version: 1,
     meta: { createdAt: 0, lastSavedAt: 0, lastSeenAt: 0, exportId: 'ccc-old' },
@@ -33,12 +33,12 @@ test('T24b deserialize v2.16-like JSON without seenTutorial → true (old player
     metaClose: null,
     settings: { reducedMotion: false },
   };
-  assert.equal(Object.prototype.hasOwnProperty.call(old.settings, 'seenTutorial'), false);
   const s = G.deserializeState(JSON.stringify(old));
-  assert.equal(s.settings.seenTutorial, true,
-    'RED: missing seenTutorial on old save must default TRUE (never show tutorial)');
-  assert.equal(s.progress.coins, 100, 'must not wipe coins');
-  assert.equal(s.progress.totalGames, 2, 'must not wipe progress');
+  assert.equal(s.version, 1);
+  assert.equal(s.progress.coins, 0, 'v2.21: la meta vieja no vuelve');
+  assert.equal(s.progress.totalGames, 0);
+  assert.equal(s.run, null);
+  assert.equal(s.settings.epoch, 21);
 });
 
 test('T24c deserialize with seenTutorial false stays false', () => {

@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  createGame, CONFIG, placeStack, serveOrder, closeRun, openRun,
+  createGame, CONFIG, placeStack, serveOrder, closeRun, openRun, restartRun,
   buySkill, buyMultiplier, useDestroyPile, useSwapPiles, useRefreshPool,
   buyExpansion, buyIdleUpgrade, tickIdle, applyOffline, buyColor,
   colorsUnlocked, generateBoard, orderReadyOn, topGroup, pay,
@@ -262,23 +262,25 @@ test('T3.2 cierre allServed => victoria', () => {
   assert.equal(s.run, null);
   assert.equal(s.metaClose.victory, true);
 });
-test('T3.3 cierre manual conserva dinero', () => {
+test('T3.3 v2.21 reinicio no conserva el dinero de la run', () => {
   let s = baseRun();
   s.progress.coins = 120;
-  s = closeRun(s, 'manual');
-  assert.ok(s.progress.coins >= 120);
-  assert.equal(s.metaClose.victory, false);
+  s.skills.destroyPile.owned = true;
+  s = restartRun(s, rng(4));
+  assert.equal(s.progress.coins, 0);
+  assert.equal(s.skills.destroyPile.owned, false);
+  assert.ok(s.run && s.run.phase === 'open');
 });
-test('T3.4 reabrir reinicia run, conserva meta', () => {
+test('T3.4 v2.21 reinicio no conserva meta', () => {
   const g = rng(3);
-  let s = openRun(createGame({ progress: { coins: 777 } }), g);
-  const coins = s.progress.coins;
-  const t = s.progress.totalGames;
-  s = closeRun(s, 'manual');
-  s = openRun(s, g);
+  let s = openRun(createGame({ progress: { coins: 777, totalGames: 4, colorsOwned: 8 } }), g);
+  s.idle.workers.level = 3;
+  s = restartRun(s, g);
   assert.ok(s.run && s.run.orders.length > 0);
-  assert.equal(s.progress.coins, coins);
-  assert.equal(s.progress.totalGames, t + 1);
+  assert.equal(s.progress.coins, 0);
+  assert.equal(s.progress.totalGames, 0);
+  assert.equal(s.progress.colorsOwned, 4);
+  assert.equal(s.idle.workers.level, 0);
 });
 test('T3.5 solo allServed es victoria', () => {
   assert.equal(closeRun(baseRun(), 'full').metaClose.victory, false);
@@ -532,7 +534,7 @@ test('T8.1 v2.1 idle comprado suma online (café arranca vacío: 0 income sin me
   // rates default 0.5/0.3/0.8 = 1.6/s -> 16 coins in 10s
   assert.ok(Math.abs(s.progress.coins - 16) < 1e-6);
 });
-test('T8.2 offline con tope por sistema', () => {
+test('T8.2 v2.21 offline no acumula monedas', () => {
   let s = baseRun(); s.progress.coins = 0;
   s.idle = {
     workers:  { level: 1, ratePerSec: 0.5, cap: 60 },
@@ -541,10 +543,10 @@ test('T8.2 offline con tope por sistema', () => {
   };
   s.meta.lastSeenAt = 0;
   s = applyOffline(s, 10000);
-  // caps: workers min(0.5*10000,60)=60, fame min(3000,100)=100, machines=min(8000,40)=40 -> 200
-  assert.equal(s.meta.offlineReport.machines, 40);
-  assert.equal(s.meta.offlineReport.workers, 60);
-  assert.ok(s.progress.coins > 0);
+  assert.equal(s.meta.offlineReport.machines, 0);
+  assert.equal(s.meta.offlineReport.workers, 0);
+  assert.equal(s.meta.offlineReport.total, 0);
+  assert.equal(s.progress.coins, 0);
 });
 test('T8.3 v2.1 comprar 1er nivel: rate/cap suben (desde level 0, precio 50*(lv+1)^2)', () => {
   let s = createGame({ progress: { coins: 100000 } });   // idle level 0 (café vacío)
