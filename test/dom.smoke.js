@@ -64,7 +64,7 @@ const importBlock = [
  'buyColor','buyUsesUp','usesUpPrice',                       // v2.1 R13.7/R17
  'toggleServe','previewPool','pay',
  'isActivateEligible','unlockedNeighborCount','sweepDebrisRuns', // v2.17
- 'topRunCount','bfsMergeGroups','computeBestChain','r2Target',   // v2.2/v3 espejo
+ 'topRunCount','orderReadyOn','bfsMergeGroups','computeBestChain','r2Target',   // v2.2/v3 + v2.21.1 glow
  'totalClients','runVictory','useQueueSkip',                 // v2.1 R16/R17
  'restartRun','beginVictory','clearTables','calamityForecast', // v2.21
  'HEX_ADJ','topGroup'].join(', ');
