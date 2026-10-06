@@ -52,9 +52,23 @@ export const CONFIG = {
   BAG_INITIAL_MAX: 14,              // R18.2 puñado inicial máx por color
   BAG_RELOAD_MIN: 6,                // R18.4 recarga mín al agotarse un color
   BAG_RELOAD_MAX: 14,               // R18.4 recarga máx al agotarse un color
-  // v2.1 — R16 cola de clientes / R17 skills de cola ⚖BALANCE
-  MIN_CLIENTS: 20,                  // R16.1 TOTAL_CLIENTS base = 20 + capacidad.level
-  MAX_CLIENTS: 60,                  // R16.1 v2.5: tope (capacidad max level = 40; antes 100/80 — curva rota, BALANCE_REPORT.md)
+  // v2.21 — la partida es SIEMPRE 100 clientes. El dial v2.5 (20 + capacidad, tope 60)
+  // queda retirado: capacidad no suma N (el objetivo de diseño es 100 y nada persiste).
+  TOTAL_CLIENTS: 100,               // R16.1 v2.21
+  MIN_CLIENTS: 100,                 // alias del total fijo (antes 20)
+  MAX_CLIENTS: 100,                 // anula el dial v2.5 de 60
+  // Tamaños de pedido (v2.21). Base 3, rampa hacia 10 a lo largo de la run.
+  // 5 y 8 entran desde el primer cliente. El 10 es legendario: ~1 cada N
+  // clientes normales, como máximo uno por color, disponible desde el inicio.
+  ORDER_QTY_BASE: 3,
+  ORDER_QTY_EARLY: [3, 5, 8],
+  ORDER_QTY_RAMP_TO: 9,             // los normales se acercan a 10; el 10 es legendario
+  ORDER_LEGENDARY_QTY: 10,
+  ORDER_LEGENDARY_EVERY: 10,        // probabilidad 1/N en cada cliente, mientras el color tenga cupo
+  ORDER_LEGENDARY_PER_COLOR: 1,
+  // Segunda oleada de calamidades cuando quedan ~estos clientes (una vez por run).
+  CALAMITY_WAVE2_REMAINING: 20,
+  CALAMITY_PLAYABLE_GOAL: 16,       // la barra de la 1ª oleada llena hacia 16 jugables (dispara al pasar de 15)
   USES_UP_BASE: 60,                 // R17.2 mejora de usos: precio = BASE * RATIO^compras
   USES_UP_RATIO: 1.6,               // R17.2 (exponencial auto-limita, sin tope)
   CAP_PRICE_BASE: 60,               // v2.5 R17.3 capacidad: precio = BASE * RATIO^level (antes 120×1.35 — 9.16e12 coins, imposible)
@@ -187,7 +201,11 @@ export function createGame(init = {}) {
     },
     run: null,
     metaClose: null,
-    settings: { reducedMotion: false, seenTutorial: false, boardRot: 0 },  // v2.18 tutorial; v2.19 boardRot
+    // v2.21: epoch marca un save de esta versión (la run en curso puede
+    // recargarse). Un blob sin epoch es meta vieja: se descarta al cargar.
+    // seenTutorial sigue en false en un juego nuevo; la UI de una sola pantalla
+    // no muestra el tutorial del menú (enseñaba a conservar monedas).
+    settings: { reducedMotion: false, seenTutorial: false, boardRot: 0, epoch: 21 },
   };
   return deepMerge(base, init);
 }
@@ -345,6 +363,55 @@ export function generateBoard(n, rng) {
 // uniforme entre los desbloqueados del pool (R8.3). Anota run.calamities=count
 // (R8.5 bonus al cerrar = bonusCalamity, ya existente).
 // ---------------------------------------------------------------------------
+export function playableTables(state) {
+  const board = state && state.run && state.run.board;
+  if (!Array.isArray(board)) return 0;
+  return board.filter((c) => c && !c.dormant && !c.blocked).length;
+}
+
+// Rango compartido por las dos oleadas: [ceil(p/5), max(floor(p/3), lo)].
+function calamitySpan(jugables) {
+  const lo = Math.ceil(jugables * CONFIG.CALAMITY_MIN_FRAC);
+  const hi = Math.max(Math.floor(jugables * CONFIG.CALAMITY_MAX_FRAC), lo);
+  return { lo, hi };
+}
+
+// Muta `s` (el caller ya clonó). Misma mezcla de tipos que la 1ª oleada:
+// pila oculta en dormant, 50% candado con pila oculta, 50% pila encima.
+// Devuelve el count sorteado (no el nº de celdas, igual que la oleada 1).
+function stampCalamityBurst(s, r) {
+  const jugables = playableTables(s);
+  const { lo, hi } = calamitySpan(jugables);
+  const count = jugables <= 0 ? 0 : rngInt(r, lo, hi);
+  if (count <= 0) return 0;
+  const cu = poolMaxColor(s.run.rosterIndex, s.progress.colorsOwned);
+  const pool = s.run.board.filter((c) => c && !c.calamity);
+  const idxs = pickDistinct(r, pool.length, count);
+  for (const i of idxs) {
+    const cell = pool[i];
+    cell.calamity = true;
+    if (cell.dormant) {
+      const color = rngInt(r, 1, cu);
+      cell.hiddenStack = Array.from({ length: rngInt(r, 1, 3) }, () => color);
+      cell.calamityStack = false;
+      continue;
+    }
+    if (r() < CONFIG.BLOCK_PROB) {
+      cell.blocked = true;
+      cell.calamityStack = false;
+      const color = rngInt(r, 1, cu);
+      cell.hiddenStack = Array.from({ length: rngInt(r, 1, 3) }, () => color);
+      cell.stack = [];
+    } else {
+      const color = rngInt(r, 1, cu);
+      const add = Array.from({ length: rngInt(r, 1, 3) }, () => color);
+      cell.stack = (cell.stack || []).concat(add);
+      cell.calamityStack = true;
+    }
+  }
+  return count;
+}
+
 export function applyCalamities(state, rng) {
   const s = clone(state);
   if (!s.run || !Array.isArray(s.run.board)) return s;
@@ -353,40 +420,47 @@ export function applyCalamities(state, rng) {
   // v2.8 R8.1: el UMBRAL y el RANGO siguen contando JUGABLES (>15), pero el
   // pool de SELECCIÓN son TODAS las celdas (jugable/dormant/blocked) sin
   // calamidad previa — las dormant reciben pila oculta revelable.
-  const jugables = s.run.board.filter((c) => c && !c.dormant && !c.blocked).length;
+  const jugables = playableTables(s);
   if (jugables <= CONFIG.CALAMITY_THRESHOLD) return s;      // R8.1/R14.5 solo jugables > 15
-  const lo = Math.ceil(jugables * CONFIG.CALAMITY_MIN_FRAC);       // R8.2 lo
-  const hi = Math.max(Math.floor(jugables * CONFIG.CALAMITY_MAX_FRAC), lo); // R8.2 hi
-  const count = rngInt(r, lo, hi);                          // cantidad variable
-  // color del pool para pilas pre-colocadas: uniforme entre desbloqueados
-  const cu = poolMaxColor(s.run.rosterIndex, s.progress.colorsOwned);
-  const pool = s.run.board.filter((c) => c && !c.calamity); // v2.8: 32 celdas elegibles
-  const idxs = pickDistinct(r, pool.length, count);         // celdas distintas
-  for (const i of idxs) {
-    const cell = pool[i];
-    cell.calamity = true;
-    if (cell.dormant) {                                     // v2.8: dormant => pila oculta revelable al activar
-      const color = rngInt(r, 1, cu);
-      cell.hiddenStack = Array.from({ length: rngInt(r, 1, 3) }, () => color);
-      cell.calamityStack = false;
-      continue;
-    }
-    if (r() < CONFIG.BLOCK_PROB) {                          // R8.4 v2: bloqueada con pila OCULTA
-      cell.blocked = true;
-      cell.calamityStack = false;
-      const color = rngInt(r, 1, cu);
-      cell.hiddenStack = Array.from({ length: rngInt(r, 1, 3) }, () => color);
-      cell.stack = [];
-    } else {                                                // R8.3 v2: pila pre-colocada ENCUIMA de lo existente
-      const color = rngInt(r, 1, cu);
-      const add = Array.from({ length: rngInt(r, 1, 3) }, () => color);
-      cell.stack = (cell.stack || []).concat(add);          // NUNCA sobrescribe (v2.8)
-      cell.calamityStack = true;
-    }
-  }
+  const count = stampCalamityBurst(s, r);
   s.run.calamities = count;                                 // R8.2 anotar (R8.5 bonus)
   s.run.calamitiesApplied = true;
   return s;
+}
+
+// v2.21 — segunda oleada, una vez por run, cuando quedan
+// <= CALAMITY_WAVE2_REMAINING clientes. Mismos tipos y mismo rango sobre
+// las jugables de ese momento. Suma a run.calamities (el bonus sigue siendo
+// 15 por calamidad, oleadas incluidas).
+export function applyCalamityWave2(state, rng) {
+  const s = clone(state);
+  if (!s.run || !Array.isArray(s.run.board)) return s;
+  if (s.run.calamityWave2Applied) return s;
+  const remaining = totalClients(s) - (s.run.clientsServed || 0);
+  if (remaining > CONFIG.CALAMITY_WAVE2_REMAINING) return s;
+  const r = rng || Math.random;
+  const count = stampCalamityBurst(s, r);
+  s.run.calamities = (s.run.calamities || 0) + count;
+  s.run.calamityWave2Applied = true;
+  return s;
+}
+
+// Barra de la PRÓXIMA calamidad. Oleada 1: jugables / 16. Oleada 2: clientes
+// servidos hacia el punto en que quedan ~20. Tras las dos, progress 1.
+export function calamityForecast(state) {
+  const run = state && state.run;
+  const served = (run && run.clientsServed) || 0;
+  const total = totalClients(state);
+  const wave2At = Math.max(1, total - CONFIG.CALAMITY_WAVE2_REMAINING);
+  if (!(run && run.calamitiesApplied)) {
+    const playable = playableTables(state);
+    const goal = CONFIG.CALAMITY_PLAYABLE_GOAL;
+    return { wave: 1, progress: Math.min(1, playable / goal), current: playable, goal, done: false };
+  }
+  if (!run.calamityWave2Applied) {
+    return { wave: 2, progress: Math.min(1, served / wave2At), current: served, goal: wave2At, done: false };
+  }
+  return { wave: 0, progress: 1, current: served, goal: wave2At, done: true };
 }
 
 // ---------------------------------------------------------------------------
@@ -401,11 +475,10 @@ export function applyCalamities(state, rng) {
 // / clientsServed). TOTAL efectivo = MIN_CLIENTS + capacidad.level (R16.1).
 // ---------------------------------------------------------------------------
 
-// v2.1 — TOTAL_CLIENTS efectivo de la partida en curso [R16.1]:
-// totalClients(state) = min(MAX_CLIENTS, MIN_CLIENTS + skills.capacidad.level).
+// v2.21 — la partida sirve TOTAL_CLIENTS (100). capacidad ya no altera N.
 export function totalClients(state) {
-  const lvl = (state && state.skills && state.skills.capacidad && state.skills.capacidad.level) || 0;
-  return Math.min(CONFIG.MAX_CLIENTS, CONFIG.MIN_CLIENTS + (lvl || 0));
+  void state;
+  return CONFIG.TOTAL_CLIENTS;
 }
 
 // v2.1 — victoria de la partida en curso [R16.4]: clientsServed >= TOTAL.
@@ -527,22 +600,65 @@ function v2Pile(rng, cu) {
 }
 
 // ---------------------------------------------------------------------------
-// v2.1 R16.2/R16.3 — cola de clientes LAZY. El cliente ES un pedido flotante
-// {id, color, qty 2-4, served:false} SIN celda; se DIBUJA al servir (llegada
-// perezosa): drawClient saca el siguiente del pool de tipos 1..rosterIndex
-// (uniforme rng) — puede pedir un color por encima de colorsOwned (presión
-// R13.5: ese color no se genera en pool). NO se pre-generan los 20: se llevan
-// contadores run.clientsDrawn / run.clientsServed.
+// v2.21 R16 — cola de clientes LAZY. El cliente ES un pedido flotante
+// {id, color, qty, served:false} SIN celda. El tamaño sale de rollOrderQty
+// (base 3, rampa hacia 10, 5 y 8 desde el inicio, legendario 10 con cupo).
+// Se DIBUJA al servir (llegada perezosa): color uniforme 1..rosterIndex —
+// puede pedir un color por encima de colorsOwned (presión R13.5).
+// NO se pre-generan los 100: contadores run.clientsDrawn / run.clientsServed.
+// v2.21 — tamaño de pedido. Puro: no muta legendaries (el caller anota el cupo).
+// Al inicio el centro es ORDER_QTY_BASE y el sorteo incluye ORDER_QTY_EARLY
+// (3, 5 y 8). El centro sube hacia ORDER_QTY_RAMP_TO con clientsDrawn.
+// Legendario (qty 10): probabilidad 1/ORDER_LEGENDARY_EVERY si ese color
+// todavía no llegó a ORDER_LEGENDARY_PER_COLOR. El cupo no consume rng.
+export function rollOrderQty(state, color, rng) {
+  const r = rng || Math.random;
+  const legends = (state && state.run && state.run.legendaries) || {};
+  const have = legends[color] || 0;
+  const cap = CONFIG.ORDER_LEGENDARY_PER_COLOR;
+  const every = CONFIG.ORDER_LEGENDARY_EVERY || 10;
+  if (have < cap && r() < 1 / every) {
+    return { qty: CONFIG.ORDER_LEGENDARY_QTY, legendary: true };
+  }
+  const drawn = (state && state.run && state.run.clientsDrawn) || 0;
+  const span = Math.max(1, totalClients(state) - 1);
+  const t = Math.min(1, drawn / span);
+  const base = CONFIG.ORDER_QTY_BASE;
+  const rampTo = CONFIG.ORDER_QTY_RAMP_TO;
+  const center = base + (rampTo - base) * t;
+  const early = CONFIG.ORDER_QTY_EARLY || [base];
+  const hi = Math.max(base, Math.round(center));
+  const set = new Set(early);
+  for (let q = base; q <= hi; q++) set.add(q);
+  const sizes = [...set].filter((q) => q !== CONFIG.ORDER_LEGENDARY_QTY).sort((a, b) => a - b);
+  const weights = sizes.map((size) => {
+    const dist = Math.abs(size - center);
+    const floor = early.includes(size) ? 0.35 : 0;
+    return floor + 1 / (1 + dist * dist);
+  });
+  let x = r() * weights.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < sizes.length; i++) {
+    x -= weights[i];
+    if (x < 0) return { qty: sizes[i], legendary: false };
+  }
+  return { qty: sizes[sizes.length - 1], legendary: false };
+}
+
 // helper interno (muta s — el caller ya clonó): dibuja 1 cliente si la cola
 // tiene pendientes (clientsDrawn < TOTAL). Retorna true si dibujó.
 function drawClientInto(s, r) {
   const total = totalClients(s);
   if ((s.run.clientsDrawn || 0) >= total) return false;    // cola agotada
   const roster = s.run.rosterIndex || 1;
+  const color = rngInt(r, 1, Math.max(1, roster));
+  if (!s.run.legendaries || typeof s.run.legendaries !== 'object') s.run.legendaries = {};
+  const rolled = rollOrderQty(s, color, r);
+  if (rolled.legendary) s.run.legendaries[color] = (s.run.legendaries[color] || 0) + 1;
   const order = {
     id: `ord-${s.run.orderSeq != null ? s.run.orderSeq++ : (s.run.clientsDrawn || 0)}`,
-    color: rngInt(r, 1, Math.max(1, roster)),              // uniforme 1..rosterIndex
-    qty: rngInt(r, 2, 4),                                  // R16.2 qty 2-4
+    color,
+    qty: rolled.qty,
+    legendary: !!rolled.legendary,
     served: false,
   };
   s.run.orders.push(order);
@@ -589,7 +705,9 @@ export function openRun(state, rng) {
     pool: piles,
     bag: nextBag,                                                  // v2.10 R18
     poolPlaced: 0, calamities: 0,
-    calamitiesApplied: false,                                      // R14.5 una vez por partida
+    calamitiesApplied: false,                                      // R14.5 oleada 1, una vez por partida
+    calamityWave2Applied: false,                                   // v2.21 oleada 2, una vez por partida
+    legendaries: {},                                               // v2.21 cupo de pedidos de 10 por color
     rosterIndex: rosterIdx,
     placedCounter: 0,                                              // R13.4
     runTilesActivated: 0,                                          // R14.3 precio ×1.6; se resetea con la run
@@ -1062,7 +1180,7 @@ export function serveOrder(state, orderId, cellId) {
     run.activeClients = run.activeClients.filter((o) => o !== order);
     refillClients(s, rngFallback());
   }
-  return s;
+  return applyCalamityWave2(s, rngFallback());
 }
 
 // v2.1: rng de refill — serveOrder no recibe rng (firma v1/v2 estable); el
@@ -1215,7 +1333,10 @@ export function resolveCascade(state) {
   if (Array.isArray(s.run.activeClients)) refillClients(s, rngFallback());
   if ('anchor' in s.run) delete s.run.anchor;   // v2.11 R12.4: el ancla vive SOLO durante su cascada (pureza: no dejar null en estados sin ancla)
   if ('monoSink' in s.run) delete s.run.monoSink; // v2.12 R12.4c: el imán vive SOLO durante su cascada
-  return { state: s, steps };
+  // v2.21: la 2ª oleada entra en el mismo momento en que el servicio cruza
+  // el umbral de clientes restantes (una vez; no-op si aún no toca).
+  const waved = applyCalamityWave2(s, rngFallback());
+  return { state: waved, steps };
 }
 
 export function topRunCount(stack) {
@@ -1322,18 +1443,9 @@ export function buySkill(state, power) {
     s.skills.previewPool.level = level + 1;
     return s;
   }
-  // v2.1 R17.3 — capacidad: modelo LEVELS (level 0..80; TOTAL = MIN+level)
-  if (power === 'capacidad') {
-    const level = sk.level || 0;
-    const capMax = CONFIG.MAX_CLIENTS - CONFIG.MIN_CLIENTS;   // 80 (R16.1)
-    if (level >= capMax) return { error: 'max' };
-    const price = CONFIG.CAP_PRICE_BASE * Math.pow(CONFIG.CAP_RATIO, level); // ⚖BALANCE
-    if (s.progress.coins < price) return { error: 'noFunds' };             // R7.3
-    s.progress.coins -= price;
-    s.skills.capacidad.owned = true;
-    s.skills.capacidad.level = level + 1;
-    return s;
-  }
+  // v2.21 — capacidad retirada: N es 100 fijo. Comprarla no cambia la cola
+  // y no gasta monedas (no hay nada que comprar).
+  if (power === 'capacidad') return { error: 'retired' };
   // v2.3/v2.15/v2.16 R7.2 — skills modelo USOS (destroy/swap/refresh/queueSkip/unlock):
   // CADA uso se compra (sin base gratis): usesBought += 1 y uses += 1 (mid-run
   // usable ya; NO uses = usesBought — eso devolvería gastados). openRun repone
@@ -1564,19 +1676,57 @@ export function tickIdle(state, dt) {
   return s;
 }
 
+// v2.21 — el idle offline no acumula. La función sigue existiendo para que
+// un save viejo y la UI no revienten: el reporte es cero y las monedas no
+// se mueven. Lo comprado en la run (tickIdle) tampoco se guarda entre runs
+// porque restartRun tira el estado; esta neutralización cubre el hueco de
+// "volviste horas después".
 export function applyOffline(state, now) {
   const s = clone(state);
-  const dt = Math.max(0, (now ?? (s.meta.lastSeenAt || 0)) - (s.meta.lastSeenAt || 0));
-  const report = { workers: 0, fame: 0, machines: 0, total: 0 };
-  for (const k of ['workers', 'fame', 'machines']) {
-    const sys = s.idle[k];
-    const gained = Math.min(sys.ratePerSec * dt, sys.cap);                // R9.3 cap per system
-    report[k] = Math.floor(gained);
+  s.meta.lastSeenAt = now ?? s.meta.lastSeenAt;
+  s.meta.offlineReport = { workers: 0, fame: 0, machines: 0, total: 0 };
+  return s;
+}
+
+// v2.21 — reinicio de la jugadora. Nada del state anterior pasa: monedas,
+// skills, colores, capacidad, idle, tablero. El mute vive fuera de este
+// objeto (localStorage cozy-cat-cafe.audio.mute) y esta función no lo toca.
+export function restartRun(state, rng) {
+  void state;
+  return openRun(createGame(), rng || Math.random);
+}
+
+// v2.21 — victoria formal: se sirvieron los N clientes. No cierra a un
+// menú ni anula la run (la escena se queda para atenuar luces y mostrar
+// al gato anfitrión). El bonus de calamidad (15 c/u, ambas oleadas) se
+// suma a las monedas de ESTA run; el siguiente restartRun las tira.
+export function beginVictory(state) {
+  const s = clone(state);
+  if (!s.run) return s;
+  if (s.run.phase === 'victory') return s;
+  if (!runVictory(s)) return s;
+  const bonus = bonusCalamity(s.run);
+  s.progress.coins += bonus;
+  s.run.phase = 'victory';
+  s.run.victoryBonus = bonus;
+  s.metaClose = {
+    reason: 'allServed',
+    bonus,
+    victory: true,
+    served: s.run.clientsServed,
+    total: totalClients(s),
+  };
+  return s;
+}
+
+// Vacía las pilas visibles. La UI lo llama al final de la cascada de victoria.
+export function clearTables(state) {
+  const s = clone(state);
+  if (!s.run || !Array.isArray(s.run.board)) return s;
+  for (const cell of s.run.board) {
+    if (!cell) continue;
+    cell.stack = [];
   }
-  report.total = report.workers + report.fame + report.machines;
-  s.progress.coins += report.total;
-  s.meta.lastSeenAt = now;
-  s.meta.offlineReport = report;                                          // R9.3 expose
   return s;
 }
 
@@ -1596,6 +1746,11 @@ export function deserializeState(json) {
   try {
     const s = JSON.parse(json);
     if (s && s.version === 1) {
+      // v2.21 — un save anterior (sin settings.epoch === 21) trae meta
+      // permanente (monedas, skills, colores, idle). No se restaura: se
+      // abre un juego nuevo. No lanza. La run en curso de v2.21 sí vuelve
+      // (recarga ≠ reinicio). El mute no vive en este blob.
+      if (!s.settings || s.settings.epoch !== 21) return createGame();
       // v2 defaults: saves v1 viejos no tienen los campos nuevos — no romper
       if (s.progress) {
         if (s.progress.colorsOwned == null) s.progress.colorsOwned = 4;  // R13.7
@@ -1666,6 +1821,7 @@ export function importSave(json) {
   try {
     const s = JSON.parse(json);
     if (!s || s.version !== 1 || !s.progress || !s.meta) return { error: 'invalid' };
+    if (!s.settings || s.settings.epoch !== 21) return createGame();
     dropPermanentTableFields(s);
     return s;
   } catch (e) {

@@ -66,6 +66,7 @@ const importBlock = [
  'isActivateEligible','unlockedNeighborCount','sweepDebrisRuns', // v2.17
  'topRunCount','bfsMergeGroups','computeBestChain','r2Target',   // v2.2/v3 espejo
  'totalClients','runVictory','useQueueSkip',                 // v2.1 R16/R17
+ 'restartRun','beginVictory','clearTables','calamityForecast', // v2.21
  'HEX_ADJ','topGroup'].join(', ');
 const header = `import {${importBlock}} from '../js/game.js';\n`;
 const appCode = m[1];
@@ -80,44 +81,33 @@ const sleep = ms => new Promise(r=>global.setTimeout(r, ms));
 const results = { };
 try {
   await import('file:///' + tmp.replace(/\\/g,'/'));
-  window.__boot && window.__boot();
-  await sleep(60);
+  if (window.__boot) await window.__boot();
+  await sleep(80);
   results.menuShows = /Open Shop/.test(document.body.innerText || '');
-  const openBtn = document.getElementById('btnOpen');
-  results.hasBtn = !!openBtn;
-  if (openBtn) {
-    openBtn.click();
-    await sleep(40);
-    results.opened = !!document.getElementById('board');
-    results.boardCells = document.querySelectorAll('#board .cell').length;
-    results.poolSlots = document.querySelectorAll('#pool .poolslot').length;
-    results.hasOrders = document.querySelectorAll('#orders .order-card').length > 0;
-    results.idleDecor = !!document.getElementById('idleDecor');
-    // place first tray stack onto a free tile
-        const slot = document.querySelector('#pool .poolslot:not(.drop)');
-        const tile = document.querySelector('#board .cell:not(.blocked):not(.dormant)');
-        if (slot && tile) {
-          const beforeTiles = document.querySelectorAll('#board .tile').length;
-          slot.click(); await sleep(10);
-          tile.click(); await sleep(40);
-          await sleep(2100); // deja terminar una cascada de 1 eslabón (1600ms) antes de medir
-          // re-query board after renderAll replaced DOM
-          const afterTiles = document.querySelectorAll('#board .tile').length;
-          results.placedTilesAfter = afterTiles - beforeTiles;
-          results.boardAfterPlace = document.querySelectorAll('#board .cell').length;
-        } else {
-          results.noPlaceable = true;
-        }
-    // v2.1: única tienda 🛒 (el modal 🌿 Skills se eliminó) — abrir y cerrar
-    document.getElementById('btnShop').click(); await sleep(20);
-    results.shopOpens = document.getElementById('shopModal').classList.contains('show');
-    document.getElementById('shopModal').classList.remove('show');
-    // close café
-    document.getElementById('btnClose').click(); await sleep(20);
-    results.closeOpens = document.getElementById('closeModal').classList.contains('show');
-    results.closeTitle = (document.getElementById('closeTitle')||{}).textContent || '';
-    await sleep(20);
+  results.opened = !!document.getElementById('board');
+  results.boardCells = document.querySelectorAll('#board .cell').length;
+  results.poolSlots = document.querySelectorAll('#pool .poolslot').length;
+  results.hasOrders = document.querySelectorAll('#orders .order-card').length > 0;
+  results.hasCalStrip = !!document.getElementById('calStrip');
+  const slot = document.querySelector('#pool .poolslot:not(.drop)');
+  const tile = document.querySelector('#board .cell:not(.blocked):not(.dormant)');
+  if (slot && tile) {
+    const beforeTiles = document.querySelectorAll('#board .tile').length;
+    slot.click(); await sleep(10);
+    tile.click(); await sleep(40);
+    await sleep(700);
+    const afterTiles = document.querySelectorAll('#board .tile').length;
+    results.placedTilesAfter = afterTiles - beforeTiles;
+    results.boardAfterPlace = document.querySelectorAll('#board .cell').length;
+  } else {
+    results.noPlaceable = true;
   }
+  document.getElementById('btnShop').click(); await sleep(20);
+  results.shopOpens = document.getElementById('shopModal').classList.contains('show');
+  document.getElementById('shopModal').classList.remove('show');
+  // a click is not a restart; the hold is 3s and must not open a lose modal
+  document.getElementById('btnClose').click(); await sleep(20);
+  results.closeOpens = document.getElementById('closeModal').classList.contains('show');
 } catch(e) {
   results.runError = (e&&e.message)||String(e);
   results.errStack = (e&&e.stack||'').slice(0,600);
@@ -125,4 +115,6 @@ try {
 results.asyncError = global.__asyncErr;
 console.log(JSON.stringify(results, null, 2));
 try{ unlinkSync(tmp); }catch(_){}
-process.exit(0);
+const ok = results.opened && results.menuShows === false && results.hasCalStrip
+  && results.closeOpens === false && !results.runError;
+process.exit(ok ? 0 : 1);

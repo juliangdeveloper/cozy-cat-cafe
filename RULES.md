@@ -1,6 +1,21 @@
 # RULES — Cozy Cat Café × HexaSort
 
-**Fase:** ANALISTA / ARQUITECTO DE REGLAS (ciclo BMAD) · **Estado:** v2.0-draft (mecánica HexaSort merge) · **Idioma:** código-primero (JSON/pseudocódigo/asserts), sin párrafos de relleno.
+**Fase:** ANALISTA / ARQUITECTO DE REGLAS (ciclo BMAD) · **Estado:** v2.21 · **Idioma:** código-primero (JSON/pseudocódigo/asserts), sin párrafos de relleno.
+
+## v2.21 — lo que manda ahora (2026-10-06)
+
+Si una regla de abajo dice lo contrario, manda este bloque. La curva de mesas v2.20.0 (`40 × 1.6^n`, reset por run, sin tienda permanente) no se reabre.
+
+- `R2.21.1` — No hay menú. `createGame` puede traer `run: null`; la UI abre la run al arrancar. El audio no suena hasta un gesto.
+- `R2.21.2` — `restartRun(state, rng)` devuelve `openRun(createGame(), rng)`. Monedas, skills, colores, capacidad, idle, tablero y `totalGames` vuelven al origen. No toca `cozy-cat-cafe.audio.mute` (no vive en el state).
+- `R2.21.3` — Save `version === 1` con `settings.epoch === 21`: se restaura, incluida la run en curso (un refresh no es un reinicio). Sin epoch, o `version !== 1`, o JSON roto: `createGame()` y no se lanza. La meta vieja no vuelve.
+- `R2.21.4` — `TOTAL_CLIENTS = 100`. `totalClients` ignora `capacidad`. `buySkill('capacidad')` → `{error:'retired'}` sin gastar.
+- `R2.21.5` — `rollOrderQty`: base `ORDER_QTY_BASE` (3), siempre en el sorteo `ORDER_QTY_EARLY` (3, 5, 8), centro que sube hacia `ORDER_QTY_RAMP_TO` (9) con `clientsDrawn / (TOTAL-1)`. Legendario: si el color tiene menos de `ORDER_LEGENDARY_PER_COLOR` (1), probabilidad `1/ORDER_LEGENDARY_EVERY` (10) de qty `ORDER_LEGENDARY_QTY` (10). El 10 no sale en el sorteo normal.
+- `R2.21.6` — Oleada 1 = `applyCalamities` tal cual (una vez, jugables > 15, rango `[ceil(p/5), max(floor(p/3), lo)]`, tipos v2.8). Oleada 2 = `applyCalamityWave2`, una vez, cuando `TOTAL - clientsServed <= CALAMITY_WAVE2_REMAINING` (20), mismo stamper, suma a `run.calamities`.
+- `R2.21.7` — `calamityForecast`: oleada 1 → `playable / CALAMITY_PLAYABLE_GOAL` (16). Oleada 2 → `clientsServed / (TOTAL - 20)`. Después, `done`.
+- `R2.21.8` — `beginVictory` si `runVictory`: `phase = 'victory'`, la run sigue viva, `coins += calamities * 15`. No hay estado de derrota. `clearTables` vacía pilas. El toque o el hold llaman `restartRun`.
+- `R2.21.9` — `applyOffline` no suma monedas (reporte en cero). `R9.3` queda neutralizado. `R2.4` / `R2.5` (conservar monedas y subir `totalGames` al cerrar) no son el camino de la jugadora; `closeRun` sigue liquidando el bonus para tests viejos de la fórmula, pero la UI no cierra a un menú.
+- `R16.1` (20 + capacidad, tope 60) queda **obsoleto**. `R8` de la primera oleada no cambia.
 **Fuentes (fuente de verdad):** `DESIGN_DECISIONS.md` (mecánica) · `SPEC.md` (US-1..43, G1-G7) · `STYLE_GUIDE.md` (solo presentación/feedback §4-8).
 Fase v2: R12-R15 aprobadas por grill 2026-08-29; números marcados ⚖BALANCE pendientes de ajuste.
 **Trazabilidad inversa:** cada R → su(s) US/G. G1, G4, G5, G7 cubiertos aquí; G2 (Pages), G3, G6 son de deploy/arte/responsive (no lógica).

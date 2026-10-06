@@ -1,6 +1,18 @@
 # SPEC — Cozy Cat Café × HexaSort
 
-**Fase:** PO (ciclo BMAD) · **Estado:** v1.0 · **Idioma del juego (UI):** English · **Idioma del doc:** español (interno)
+**Fase:** PO (ciclo BMAD) · **Estado:** v2.21 · **Idioma del juego (UI):** English · **Idioma del doc:** español (interno)
+
+## v2.21 — contrato vigente (2026-10-06)
+
+La llamada de voz de Julian sustituye el flujo menú → partida y la meta permanente. Lo que sigue en las épicas v1 queda como historia; si choca con esta sección, manda esta sección. Detalle en `DESIGN_DECISIONS.md`.
+
+- **Una UI.** El juego abre ya en la partida. No hay Open Shop ni pantalla de menú. G3 (la imagen `concept/interfaces_2x2_warm_vintage.png`) se lee sobre esa única pantalla: barra, cola, tablero, bandeja, poderes. Encima va la barra de la próxima calamidad.
+- **Reinicio, no cierre.** El hold de 3s reinicia. Transición corta: el tablero se desvanece y las monedas caen a 0. Solo persiste el mute.
+- **Meta efímera.** Cada run empieza en cero. Lo comprado en la run se paga con monedas de la run y muere al reiniciar. Sin gate por nivel de café: solo el precio. Sin ingreso offline. Victoria formal = servir los N clientes. Tablero lleno o reinicio = pérdida informal, sin pantalla de derrota. Un save viejo carga sin lanzar; no devuelve progreso. Una run v2.21 en curso sí se puede recargar.
+- **N = 100** clientes por run.
+- **Pedidos** de base 3, con 5 y 8 desde el inicio, rampa hacia 10, y un legendario de 10 por color (~1/10, tope uno por color).
+- **Dos oleadas de calamidad** (la primera igual que antes; la segunda al quedar ~20 clientes) y una sola barra de progreso. Bonus de cierre/victoria: 15 por calamidad.
+- **Victoria** en la misma escena: cascada que vacía mesas, sonido de cierre, luces bajas, gato anfitrión y una frase. El hold reinicia; un toque en el velo también abre otra run.
 **Fuentes:** `DESIGN_DECISIONS.md` (mecánica, fuente de verdad) · `STYLE_GUIDE.md` (dirección artística Warm Vintage Café) · `concept/interfaces_2x2_warm_vintage.png` (imagen maestra)
 **Deliverable:** juego nuevo HTML/JS desplegable en GitHub Pages (responsive, touch-first, mobile-first).
 
@@ -27,12 +39,12 @@ Cozy, sin timer, sin presión; la dificultad crece por colores y calamidades, no
 
 | Término | Definición |
 |---|---|
-| **Partida** | "Abrir el café". Empieza en el menú con botón OPEN SHOP. Reabrir = nueva partida. |
+| **Partida** | El café ya está abierto al cargar (v2.21: sin menú). Reiniciar (hold 3s, o toque tras la victoria) = run nueva desde cero. |
 | **Pedido (order)** | Un gato pide `N× color` (ej. "3× pink"). Servir = apilar en una celda un grupo cuyo **tope es el color pedido** y con **la cantidad pedida**. |
 | **Pool (tray)** | Muestra **3 pilas** (ingredientes traídos por gatos trabajadores). **No se rellena** hasta colocar esas 3. |
 | **Servir** | La celda **se vacía** (piezas van al cliente, liberas espacio). |
-| **Cierre** | ① tablero lleno sin poder colocar → fin; ② atendiste a **todos** los gatos → fin (éxito); ③ **cierre manual** en cualquier momento conservando el dinero ganado hasta ese punto. |
-| **Árbol de habilidades** | Mejoras comprables desbloqueadas por **nivel del café** (sube con nº de partidas). El nivel NO tiene reflejo visual; **solo las mejoras compradas** sí. |
+| **Cierre** | Victoria formal = servir los N (100) clientes, en la misma escena. Tablero lleno o reinicio = pérdida informal, sin pantalla. El reinicio no conserva monedas. |
+| **Árbol de habilidades** | Mejoras comprables en la run, gateadas solo por precio (v2.21: sin nivel de café ni de partidas). Se pierden al reiniciar. |
 
 ---
 

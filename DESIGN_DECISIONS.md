@@ -1,5 +1,18 @@
 # Cozy Cat Café × HexaSort — Shared Understanding (post-grill)
 
+## v2.21 (2026-10-06) — una pantalla, meta efímera
+
+Julian, en la llamada de voz de ese día. La economía de mesas de v2.20.0 no se toca: activar sigue costando `40 × 1.6ⁿ` monedas en la run y se resetea al reabrir. No hay tienda permanente de mesas.
+
+- **Una sola pantalla.** No hay menú ni botón Open Shop. Al cargar, el café ya está en juego. El audio sigue esperando un gesto (autoplay): la primera interacción arranca el loop, con la misma sensación de “la música entra cuando se abre la run”.
+- **El hold de 3s reinicia.** El mismo control que cerraba el café ahora reinicia la run. La transición es corta y con peso (el tablero se apaga, las monedas caen a 0 con un tic seco). El café queda vacío, listo para el primer pedido. **Solo el mute sobrevive** (`cozy-cat-cafe.audio.mute`). Nada más.
+- **Meta efímera.** No pasan monedas, skills, colores comprados, capacidad ni idle de una run a la otra. Lo que se compra a mitad de run se paga con el dinero de esa run y se pierde al reiniciar. `unlockLevel` / nivel de café ya no gatean nada: todo lo que se puede comprar se gatea solo por precio. **Capacidad se retira**: N es 100 fijo, comprarla no cambia la cola. El idle online sigue existiendo en la lógica si se invoca, pero la UI no lo vende y **el offline no acumula** (`applyOffline` devuelve 0). Elección de guardado: la run en curso de v2.21 (`settings.epoch === 21`) se recarga para que un refresh no corte el café; un reinicio la tira. Un save viejo (sin epoch) carga sin romperse y **se descarta** — no devuelve la meta permanente.
+- **N = 100.** `TOTAL_CLIENTS` es 100. Sustituye el dial `MAX_CLIENTS = 60`.
+- **Pedidos.** Base 3 del color del cliente, rampa hacia 10 a lo largo de la run. 5 y 8 salen desde el principio. Legendario de 10: uno por color, desde el inicio, ~1 cada 10 clientes normales, tope uno por color. Los diales están en `CONFIG` (`ORDER_QTY_*`, `ORDER_LEGENDARY_*`).
+- **Calamidades.** La primera oleada no cambia: una vez, la primera vez que las mesas jugables (no dormant, no blocked) pasan de 15, al momento, count en `[ceil(p/5), max(floor(p/3), lo)]`, mismos tres tipos (pila oculta en dormant, 50% candado con pila oculta que Unlock revela, 50% pila ya puesta encima). **Segunda oleada** cuando quedan ~20 clientes (`CALAMITY_WAVE2_REMAINING`), mismos tipos y mismo rango, una vez por run. Una barra arriba muestra lo cerca que está la **próxima** oleada: la 1 sigue jugables hacia 16; la 2 sigue clientes servidos hacia ese punto de “quedan ~20”. El mismo elemento sirve para las dos. El icono marca la oleada que viene (I / II). Tocarlo abre una línea por tipo más la misma barra; se cierra tocando fuera o el botón. El bonus al ganar sigue siendo **15 por calamidad** (las dos oleadas suman en `run.calamities`). En el reinicio ese dinero no se guarda.
+- **Victoria.** Servir los 100: las mesas se vacían en cascada con un sonido de cierre, las luces bajan y aparece el gato anfitrión con una frase. No hay pantalla de victoria pesada. Después se puede reiniciar con el hold, **o tocando el velo** (eso abre otra run al momento). Un tablero lleno o un reinicio son la pérdida informal: **no hay pantalla de “perdiste”.**
+- **Se queda igual:** merge hex, auto-servir, bandeja de 3, tablero 6×6 y rotación que remailla (pointy a 0/180, flat-top a 90/270; las pilas de la bandeja siguen pointy), los 5 poderes más queueSkip y Unlock, el set de calamidades, Hybrid Sunlatte, silencio al perder foco, el sonido y el bonus de destruir 10+, Warm Vintage, y el precio de mesa por run.
+
 Concepto: incremental + sorting de hex. "Abrir la tienda" = una partida.
 Proyecto nuevo HTML/JS desplegable (pipeline BMAD + gate). Idioma: **inglés**.
 Estética: a definir en fase de implementación (foco jugabilidad primero).
@@ -73,4 +86,5 @@ desbloqueadas por **nivel del café** (sube con el número de partidas jugadas).
   precio/multiplicador exacto), orden exacto del árbol de habilidades, detalles de estética.
 
 ## Changelog
+- **2026-10-06 (v2.21):** una pantalla, reinicio efímero, 100 clientes, tamaños de pedido, segunda oleada de calamidades con barra, victoria suave. La curva de mesas ×1.6 queda como en v2.20.0.
 - **2026-10-06 (Julian):** retirada la tienda permanente de baldosas/mesas (×1.35 y el dial posterior `TABLES_PERM_BASE × 1.25^permTiles` / `buyTablesUp`). Queda solo la curva temporal por partida ×1.6, que se resetea entre runs; las mesas jugables ya no dependen de compras permanentes.
