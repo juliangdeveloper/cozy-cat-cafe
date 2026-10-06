@@ -1,5 +1,7 @@
 # SPEC — Informe de balance v2.3 (solo análisis, NO tocar código)
 
+> **Nota de diseño 2026-10-06 (Julian):** la tienda permanente de mesas/baldosas (`buyTablesUp`, ×1.35 y el dial `TABLES_PERM_BASE × 1.25^permTiles`) fue retirada. La única economía de baldosas vigente es la curva temporal por partida ×1.6, que se resetea entre runs. Los pasos de abajo que citan `buyTablesUp` describen el código que este análisis leyó entonces; no son la verdad de diseño actual. Las curvas de skills (`price × 1.35^n`) y de capacidad no entran en esa decisión.
+
 ## Objetivo
 Meta del dueño: **100% del juego en ~30 horas** de juego real (todos los colores, capacidad/colores al máximo, skills con usos altos, perfil 100%).
 
@@ -14,5 +16,5 @@ Meta del dueño: **100% del juego en ~30 horas** de juego real (todos los colore
 ## REGLAS DURAS
 - NO modificar `js/game.js`, `index.html`, `RULES.md`, `tests/`, `dist/`. SOLO crear `BALANCE_REPORT.md`.
 - NO hacer commit ni push. Borrar el script temporal al terminar.
-- Los usos por skill tienen tope 5/partida (v2.4) EXCEPTO tables (capa = baldosas dormant del tablero).
+- Los usos por skill tienen tope 5/partida (v2.4). **[OBSOLETO 2026-10-06]** la excepción de tables (capa = baldosas dormant / techo permanente de `buyTablesUp`) ya no es diseño vigente: activar baldosas es solo la curva temporal ×1.6 por run y se resetea entre partidas.
 - Si un comando falla 2 veces, anota el error en el informe y sigue con el siguiente paso; no te atasques.

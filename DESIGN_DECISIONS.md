@@ -24,7 +24,7 @@ Estética: a definir en fase de implementación (foco jugabilidad primero).
 - **Pago base por pedido** + **multiplicador mejorable que premia pedidos grandes**
   (apilar 4 de una vez > 2 pedidos de 2; más difícil → más pago) + **bonus por calamidades** al cerrar.
 - El dinero **expande el café**: más clientes (N), más celdas de tablero, más catálogo/colores.
-- Dos economías de baldosas: compra TEMPORAL por partida (precio exponencial ×1.6 por baldosa activada en la run, se resetea) y PERMANENTE desde la tienda (×1.35 por permanente total; habilita el techo de activables, la activación siempre se paga por partida).
+- Una sola economía de baldosas, TEMPORAL por partida: precio exponencial ×1.6 por baldosa activada en la run. Activar mesas/baldosas se resetea entero entre partidas (precio, contador y baldosas activadas). La tienda permanente de baldosas (×1.35, y el dial posterior `TABLES_PERM_BASE × 1.25^permTiles` / `buyTablesUp` como techo) fue retirada (Julian, 2026-10-06).
 - Compra de COLORES en la tienda: 4 de inicio → 10 máx. El roster de la partida avanza 1 color por encima del techo comprado: completar la partida exige comprar colores.
 - Umbral de destrucción ≥10: bonus fijo (25×qty, CONFIG).
 
@@ -58,7 +58,7 @@ desbloqueadas por **nivel del café** (sube con el número de partidas jugadas).
 
 ## Alcance
 - Juego nuevo HTML/JS desplegable (como los otros juegos del perfil).
-- Tablero SIEMPRE dibujado completo (panal con picos filas [7,9,9,7] = 32 baldosas, v2-shape; antes panal 5×6 = 30); jugable = núcleo 2-3-2 + activables ≤ permanentes comprados; no jugable se ve apagada.
+- Tablero SIEMPRE dibujado completo (panal con picos filas [7,9,9,7] = 32 baldosas, v2-shape; antes panal 5×6 = 30); jugable = núcleo 2-3-2 + las baldosas activadas en esa partida (no hay techo de compras permanentes); no jugable se ve apagada.
 - Calamidades se recalculan sobre celdas jugables.
 
 ## v2.1 — Cola de clientes (2026-08-30)
@@ -71,3 +71,6 @@ desbloqueadas por **nivel del café** (sube con el número de partidas jugadas).
 - Diferido a implementación: assets (criaturas, ítems de pedido, fichas ×10 colores). El render final definirá la lista de assets necesarios y luego se reorganiza la UI. Números ⚖BALANCE: precios de skills nuevos, bases de precio de baldosas, bonus destrucción, COLOR_PRICE.
 - **Diferido a implementación:** números finos de balance (tasas idle/hora, costos de mejoras,
   precio/multiplicador exacto), orden exacto del árbol de habilidades, detalles de estética.
+
+## Changelog
+- **2026-10-06 (Julian):** retirada la tienda permanente de baldosas/mesas (×1.35 y el dial posterior `TABLES_PERM_BASE × 1.25^permTiles` / `buyTablesUp`). Queda solo la curva temporal por partida ×1.6, que se resetea entre runs; las mesas jugables ya no dependen de compras permanentes.
