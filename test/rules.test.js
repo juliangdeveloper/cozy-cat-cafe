@@ -714,7 +714,11 @@ test('R7.7 REFRESH pool genera pilas deterministas tamaño 1..7 (v2.0)', () => {
 // ---------------------------------------------------------------------------
 // R18 v2.10 — Bolsita de colores en el pool (bag de inventario por color)
 // ---------------------------------------------------------------------------
-test('R18.1 v2.10 openRun inicializa run.bag con 4 colores y puñados 6-14', () => {
+test('R18.1 v2.10 openRun inicializa run.bag con 4 colores y puñados 7-18', () => {
+  assert.equal(CONFIG.BAG_INITIAL_MIN, 7);
+  assert.equal(CONFIG.BAG_INITIAL_MAX, 18);
+  assert.equal(CONFIG.BAG_RELOAD_MIN, 7);
+  assert.equal(CONFIG.BAG_RELOAD_MAX, 18);
   const s = openRun(createGame({ progress: { coins: 100 } }), rng(42));
   assert.ok(s.run && s.run.bag, 'RED: s.run.bag debe existir');
   const entries = Object.entries(s.run.bag).filter(([_, count]) => count > 0);
@@ -722,7 +726,7 @@ test('R18.1 v2.10 openRun inicializa run.bag con 4 colores y puñados 6-14', () 
   for (const [colStr, count] of entries) {
     const col = Number(colStr);
     assert.ok(col >= 1 && col <= s.progress.colorsOwned, `color ${col} dentro de colorsOwned`);
-    assert.ok(count >= 0, 'conteo no negativo');
+    assert.ok(count >= 7 && count <= 18, `puñado ${count} en 7..18`);
   }
 });
 
@@ -746,7 +750,7 @@ test('R18.2/R18.3 v2.10 consumo exacto y decremento en run.bag al extraer fichas
   }
 });
 
-test('R18.4 v2.10 recarga al agotarse un color (llega a 0 => puñado 6-14)', () => {
+test('R18.4 v2.10 recarga al agotarse un color (llega a 0 => puñado 7-18)', () => {
   let bag = { 1: 1 };
   const cu = 4;
   const { piles, nextBag } = drawPoolPiles(rng(123), bag, cu);
@@ -808,7 +812,7 @@ test('R18.9 v2.10.1 la recarga NUNCA cae en un color vivo', () => {
   // morir es el 4 (1 ficha). Si la recarga cayera en un vivo, un superviviente
   // crecería por encima de su valor inicial — eso es lo que se verifica.
   // (El 4 puede renacer y ser parcialmente consumido en el mismo draw, por eso
-  // su valor final no se afirma contra 6..14 exacto, solo >0 y <= 14.)
+  // su valor final no se afirma contra 7..18 exacto, solo >0 y <= 18.)
   let sawReload = false;
   for (let g = 1; g <= 60; g++) {
     const bag0 = { 1: 20, 2: 20, 3: 20, 4: 1 }; // solo el 4 puede morir
@@ -818,8 +822,8 @@ test('R18.9 v2.10.1 la recarga NUNCA cae en un color vivo', () => {
         `RED: color vivo ${c} creció (seed ${g}) — la recarga cayó en un vivo`);
     }
     const v4 = res.nextBag[4] || 0;
-    assert.ok(v4 >= 1 && v4 <= 14,
-      `RED: el 4 quedó en ${v4} (debe ser 1 intacto o renacido 1..14 tras consumo, seed ${g})`);
+    assert.ok(v4 >= 1 && v4 <= 18,
+      `RED: el 4 quedó en ${v4} (debe ser 1 intacto o renacido 1..18 tras consumo, seed ${g})`);
     if (v4 !== 1) sawReload = true;
   }
   assert.ok(sawReload, 'RED: precondition — debe observarse al menos una recarga en 60 semillas');
