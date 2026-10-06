@@ -80,8 +80,7 @@ export { createGame, CONFIG,
     "destroyPile": { "owned": false, "uses": 0, "price": 250, "unlockLevel": 5 },
     "swapPiles":   { "owned": false, "uses": 0, "price": 120, "unlockLevel": 3 },
     "refreshPool": { "owned": false, "uses": 0, "price": 40,  "unlockLevel": 1 },
-    "serveManual": { "owned": false, "autoServe": true },  // v2: toggle, sin usos (R15.2)
-    "previewPool": { "owned": false, "level": 0 }          // v2: level 0..3 (R15.1)
+    "previewPool": { "owned": false, "level": 0 }          // v2: level 0..3 (R15.1). v2.22.2: sin serveManual
   },
 
   "idle": {                            // 3 sistemas pasivos (R9)
@@ -270,8 +269,8 @@ export { createGame, CONFIG,
 - `R14.6` — **[v2.17] Unlock 2-neighbor:** `activateTile` (y el batch R14.3b) solo activan una celda dormant si `unlockedNeighborCount >= TABLES_ACTIVATE_MIN_NEIGHBORS (2)` (vecinos con `dormant===false`, blocked cuentan). Error `{error:'needTwoNeighbors'}`. El núcleo 2-3-2 (7) arranca ya desbloqueado; desde ese núcleo hay 6 celdas mid-edge del anillo con exactamente 2 contactos → primeras expansiones posibles **sin excepción especial**. Aisladas o con 1 solo contacto no se desbloquean.
 
 ### R15. Skills v2 [v2] (amplía R7)
-- `R15.1` — Catálogo: destroyPile="Saltar a la barra", swapPiles="Mesero ágil", refreshPool="Envío de la cocina", serveManual="Modo mesero" (toggle autoServe, sin usos), previewPool="Pizarra de tiza" (levels 0-3: muestra próximas 1/2/3 tandas del pool; se sube recomprando; unlock cafeLevel 2 ⚖BALANCE). [v2] R7.4 se reescribe: cada skill declara su MODELO — 'uses' (destroyPile/swapPiles/refreshPool: se reponen al reabrir, R7.4 original aplica solo a ellos), 'toggle' (serveManual: owned bool + autoServe bool, sin usos), 'levels' (previewPool: level 0..3, subir = recomprar, sin usos).
-- `R15.2` — R4 redefinido [v2.1: solo clientes VISIBLES (activeClients, máx 3) son servibles — auto o manual]: AUTO-SERVIR por defecto; al estabilizar cada eslabón, para cada pedido pendiente elegir tope válido (si varios: count más cercano a qty sin exceder; si no hay, el menor disponible) → paga `pay(order)`, consume exactamente qty del tope, excedente queda. serveManual.off = modo v1 (brilla `--highlight`, servir tocando).
+- `R15.1` — Catálogo: destroyPile="Saltar a la barra", swapPiles="Mesero ágil", refreshPool="Envío de la cocina", previewPool="Pizarra de tiza" (levels 0-3: muestra próximas 1/2/3 tandas del pool; se sube recomprando; al usarla la UI abre un modal con esas pilas; unlock cafeLevel 2 ⚖BALANCE). [v2] R7.4 se reescribe: cada skill declara su MODELO — 'uses' (destroyPile/swapPiles/refreshPool: se reponen al reabrir, R7.4 original aplica solo a ellos), 'levels' (previewPool: level 0..3, subir = recomprar, sin usos). **[v2.22.2]** No hay modelo toggle ni skill `serveManual` / Modo mesero / Waiter. `buySkill('serveManual')` → `{error:'noSkill'}`. Un save que aún traiga `skills.serveManual` lo suelta al cargar.
+- `R15.2` — R4 redefinido [v2.1: solo clientes VISIBLES (activeClients, máx 3) son servibles]: AUTO-SERVIR **siempre**; al estabilizar cada eslabón, para cada pedido pendiente elegir tope válido (si varios: count más cercano a qty sin exceder; si no hay, el menor disponible) → paga `pay(order)`, consume exactamente qty del tope, excedente queda. No se puede apagar. Tocar un cliente y una pila (`serveOrder`) sigue sirviendo ese pedido si aún no se sirvió. **[OBSOLETO v2.22.2]** `serveManual.off` = modo v1 (brillar y servir solo tocando).
 - `R15.3` — Pedido render: ítem dibujado (taza/pastel) construido con fichas del color; mecánicamente fichas del color.
 
 ### R16. Cola de clientes [v2.1]
@@ -411,12 +410,12 @@ const pay = (q, m=0) => Math.round(5 * q ** (1.25 + 0.05*m));
 - `T14.4` — **destrucción umbral tras estabilizar [v2.17]:** GIVEN una cadena donde merges/serves dejan grupo(s) ≥10; THEN `sweepDebrisRuns` corre **después** de que merges+auto-serves se estabilizan (no mid-eslabón). Durante la cadena la pila 10+ permanece y puede seguir mergeando. [R12.2, R12.3]
 
 ### T15. Skills v2 catálogo [v2]
-- `T15.1` — **serveManual toggle:** GIVEN serveManual owned; WHEN toggle; THEN `autoServe` alterna y en `off` el pedido brilla `--highlight` y solo se sirve tocando (modo v1, R4.2/R4.3). [R15.2]
-- `T15.2` — **serveManual sin usos:** GIVEN serveManual owned con `uses` indefinido; WHEN toggle; THEN NO consulta ni decrementa `uses` (a diferencia de R7.4). [R15.1, R7.4 ⚠]
-- `T15.3` — **preview levels 0-3:** GIVEN `previewPool.level = k`; THEN el render muestra las próximas k tandas del pool; k=0 no muestra nada. [R15.1]
+- `T15.1` — **[OBSOLETO v2.22.2]** el toggle `serveManual`. Vigente: un tope que coincide con la qty de un pedido visible siempre se auto-sirve. [R15.2]
+- `T15.2` — **[OBSOLETO v2.22.2]** `serveManual` no existe en el catálogo y no tiene usos. `buySkill('serveManual')` → `{error:'noSkill'}`. [R15.1]
+- `T15.3` — **preview levels 0-3:** GIVEN `previewPool.level = k`; THEN se muestran las próximas k tandas del pool (k=0 no muestra nada). Al usar el skill, la UI abre un modal con esas pilas; un hold sigue siendo solo la frase corta. [R15.1]
 - `T15.4` — **preview se sube recomprando:** GIVEN `previewPool.level=1`; WHEN recomprar; THEN `level=2` y coins bajan el precio; no interfiere con `uses`. [R15.1]
 - `T15.5` — **[v2.16 OBSOLETO]** previewPool ya no exige cafeLevel. [R15.1]
-- `T15.6` — **nombres de catálogo v2:** GIVEN estado inicial; THEN skills expone destroyPile/swapPiles/refreshPool + serveManual + previewPool (5 nodos). [R15.1, §1]
+- `T15.6` — **nombres de catálogo v2:** GIVEN estado inicial; THEN skills expone destroyPile/swapPiles/refreshPool + previewPool, y no expone serveManual. [R15.1, §1]
 
 ---
 

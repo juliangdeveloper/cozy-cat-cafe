@@ -1,5 +1,15 @@
 # Cozy Cat Café × HexaSort — Shared Understanding (post-grill)
 
+## v2.22.2 — auto-servir siempre; la pizarra se ve
+
+Waiter / `serveManual` / Modo mesero **no es un skill**. No hay botón, no hay precio, no hay hold que lo explique, no hay toggle de auto-serve. Cuando un tope coincide con la cantidad de un pedido visible, la cascada **siempre** lo sirve.
+
+La fila de skills queda en nueve: Destroy, Swap, Refresh, Tables, Unlock, Queue, Board, Color, Tips.
+
+**Board (pizarra).** Un hold sigue abriendo la frase corta. Un toque lo usa: cobra el siguiente nivel (hasta 3) y abre un modal con las próximas tandas del pool, pilas reales. Si ya está al máximo, el toque vuelve a abrir ese modal sin cobrar. Cerrar es el botón o un toque fuera.
+
+**Color.** Comprar el siguiente color no es un “new color” mudo. El toast nombra la criatura y el número, con una ficha del color: `Unlocked: Frog (color 3)`.
+
 ## v2.22.1 — una sola tira de cromo
 
 La fila de estado (monedas, calamidad, invitados, mute, guardar) y la banda de abajo (rotar 90°, hold 3s para reiniciar) son **una sola tira**, en la cabecera. No hay dos bandas a todo el ancho. En ~390px la tira no parte en dos filas: la barra de calamidad cede ancho y cada control sigue siendo un objetivo de ≥40px. El pie de versión se queda. La economía de skills (dos filas, pago por uso, sin tienda) y la meta efímera no cambian.
@@ -12,7 +22,7 @@ Los skills son **solo icono**, con el próximo precio en monedas debajo. Un toqu
 
 La tienda (carrito, modal, sección “This café only”) desaparece. Lo que se compraba ahí vive en la barra de poderes, en **dos filas de cinco**. Cada uso cobra monedas y el siguiente precio es `SKILL_USE_BASE × SKILL_USE_RATIOⁿ` = **40 × 1.6ⁿ**, la misma curva que las mesas (`RUN_TILE_BASE` / `RUN_TILE_RATIO`). `n` son los usos ya pagados en esta run y vuelve a 0 al reiniciar. No hay badge de “usos restantes” ni gate por `unlockLevel`: el botón se apaga solo si no alcanza para el siguiente precio.
 
-- **Fila:** Destroy, Swap, Refresh, Tables, Unlock, Queue, Waiter (toggle auto-serve), Board (pizarra, tope 3 tandas), Color (tope 10), Tips (tope `MULT_MAX` = 6, porque el exponente de `pay()` no tiene otro freno).
+- **Fila (v2.22.0, antes de quitar Waiter):** Destroy, Swap, Refresh, Tables, Unlock, Queue, Board (pizarra, tope 3 tandas), Color (tope 10), Tips (tope `MULT_MAX` = 6, porque el exponente de `pay()` no tiene otro freno). Waiter salió en v2.22.2: auto-servir no se compra ni se apaga.
 - **No entran como skills:** idle (Barista / Fame / máquinas) — la UI ya no lo vendía y el offline sigue en 0. Capacidad sigue retirada (N = 100). Expansiones de tablero / menú ya estaban fuera de la tienda.
 - **Cabecera:** una sola fila — monedas, icono+barra de calamidad, invitados (`57/100`), mute y guardar. El pie de versión se queda.
 - **Meta:** igual que v2.21. El reinicio tira monedas, precios y colores. Solo el mute persiste.
@@ -46,9 +56,9 @@ Estética: a definir en fase de implementación (foco jugabilidad primero).
   el dinero ganado hasta ese punto; reabrir reinicia.
 - Pool de 3 pilas monocromas; refill de golpe al colocar las 3 (sin cambio v1).
 - Colocar una pila FUSIONA los topes de vecinos del mismo color con el tope de la celda destino (estilo HexaSort). Grupo = fichas contiguas, sin superpiezas.
-- AUTO-SERVIR por defecto: cuando un tope alcanza la cantidad pedida, el pedido se sirve solo (paga, consume exactamente la cantidad, excedente queda). Pedidos FLOTAN: no anclados a celda.
+- AUTO-SERVIR siempre: cuando un tope alcanza la cantidad pedida, el pedido se sirve solo (paga, consume exactamente la cantidad, excedente queda). Pedidos FLOTAN: no anclados a celda. No hay skill que lo apague (v2.22.2).
 - Cascada lenta encadenada (1600ms/eslabón) tras toda mutación de topes, hasta estabilizar. Grupos ≥10 se destruyen con bonus de monedas.
-- Serve manual = skill comprable ("Modo mesero", toggle auto-serve off → brillar y tocar, comportamiento v1).
+- Tocar un cliente y luego una pila sigue sirviendo ese pedido. No sustituye al auto-serve: un tope que ya coincide se sirve solo.
 
 ## Dinero / economía (incremental)
 - **Pago base por pedido** + **multiplicador mejorable que premia pedidos grandes**
@@ -62,8 +72,7 @@ Estética: a definir en fase de implementación (foco jugabilidad primero).
 1. **Saltar a la barra** (destruir pila)
 2. **Mesero ágil** (intercambiar pilas)
 3. **Envío de la cocina** (refresh pool)
-4. **Modo mesero** (serve manual toggle) — precio ⚖BALANCE
-5. **Pizarra de tiza** (preview 1-3 tandas siguientes; niveles 1-3 recomprando) — precio ⚖BALANCE
+4. **Pizarra de tiza** (preview 1-3 tandas siguientes; niveles 1-3 recomprando; al usarla se ven las pilas en un modal) — precio ⚖BALANCE
 
 Se compran como **mejoras en un árbol de habilidades del café**, muy simple y fácil de entender,
 desbloqueadas por **nivel del café** (sube con el número de partidas jugadas). El nivel

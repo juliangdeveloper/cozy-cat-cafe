@@ -18,9 +18,17 @@ const unwind = (ret, s) => (ret && ret.state) ? ret.state : (ret || s);
 const mulberry32 = s => () => { s|=0; s=s+0x6D2B79F5|0; let t=Math.imul(s^s>>>15,1|s); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; };
 const rng = n => mulberry32(n);
 
+function parkOrders(s) {
+  const park = (o) => { if (o) { o.color = 10; o.qty = 99; } };
+  if (s && s.run) {
+    (s.run.orders || []).forEach(park);
+    (s.run.activeClients || []).forEach(park);
+  }
+  return s;
+}
 const mkGame = (seed = 1) => {
   const s = G.createGame({ progress: { coins: 10000 } });
-  return unwind(G.openRun(s, rng(seed)), s);
+  return parkOrders(unwind(G.openRun(s, rng(seed)), s));
 };
 
 // ---------------------------------------------------------------------------
@@ -62,7 +70,6 @@ test('T18b [R3.5 v2.2] placeStack (pool) sobre celda ocupada => {error:"occupied
 test('T18c [R12.1 v3] fuente conserva sub-pila; la colocada es absorbida por la torre (no-receptor)', () => {
   need('placeStack'); need('resolveCascade');
   const s = mkGame(1);
-  s.skills.serveManual.autoServe = false;   // aísla el merge: sin auto-serve
   const A = s.run.board[0], D = s.run.board[1];
   A.stack = [2, 2];
   D.stack = [1];
@@ -81,7 +88,6 @@ test('T18c [R12.1 v3] fuente conserva sub-pila; la colocada es absorbida por la 
 test('T18d [R3.5 v2.2] colocar pila en baldosa vacía sigue OK (regresión)', () => {
   need('placeStack'); need('resolveCascade');
   const s = mkGame(1);
-  s.skills.serveManual.autoServe = false;   // aísla la colocación: sin auto-serve
   const idx = s.run.board.findIndex(c => !c.blocked && !c.dormant);
   assert.equal(s.run.board[idx].stack.length, 0, 'GIVEN: la celda debe estar vacía');
   const ret = G.placeStack(s, idx, 0);

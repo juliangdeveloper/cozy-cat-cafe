@@ -59,7 +59,7 @@ test('a skill with no coins does not fire and does not mutate', () => {
   assert.equal(s.progress.coins, coins);
 });
 
-test('destroy, swap, refresh, unlock, queue, waiter, board, color, and tips work at run start', () => {
+test('destroy, swap, refresh, unlock, queue, board, color, and tips work at run start', () => {
   let s = open();
   assert.equal(s.progress.cafeLevel, 1);
   assert.equal(s.skills.destroyPile.owned, false);
@@ -94,10 +94,8 @@ test('destroy, swap, refresh, unlock, queue, waiter, board, color, and tips work
   assert.ok(!s.error);
   assert.equal(s.run.skillUses.queueSkip, 1);
 
-  const auto = s.skills.serveManual.autoServe;
-  s = G.toggleServe(s);
-  assert.ok(!s.error);
-  assert.equal(s.skills.serveManual.autoServe, !auto);
+  assert.equal(s.skills.serveManual, undefined);
+  assert.equal(G.buySkill(s, 'serveManual').error, 'noSkill');
 
   s = G.buySkill(s, 'previewPool');
   assert.ok(!s.error);
@@ -112,6 +110,15 @@ test('destroy, swap, refresh, unlock, queue, waiter, board, color, and tips work
   assert.ok(!s.error);
   assert.equal(s.progress.econ.multLevel, 1);
   assert.equal(s.economy.multLevel, 1);
+});
+
+test('a current save drops a leftover Waiter skill on load', () => {
+  const s = G.createGame();
+  s.skills.serveManual = { owned: true, autoServe: false, price: 150 };
+  const back = G.deserializeState(G.serializeState(s));
+  assert.equal(back.settings.epoch, 21);
+  assert.equal(back.skills.serveManual, undefined);
+  assert.equal(back.skills.previewPool.level, 0);
 });
 
 test('color, tips, and chalkboard follow the same exponential and then cap', () => {

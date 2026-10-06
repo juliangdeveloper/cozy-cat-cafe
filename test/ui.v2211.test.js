@@ -17,8 +17,8 @@ function sliceFn(name, next) {
   return html.slice(start, end);
 }
 
-test('version footer stays and reads v2.22.1', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.22\.1'/);
+test('version footer stays and reads v2.22.2', () => {
+  assert.match(html, /GAME_VERSION = 'v2\.22\.2'/);
   assert.match(html, /☕ Cozy Cat Café \$\{GAME_VERSION\}/);
   assert.match(html, /Hold 3s to restart/);
 });
@@ -55,10 +55,13 @@ test('shop panel is gone and former café buys sit in the skill grid', () => {
   assert.equal(html.includes('function showShop'), false);
   assert.equal(html.includes('This café only'), false);
   const powers = sliceFn('renderPowers', 'refreshFlow');
-  for (const id of ['destroyPile', 'swapPiles', 'refreshPool', 'tables', 'unlockLocks', 'queueSkip', 'serveManual', 'previewPool', 'color', 'tips']) {
+  for (const id of ['destroyPile', 'swapPiles', 'refreshPool', 'tables', 'unlockLocks', 'queueSkip', 'previewPool', 'color', 'tips']) {
     assert.match(powers, new RegExp(`skill:'${id}'`));
   }
-  assert.match(powers, /mode:'waiter'/);
+  assert.doesNotMatch(powers, /serveManual/);
+  assert.doesNotMatch(powers, /mode:'waiter'/);
+  assert.doesNotMatch(html, /toggleServe/);
+  assert.doesNotMatch(html, /Turn auto-serve/);
   assert.match(powers, /mode:'preview'/);
   assert.match(powers, /mode:'color'/);
   assert.match(powers, /mode:'tips'/);
@@ -66,6 +69,37 @@ test('shop panel is gone and former café buys sit in the skill grid', () => {
   assert.match(powers, /class="pow-cost"/);
   assert.doesNotMatch(powers, /class="pow-label"/);
   assert.doesNotMatch(powers, /class="uses"/);
+});
+
+test('using the chalkboard opens a modal of the next tray piles', () => {
+  assert.match(html, /id="peekPop"/);
+  assert.match(html, /id="peekTrays"/);
+  assert.match(html, /id="peekPopClose"/);
+  assert.match(html, /aria-labelledby="peekTitle"/);
+  assert.match(html, /function openPeekModal/);
+  assert.match(html, /function closePeekModal/);
+  assert.match(html, /previewPool\(state,\s*mulberry32\(ui\.previewSeed/);
+  assert.match(html, /class="pv-pile"/);
+  assert.match(html, /class="pv-t"/);
+  assert.match(html, /Peek at the next trays before they arrive\./);
+  const powers = sliceFn('renderPowers', 'refreshFlow');
+  assert.match(powers, /mode==='preview'/);
+  assert.match(powers, /openPeekModal\(\)/);
+  assert.match(powers, /dataset\.maxed==='1'/);
+  assert.match(html, /if\(e\.target === peekPop\) closePeekModal/);
+  const help = sliceFn('openSkillHelp', 'closeSkillHelp');
+  assert.match(help, /closePeekModal\(\)/);
+});
+
+test('buying a color names the creature and shows its swatch', () => {
+  const powers = sliceFn('renderPowers', 'refreshFlow');
+  assert.match(powers, /Unlocked: '/);
+  assert.match(powers, /ROSTER\[n-1\]/);
+  assert.match(powers, /\(color '/);
+  assert.match(powers, /toast\('Unlocked: '\+who\+' \(color '\+n\+'\)', n\)/);
+  assert.doesNotMatch(powers, /New roster color/);
+  assert.match(html, /\.toast-swatch/);
+  assert.match(html, /function toast\(msg, colorId\)/);
 });
 
 test('a skill hold opens one sentence and a short tap still uses it', () => {

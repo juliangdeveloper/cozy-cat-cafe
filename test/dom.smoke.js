@@ -62,7 +62,7 @@ const importBlock = [
  'buyIdleUpgrade','tickIdle','applyOffline','colorsUnlocked','serializeState','deserializeState',
  'importSave','mulberry32','ROSTER','resolveCascade','activateTile','activateAroundUnlocked','runTilePrice',
  'buyColor','colorPrice','tipPrice','previewPrice','skillUsePrice','skillUseCount',
- 'toggleServe','previewPool','pay',
+ 'previewPool','pay',
  'isActivateEligible','unlockedNeighborCount','sweepDebrisRuns', // v2.17
  'topRunCount','orderReadyOn','bfsMergeGroups','computeBestChain','r2Target',   // v2.2/v3 + v2.21.1 glow
  'totalClients','runVictory','useQueueSkip',                 // v2.1 R16/R17

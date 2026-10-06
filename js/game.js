@@ -184,9 +184,8 @@ export function createGame(init = {}) {
       destroyPile: { owned: false, uses: 0, usesBought: 0, price: 250, unlockLevel: 5 },
       swapPiles:   { owned: false, uses: 0, usesBought: 0, price: 120, unlockLevel: 3 },
       refreshPool: { owned: false, uses: 0, usesBought: 0, price: 40,  unlockLevel: 1 },
-      // v2 R15.1 — serveManual: modelo TOGGLE (owned + autoServe, SIN uses);
       // previewPool: modelo LEVELS (owned + level 0..3, SIN uses).
-      serveManual: { owned: false, autoServe: true, price: 150, unlockLevel: 1 },
+      // v2.22.2: auto-serve is always on. There is no serveManual / Waiter skill.
       previewPool: { owned: false, level: 0, price: 80, unlockLevel: 1 },
       // v2.1 R17.1 — queueSkip: modelo USES (R7.4) — los 3 visibles van al
       // fondo de la cola y entran 3 nuevos. R17.2: usesBought (mejora de usos).
@@ -1279,7 +1278,7 @@ export function sweepDebrisRuns(board, progress) {
 // ---------------------------------------------------------------------------
 // resolveCascade(state) [R12.2 / v2.17] — PURA: clona, itera eslabones hasta
 // estabilizar y retorna { state, steps }. Eslabón: (i) merge (R12.1); (ii)
-// auto-servir flotantes si autoServe !== false. Tras estabilizar merges/serves:
+// auto-servir flotantes SIEMPRE (v2.22.2: no hay toggle). Tras estabilizar merges/serves:
 // (iii) sweepDebrisRuns — umbral 10+ SOLO al final de la cadena (las pilas 10+
 // permanecen durante merges para seguir participando). Estable => steps 0.
 // ---------------------------------------------------------------------------
@@ -1350,10 +1349,8 @@ export function resolveCascade(state) {
     // máx 3 — los pedidos NO visibles de run.orders se IGNORAN aunque tengan
     // tope válido). En runs viejas sin activeClients (shape v1) se itera
     // orders (compat). Match determinista R15.2.
-    const auto = !(s.skills && s.skills.serveManual
-      && s.skills.serveManual.autoServe === false);
     const visible = Array.isArray(s.run.activeClients) ? s.run.activeClients : s.run.orders;
-    if (auto && Array.isArray(visible)) {
+    if (Array.isArray(visible)) {
       for (const order of visible) {
         if (!order || order.served) continue;                           // R15.2
         if (order.cell !== null && order.cell !== undefined) continue;  // flotantes (cell null/absent)
@@ -1477,18 +1474,10 @@ export function closeRun(state, reason = 'manual') {
 export function buySkill(state, power) {
   // v2.20: activar mesas no se compra. Un save viejo puede traer skills.tables
   // hasta que deserialize lo suelte; igual no se vende.
-  if (power === 'tables') return { error: 'noSkill' };
+  if (power === 'tables' || power === 'serveManual') return { error: 'noSkill' };
   const sk = state.skills && state.skills[power];
   if (!sk) return { error: 'noSkill' };
   const s = clone(state);
-  // v2 R15.1 — serveManual: modelo TOGGLE (owned, SIN uses)
-  if (power === 'serveManual') {
-    if (sk.owned) return { error: 'owned' };
-    if (s.progress.coins < sk.price) return { error: 'noFunds' };          // R7.3
-    s.progress.coins -= sk.price;
-    s.skills.serveManual.owned = true;        // autoServe ya viene true (toggle)
-    return s;
-  }
   // v2 R15.1 — previewPool: modelo LEVELS (level 1..3, SIN uses)
   if (power === 'previewPool') {
     const level = sk.level || 0;
@@ -1573,22 +1562,6 @@ export function buyUsesUp(state, power) {
   cur.usesBought = (cur.usesBought || 0) + 1;                        // acumulado
   cur.uses = (cur.uses || 0) + 1;                                    // v2.15: +1 uso ya
   s.progress.coins -= price;
-  return s;
-}
-
-// ---------------------------------------------------------------------------
-// v2 R15.1 — toggleServe(state): invierte skills.serveManual.autoServe.
-// Requiere la skill comprada; si no, {error} sin mutar.
-// ---------------------------------------------------------------------------
-export function toggleServe(state) {
-  const s = clone(state);
-  if (!s.skills) s.skills = {};
-  if (!s.skills.serveManual) s.skills.serveManual = { owned: false, autoServe: true };
-  // v2.22: el cambio de modo se paga (40×1.6^n). No exige compra previa.
-  const bill = chargeSkill(s, 'serveManual');
-  if (bill) return bill;
-  s.skills.serveManual.owned = true;
-  s.skills.serveManual.autoServe = !s.skills.serveManual.autoServe;
   return s;
 }
 
@@ -1821,8 +1794,7 @@ export function deserializeState(json) {
         if (s.progress.colorsOwned == null) s.progress.colorsOwned = 4;  // R13.7
       }
       if (s.skills) {
-        // R15.1 defaults para saves viejos (modelo toggle / levels, sin uses)
-        if (!s.skills.serveManual) s.skills.serveManual = { owned: false, autoServe: true };
+        // R15.1 defaults para saves viejos (levels, sin uses). v2.22.2 suelta Waiter.
         if (!s.skills.previewPool) s.skills.previewPool = { owned: false, level: 0 };
         // v2.1 R17 defaults (cola de clientes / usos mejorados)
         if (!s.skills.queueSkip) s.skills.queueSkip = { owned: false, uses: 0, usesBought: 0 };
@@ -1877,6 +1849,10 @@ function dropPermanentTableFields(s) {
   }
   if (s.skills && Object.prototype.hasOwnProperty.call(s.skills, 'tables')) {
     delete s.skills.tables;
+  }
+  // v2.22.2 — Waiter / serveManual ya no es un skill. Un save que lo traiga lo suelta.
+  if (s.skills && Object.prototype.hasOwnProperty.call(s.skills, 'serveManual')) {
+    delete s.skills.serveManual;
   }
   return s;
 }

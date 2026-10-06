@@ -21,9 +21,17 @@ const unwind = (ret, s) => (ret && ret.state) ? ret.state : (ret || s);
 const mulberry32 = s => () => { s|=0; s=s+0x6D2B79F5|0; let t=Math.imul(s^s>>>15,1|s); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; };
 const rng = n => mulberry32(n);
 
+function parkOrders(s) {
+  const park = (o) => { if (o) { o.color = 10; o.qty = 99; } };
+  if (s && s.run) {
+    (s.run.orders || []).forEach(park);
+    (s.run.activeClients || []).forEach(park);
+  }
+  return s;
+}
 const mkGame = (seed = 1) => {
   const s = G.createGame({ progress: { coins: 10000 } });
-  return unwind(G.openRun(s, rng(seed)), s);
+  return parkOrders(unwind(G.openRun(s, rng(seed)), s));
 };
 
 // ---------------------------------------------------------------------------
@@ -34,7 +42,6 @@ const mkGame = (seed = 1) => {
 test('T21a [R12.4] ancla monocolor: la pila colocada drena al tope del vecino', () => {
   need('placeStack'); need('resolveCascade');
   const s = mkGame(1);
-  s.skills.serveManual.autoServe = false;
   // v2.14-shape: núcleo jugable = 8,9,14,15,16,20,21 (q/r equivalentes al 2-3-2);
   // A=8 (q0,r-1) y D=9 (q1,r-1) adyacentes y jugables.
   const A = s.run.board[8], D = s.run.board[9];
@@ -64,7 +71,6 @@ test('T21a [R12.4] ancla monocolor: la pila colocada drena al tope del vecino', 
 test('T21b [R12.4] revelación de 2º grado: sub-pilas drenadas en eslabones siguientes', () => {
   need('placeStack'); need('resolveCascade');
   const s = mkGame(1);
-  s.skills.serveManual.autoServe = false;
   // Geometría núcleo REAL (probe v2.14): 14-15-16 adyacentes en fila r=0; 8-15
   // (dq1,dr1) y 9-15 (dq-1,dr1) también. Ancla = 15; A=14 y B=16 vecinas del ancla.
   const A = s.run.board[14], D = s.run.board[15], B = s.run.board[16];
@@ -89,7 +95,6 @@ test('T21b [R12.4] revelación de 2º grado: sub-pilas drenadas en eslabones sig
 test('T21c [R12.4] pila multicolor NO marca ancla: árbitro normal (regresión T18c)', () => {
   need('placeStack'); need('resolveCascade');
   const s = mkGame(1);
-  s.skills.serveManual.autoServe = false;
   // v2.14-shape: A=8, D=9 jugables adyacentes
   const A = s.run.board[8], D = s.run.board[9];
   A.stack = [2, 2];
@@ -118,7 +123,6 @@ test('T21c [R12.4] pila multicolor NO marca ancla: árbitro normal (regresión T
 test('T21d [R12.4] grupo sin ancla usa T1/R2 normal aunque haya ancla vigente', () => {
   need('placeStack'); need('resolveCascade');
   const s = mkGame(1);
-  s.skills.serveManual.autoServe = false;
   // Encontrar dos celdas jugables NO adyacentes entre sí y NO adyacentes al ancla 1
   const board = s.run.board;
   const adj = (x, y) => G.HEX_ADJ.some(([dq, dr]) =>
@@ -152,7 +156,6 @@ test('T21d [R12.4] grupo sin ancla usa T1/R2 normal aunque haya ancla vigente', 
 test('T21e [R12.4] flujo pool: colocar del tray monocolor ancla; el ancla vive solo durante la cascada', () => {
   need('placeStack'); need('resolveCascade');
   const s = mkGame(1);
-  s.skills.serveManual.autoServe = false;
   // Geometría real v2.14: 14-15 adyacentes. Pool monocolor [3,3] al slot 0; torre
   // vecina de tope 3 en 15; ancla = 14.
   s.run.pool = [[3, 3], [], []];
@@ -175,7 +178,6 @@ test('T21e [R12.4] flujo pool: colocar del tray monocolor ancla; el ancla vive s
 test('T21f [R12.4] swap no marca ancla', () => {
   need('useSwapPiles'); need('resolveCascade');
   const s = mkGame(1);
-  s.skills.serveManual.autoServe = false;
   s.skills.swapPiles.owned = true; s.skills.swapPiles.uses = 3;
   s.run.board[0].stack = [2, 2];
   s.run.board[1].stack = [2];

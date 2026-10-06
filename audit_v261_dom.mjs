@@ -40,7 +40,6 @@ const seeded = await page.evaluate(() => {
   // (3) clientes con colores 8/9/10: sus minitiles NO deben caer a mint
   s.run.orders.forEach((o, i) => { o.color = 8 + i; });
   if (Array.isArray(s.run.activeClients)) s.run.activeClients.forEach((o, i) => { o.color = 8 + i; });
-  s.skills.serveManual.autoServe = false;
   window.__dbg.renderAll();
   return { c11, c19 };
 });

@@ -34,48 +34,16 @@ const mkGame = () => G.createGame({
 });
 
 // ---------------------------------------------------------------------------
-// T15a — serveManual: modelo toggle (owned + autoServe, SIN uses) [R15.1]
+// T15a — v2.22.2: Waiter / serveManual is not a skill
 // ---------------------------------------------------------------------------
-test('T15a [R15.1] buySkill(serveManual): owned=true, SIN campo uses, autoServe=true (toggle)', () => {
+test('T15a [v2.22.2] serveManual is not in the catalog and cannot be bought', () => {
   need('buySkill');
   const s = mkGame();
+  assert.equal(s.skills.serveManual, undefined);
+  assert.equal(G.toggleServe, undefined);
   const ret = G.buySkill(s, 'serveManual');
-  const st = unwind(ret, s);
-  assert.ok(st.skills && st.skills.serveManual,
-    `RED: buySkill('serveManual') debe crear skills.serveManual, retornó ${JSON.stringify(ret)}`);
-  assert.equal(st.skills.serveManual.owned, true,
-    `RED: serveManual comprado debe quedar owned=true (ret=${JSON.stringify(ret)}) [R15.1]`);
-  assert.equal(Object.hasOwn(st.skills.serveManual, 'uses'), false,
-    'RED: serveManual es modelo toggle — NO debe tener campo uses [R15.1]');
-  assert.equal(st.skills.serveManual.autoServe, true,
-    'RED: serveManual comprado debe iniciar autoServe=true [R15.1]');
-});
-
-// ---------------------------------------------------------------------------
-// T15b — toggleServe: invierte autoServe; sin owned -> {error} [R15.1]
-// ---------------------------------------------------------------------------
-test('T15b [R15.1] toggleServe invierte autoServe; sin owned -> {error}', () => {
-  need('toggleServe');
-  // con owned: alterna autoServe true <-> false
-  const s = mkGame();
-  const st = unwind(G.buySkill(s, 'serveManual'), s);
-  assert.ok(st.skills && st.skills.serveManual && st.skills.serveManual.owned === true,
-    'RED: precondition — buySkill(serveManual) debe dejar owned=true [R15.1]');
-  const a0 = st.skills.serveManual.autoServe;
-  const st2 = unwind(G.toggleServe(st), st);
-  assert.ok(st2.skills && st2.skills.serveManual,
-    'RED: toggleServe debe retornar state con skills.serveManual');
-  assert.equal(st2.skills.serveManual.autoServe, !a0,
-    `RED: toggleServe debe invertir autoServe (${a0} -> ${!a0}) [R15.1]`);
-  // v2.22: no hace falta comprarla. Sin monedas no gira; con monedas sí, desde el inicio.
-  const s2 = mkGame();
-  s2.progress.coins = 0;
-  const ret2 = G.toggleServe(s2);
-  assert.equal(ret2 && ret2.error, 'noFunds');
-  const s3 = mkGame();
-  const before = s3.skills.serveManual.autoServe;
-  const st3b = unwind(G.toggleServe(s3), s3);
-  assert.equal(st3b.skills.serveManual.autoServe, !before);
+  assert.equal(ret && ret.error, 'noSkill');
+  assert.equal(s.skills.serveManual, undefined);
 });
 
 // ---------------------------------------------------------------------------
@@ -137,13 +105,12 @@ test('T15d [R15.1] previewPool: level 0 -> null/[]; level N -> N tandas; puro (s
 });
 
 // ---------------------------------------------------------------------------
-// T15e — destroyPile: modelo uses (R7.4 v2); serveManual/previewPool no
-//        tocan uses nunca.
+// T15e — destroyPile: modelo uses (R7.4 v2); previewPool (levels) no toca uses.
 // NOTA R7.4: si la skill requiere cafeLevel, mkGame() ya mutó
 // progress.totalGames=50 (cafeLevel alto) ANTES de comprar, para saltar ese
 // gate y testear solo el modelo de uses.
 // ---------------------------------------------------------------------------
-test('T15e [R7.4 v2.3] destroyPile modelo uses: compra=1 uso, decrementa al usar; toggle/levels sin uses', () => {
+test('T15e [R7.4 v2.3] destroyPile modelo uses: compra=1 uso; previewPool (levels) sin uses', () => {
   need('buySkill');
   need('useDestroyPile');
   const s = mkGame(); // totalGames=50/cafeLevel alto: gate R7.4 ya sorteado
@@ -167,13 +134,7 @@ test('T15e [R7.4 v2.3] destroyPile modelo uses: compra=1 uso, decrementa al usar
     `RED: useDestroyPile debe retornar state (ret=${JSON.stringify(st3)}) [R7.4]`);
   assert.ok(!st3.error, `RED: destroy desde el inicio de la run, dio ${JSON.stringify(st3 && st3.error)}`);
   assert.equal(st3.run.skillUses.destroyPile, 1, 'RED: el uso pagado queda en run.skillUses');
-  // serveManual (toggle) y previewPool (levels) NUNCA tienen/tocan uses
-  const st4 = unwind(G.buySkill(st3, 'serveManual'), st3);
-  assert.ok(st4.skills && st4.skills.serveManual && st4.skills.serveManual.owned === true,
-    'RED: precondition — buySkill(serveManual) debe dejar owned=true [R15.1]');
-  assert.equal(Object.hasOwn(st4.skills.serveManual, 'uses'), false,
-    'RED: serveManual (toggle) nunca debe tener campo uses [R15.1,R7.4]');
-  const st5 = unwind(G.buySkill(st4, 'previewPool'), st4);
+  const st5 = unwind(G.buySkill(st3, 'previewPool'), st3);
   assert.ok(st5.skills && st5.skills.previewPool && st5.skills.previewPool.owned === true,
     'RED: precondition — buySkill(previewPool) debe dejar owned=true [R15.1]');
   assert.equal(Object.hasOwn(st5.skills.previewPool, 'uses'), false,

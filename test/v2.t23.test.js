@@ -14,12 +14,17 @@ const mulberry32 = s => () => { s|=0; s=s+0x6D2B79F5|0; let t=Math.imul(s^s>>>15
 const rng = n => mulberry32(n);
 const unwind = (ret, s) => (ret && ret.state) ? ret.state : (ret || s);
 
+function parkOrders(s) {
+  const park = (o) => { if (o) { o.color = 10; o.qty = 99; } };
+  if (s && s.run) {
+    (s.run.orders || []).forEach(park);
+    (s.run.activeClients || []).forEach(park);
+  }
+  return s;
+}
 const mkGame = (seed = 1) => {
   const s = G.createGame({ progress: { coins: 1000000 } });
-  const run = unwind(G.openRun(s, rng(seed)), s);
-  run.skills.serveManual = run.skills.serveManual || { owned: false, autoServe: true };
-  run.skills.serveManual.autoServe = false; // isolate debris / unlock tests
-  return run;
+  return parkOrders(unwind(G.openRun(s, rng(seed)), s));
 };
 
 const eligibleDormant = (s) =>
