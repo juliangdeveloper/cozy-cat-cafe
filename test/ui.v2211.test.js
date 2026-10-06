@@ -17,8 +17,8 @@ function sliceFn(name, next) {
   return html.slice(start, end);
 }
 
-test('version footer stays and reads v2.22.2', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.22\.2'/);
+test('version footer stays and reads v2.22.3', () => {
+  assert.match(html, /GAME_VERSION = 'v2\.22\.3'/);
   assert.match(html, /☕ Cozy Cat Café \$\{GAME_VERSION\}/);
   assert.match(html, /Hold 3s to restart/);
 });
@@ -141,6 +141,29 @@ test('mute is a speaker icon and still names Mute music', () => {
   assert.equal(mute.includes('textContent'), false);
   assert.match(mute, /innerHTML = speakerMarkup/);
   assert.match(html, /cozy-cat-cafe\.audio\.mute|toggleCafeAudio/);
+});
+
+test('first-run spotlight matches auto-serve, restart, and skill tips', () => {
+  const start = html.indexOf('const TUT_STEPS');
+  const end = html.indexOf('let tutStep');
+  assert.ok(start >= 0 && end > start);
+  const steps = html.slice(start, end);
+  for (const sel of ['#pool', '#orders', '#queueCount', '#btnClose', '#powerbar']) {
+    assert.match(steps, new RegExp(`sel: '${sel.replace('#', '\\#')}'`));
+  }
+  assert.match(steps, /Matching tops serve themselves/);
+  assert.match(steps, /serve 100 customers/);
+  assert.match(steps, /served\/100/);
+  assert.match(steps, /Hold 3s to restart/);
+  assert.match(steps, /Coins reset/);
+  assert.match(steps, /Tap a skill to spend coins/);
+  assert.match(steps, /one-line tip/);
+  assert.doesNotMatch(steps, /keep the coins/i);
+  assert.doesNotMatch(steps, /keep your coins/i);
+  assert.doesNotMatch(steps, /Hold Close/);
+  assert.doesNotMatch(steps, /Waiter|serveManual/);
+  assert.match(html, /if\(step\.sel==='#btnClose'\) el\.classList\.add\('tut-spot-block'\)/);
+  assert.match(html, /maybeStartTutorial\(\)/);
 });
 
 test('a selected order glows only cells the rules already accept', () => {

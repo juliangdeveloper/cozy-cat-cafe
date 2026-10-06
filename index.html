@@ -499,7 +499,8 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 
 /* v2.18 — first-run spotlight tutorial.
    Overlay blocks non-playable UI. Board + trays stay above the dim so the
-   player can keep placing. Spotlighted controls are raised; Close is visual-only. */
+   player can keep placing. Spotlighted controls are raised; the Hold 3s
+   restart control is visual-only on its step. */
 #tutOverlay{position:fixed;inset:0;z-index:80;display:none;pointer-events:none;background:transparent}
 #tutOverlay.show{display:block;pointer-events:auto;background:rgba(121,72,53,.55)}
 body.tut-on .board-wrap,body.tut-on .pool{position:relative;z-index:90}
@@ -1704,6 +1705,7 @@ async function restartCafe(){
   const pop = $('#calPop'); if(pop) pop.classList.remove('show');
   const strip = $('#calStrip'); if(strip) strip.setAttribute('aria-expanded','false');
   renderAll();
+  maybeStartTutorial();
 }
 async function playVictory(){
   if(ui.restarting || !state.run || state.run.phase==='victory') return;
@@ -1814,12 +1816,14 @@ function bindGlobal(){
 // ============================================================================
 // v2.18 — FIRST-RUN TUTORIAL (spotlight overlay)
 // ============================================================================
+// v2.22.3 — copy matches the live run: auto-serve, serve 100, Hold 3s
+// restarts (coins reset), tap a skill / hold for a one-line tip.
 const TUT_STEPS = [
-  { sel: '#pool',     text: 'Tap a tray, then a table — stack food.' },
-  { sel: '#orders',   text: 'Matching piles serve themselves — cats take the food.' },
-  { sel: '#queueCount', text: 'Goal: serve every customer.' },
-  { sel: '#btnClose', text: 'Stuck? Hold Close 3s — you keep the coins.' },
-  { sel: '#powerbar', text: 'Skills spend coins. Hold one to read what it does.' },
+  { sel: '#pool',       text: 'Tap a tray, then a table — stack food.' },
+  { sel: '#orders',     text: 'Matching tops serve themselves — cats take the food.' },
+  { sel: '#queueCount', text: 'Goal: serve 100 customers. This shows served/100.' },
+  { sel: '#btnClose',   text: 'Stuck? Hold 3s to restart this run. Coins reset.' },
+  { sel: '#powerbar',   text: 'Tap a skill to spend coins. Hold one for a one-line tip.' },
 ];
 let tutStep = 0;
 let tutActive = false;
@@ -1914,12 +1918,15 @@ async function boot(){
   bindGlobal();
   startLoop();
   window.addEventListener('beforeunload',persist);
+  // v2.22.3: show the spotlight when this save has not finished it.
+  // A finished flag stays finished — this does not clear seenTutorial.
+  maybeStartTutorial();
 }
 // v2.20: mesas solo por partida (40 × 1.6^n, reset al reabrir). Sin tienda permanente.
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.22.2';
+const GAME_VERSION = 'v2.22.3';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };
