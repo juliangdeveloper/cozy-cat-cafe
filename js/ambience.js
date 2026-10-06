@@ -24,19 +24,84 @@ const ambLoopSrc = [
   './assets/audio/hybrid-sunlatte-90s.wav',
 ];
 const ambLoopFmt = ['ogg', 'mp3', 'wav'];
+// Short dry tick for the coin reset, and a soft two-note close for victory.
+// Synthesized so the café does not need another binary asset. game.js stays
+// audio-free; only this module plays them.
+function ambWavUri(samples, sampleRate) {
+  const n = samples.length;
+  const buffer = new ArrayBuffer(44 + n * 2);
+  const view = new DataView(buffer);
+  const writeStr = (off, str) => { for (let i = 0; i < str.length; i++) view.setUint8(off + i, str.charCodeAt(i)); };
+  writeStr(0, 'RIFF');
+  view.setUint32(4, 36 + n * 2, true);
+  writeStr(8, 'WAVE');
+  writeStr(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeStr(36, 'data');
+  view.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) view.setInt16(44 + i * 2, samples[i], true);
+  const bytes = new Uint8Array(buffer);
+  let bin = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  const b64 = typeof btoa === 'function' ? btoa(bin) : Buffer.from(bin, 'binary').toString('base64');
+  return 'data:audio/wav;base64,' + b64;
+}
+function ambDryResetWav() {
+  const sr = 22050;
+  const n = Math.floor(sr * 0.07);
+  const samples = new Int16Array(n);
+  let s = 1;
+  for (let i = 0; i < n; i++) {
+    s = (Math.imul(s, 16807) + 1) | 0;
+    if (s < 0) s = s >>> 0;
+    s = s % 2147483647;
+    const noise = ((s / 2147483647) * 2 - 1);
+    const env = Math.exp(-i / (sr * 0.012));
+    samples[i] = Math.max(-32767, Math.min(32767, noise * env * 12000));
+  }
+  return ambWavUri(samples, sr);
+}
+function ambCloseWav() {
+  const sr = 22050;
+  const n = Math.floor(sr * 0.42);
+  const samples = new Int16Array(n);
+  for (let i = 0; i < n; i++) {
+    const t = i / sr;
+    const env = Math.exp(-t * 4.2);
+    const tone = Math.sin(2 * Math.PI * 392 * t) * (t < 0.18 ? 1 : 0)
+      + Math.sin(2 * Math.PI * 262 * t) * (t >= 0.12 ? 1 : 0);
+    samples[i] = Math.max(-32767, Math.min(32767, tone * env * 9000));
+  }
+  return ambWavUri(samples, sr);
+}
+const ambResetUri = ambDryResetWav();
+const ambCloseUri = ambCloseWav();
 const ambSfxSrc = {
   stack: ['./assets/audio/sfx-stack.ogg', './assets/audio/sfx-stack.mp3'],
   merge: ['./assets/audio/sfx-merge.ogg', './assets/audio/sfx-merge.mp3'],
   serve: ['./assets/audio/sfx-serve.ogg', './assets/audio/sfx-serve.mp3'],
   destroy: ['./assets/audio/sfx-destroy.ogg', './assets/audio/sfx-destroy.mp3', './assets/audio/sfx-destroy.wav'],
+  reset: [ambResetUri],
+  close: [ambCloseUri],
 };
 const ambSfxFmt = {
   stack: ['ogg', 'mp3'],
   merge: ['ogg', 'mp3'],
   serve: ['ogg', 'mp3'],
   destroy: ['ogg', 'mp3', 'wav'],
+  reset: ['wav'],
+  close: ['wav'],
 };
-const ambSfxNames = ['stack', 'merge', 'serve', 'destroy'];
+const ambSfxNames = ['stack', 'merge', 'serve', 'destroy', 'reset', 'close'];
 
 let ambMusic = null;
 let ambMusicId = null;
@@ -45,8 +110,8 @@ let ambWantPlay = false;
 let ambMusicHtml5 = true;
 let ambWatch = 0;
 let ambRetryTimer = 0;
-let ambSfx = { stack: null, merge: null, serve: null, destroy: null };
-let ambSfxHtml5 = { stack: false, merge: false, serve: false, destroy: false };
+let ambSfx = { stack: null, merge: null, serve: null, destroy: null, reset: null, close: null };
+let ambSfxHtml5 = { stack: false, merge: false, serve: false, destroy: false, reset: false, close: false };
 let ambMuted = false;
 let ambUnlocked = false;
 let ambRunOpen = false;
@@ -168,7 +233,7 @@ function ambEnsure() {
       },
     });
   }
-  const vols = { stack: ambSfxVol, merge: ambSfxVol, serve: ambServeVol, destroy: ambDestroyVol };
+  const vols = { stack: ambSfxVol, merge: ambSfxVol, serve: ambServeVol, destroy: ambDestroyVol, reset: 0.34, close: 0.36 };
   for (const name of ambSfxNames) {
     if (ambSfx[name]) continue;
     ambSfx[name] = new Howl({
@@ -315,7 +380,7 @@ export function noteCafeClosed() {
   ambPauseMusic();
 }
 
-// name is 'stack' | 'merge' | 'serve' | 'destroy'. Ignored until a gesture
+// name is 'stack' | 'merge' | 'serve' | 'destroy' | 'reset' | 'close'. Ignored until a gesture
 // unlocks audio, while muted, and while the page is hidden or unfocused.
 // Unknown names are a no-op (no extra effects).
 export function playCafeSfx(name) {

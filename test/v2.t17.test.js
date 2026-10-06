@@ -38,8 +38,9 @@ const mkGame = (seed = 1, coins = 1e9) => {
 test('T17a [R16.1-R16.3] openRun: rosterIndex 5, activeClients 3, clientsDrawn 3, TOTAL 20', () => {
   need('createGame'); need('openRun'); need('totalClients'); need('runVictory');
   needCfg('MIN_CLIENTS'); needCfg('MAX_CLIENTS');
-  assert.equal(G.CONFIG.MIN_CLIENTS, 20, 'RED: CONFIG.MIN_CLIENTS===20 [R16.1]');
-  assert.equal(G.CONFIG.MAX_CLIENTS, 60, 'RED: v2.5 dial CONFIG.MAX_CLIENTS===60 (BALANCE_REPORT.md)');
+  assert.equal(G.CONFIG.TOTAL_CLIENTS, 100, 'v2.21: TOTAL_CLIENTS===100');
+  assert.equal(G.CONFIG.MIN_CLIENTS, 100, 'v2.21: el dial de 20 queda en 100');
+  assert.equal(G.CONFIG.MAX_CLIENTS, 100, 'v2.21: el dial v2.5 de 60 queda en 100');
   const s = mkGame(1);
   const run = s.run;
   assert.ok(run, 'RED: openRun debe dejar state.run');
@@ -50,13 +51,12 @@ test('T17a [R16.1-R16.3] openRun: rosterIndex 5, activeClients 3, clientsDrawn 3
   assert.equal(run.clientsDrawn, 3, 'RED: llegada perezosa — clientsDrawn===3 al abrir [R16.3]');
   assert.equal(run.clientsServed, 0, 'RED: clientsServed nace en 0 [R16.3]');
   assert.deepEqual(run.queueBack, [], 'RED: queueBack nace vacía [R17.1]');
-  // TOTAL efectivo = 20 con capacidad level 0 [R16.1]
-  assert.equal(G.totalClients(s), 20, 'RED: TOTAL = MIN_CLIENTS(20) + capacidad.level(0)');
-  // shape de cliente flotante: {id, color, qty 2-4, served:false} SIN celda
+  assert.equal(G.totalClients(s), 100, 'v2.21: TOTAL = 100, capacidad no suma');
+  // tamaños de arranque: 3, 5, 8, o legendario 10
   for (const c of run.activeClients) {
     assert.ok(c && typeof c.id === 'string' && c.color >= 1
-      && c.qty >= 2 && c.qty <= 4 && c.served === false,
-      `RED: cliente flotante {id,color,qty 2-4,served:false}, hay ${JSON.stringify(c)} [R16.2]`);
+      && [3, 5, 8, 10].includes(c.qty) && c.served === false,
+      `cliente flotante con qty de arranque, hay ${JSON.stringify(c)}`);
     assert.equal(c.cell, undefined, 'RED: clientes flotantes SIN celda [R16.2]');
   }
   // presión de compra [R13.5]: pool genera SOLO colorsOwned (4) < roster (5)
@@ -122,43 +122,18 @@ test('T17c [R16.4] servir 1 visible → clientsDrawn 3→4, activeClients se ref
 // T17d — [R17.3] capacidad: modelo levels; TOTAL = 20 + level (tope 100);
 // precio CAP_PRICE_BASE * CAP_RATIO^level creciente; level 80 → {error:'max'}.
 // ---------------------------------------------------------------------------
-test('T17d [R17.3 v2.5] buySkill(capacidad): TOTAL 21, precio exponencial, level 40 → {error:"max"}', () => {
+test('T17d [v2.21] capacidad no cambia N: TOTAL queda en 100 y la compra está retirada', () => {
   need('buySkill'); need('totalClients');
-  needCfg('CAP_PRICE_BASE'); needCfg('CAP_RATIO');
-  assert.equal(G.CONFIG.CAP_PRICE_BASE, 60, 'RED: v2.5 dial CAP_PRICE_BASE===60 (BALANCE_REPORT.md)');
-  assert.equal(G.CONFIG.CAP_RATIO, 1.145, 'RED: v2.5 dial CAP_RATIO===1.145 (30h en jugador medio)');
   const s = G.createGame({ progress: { coins: 1e13 } });
-  assert.equal(G.totalClients(s), 20, 'RED: TOTAL efectivo = 20 con capacidad level 0 [R16.1]');
-  // 1a compra: precio CAP_PRICE_BASE * CAP_RATIO^0 = 60; TOTAL 21
-  const st1 = unwind(G.buySkill(s, 'capacidad'), s);
-  assert.ok(st1.skills.capacidad && st1.skills.capacidad.owned === true,
-    `RED: buySkill('capacidad') debe dejar owned=true, dio ${JSON.stringify(st1.skills && st1.skills.capacidad)}`);
-  assert.equal(st1.skills.capacidad.level, 1, 'RED: 1a compra → level 1 [R17.3]');
-  assert.equal(st1.progress.coins, 1e13 - 60, 'RED: precio level0 = CAP_PRICE_BASE * CAP_RATIO^0 = 60');
-  assert.equal(G.totalClients(st1), 21, 'RED: TOTAL efectivo = 20 + level [R16.1/R17.3]');
-  // precios crecientes (exponencial por level)
-  let cur = st1;
-  const prices = [];
-  for (let i = 0; i < 3; i++) {
-    const lvl = cur.skills.capacidad.level;
-    const before = cur.progress.coins;
-    cur = unwind(G.buySkill(cur, 'capacidad'), cur);
-    const delta = before - cur.progress.coins;
-    const expected = G.CONFIG.CAP_PRICE_BASE * G.CONFIG.CAP_RATIO ** lvl;
-    // v2.1-clients: tolerancia 1e-2 — convención "sin redondeo" (igual que
-    // permTilePrice): con coins grandes el delta float difiere ~1e-4 del precio
-    // exponencial (error de punto flotante, no de fórmula).
-    assert.ok(Math.abs(delta - expected) < 1e-2,
-      `RED: precio compra ${i + 2} = CAP_PRICE_BASE*CAP_RATIO^${lvl}=${expected}, pagó ${delta} [R17.3]`);
-  }
-  assert.ok(cur.skills.capacidad.level === 4, 'RED: 4 compras → level 4');
-  // level 40 (tope v2.5) → {error:'max'}; TOTAL efectivo tope = MAX_CLIENTS = 60
-  const sMax = mkGame(1, 1e15);
-  sMax.skills.capacidad = { owned: true, level: 40 };
-  assert.equal(G.totalClients(sMax), 60, 'RED: TOTAL efectivo tope = MAX_CLIENTS=60 [R16.1 v2.5]');
-  const rMax = G.buySkill(sMax, 'capacidad');
-  assert.ok(rMax && rMax.error === 'max',
-    `RED: capacidad en level 40 → {error:'max'}, dio ${JSON.stringify(rMax)} [R17.3]`);
+  assert.equal(G.totalClients(s), 100);
+  const coins = s.progress.coins;
+  const r = G.buySkill(s, 'capacidad');
+  assert.equal(r.error, 'retired');
+  assert.equal(s.progress.coins, coins, 'no gasta monedas');
+  assert.equal(s.skills.capacidad.level, 0);
+  const fat = mkGame(1, 1e15);
+  fat.skills.capacidad = { owned: true, level: 40 };
+  assert.equal(G.totalClients(fat), 100, 'aunque el save traiga level, N es 100');
 });
 
 // ---------------------------------------------------------------------------
@@ -255,7 +230,7 @@ test('T17g [R16.4] victoria: clientsServed===TOTAL → closeRun(allServed); refi
   need('runVictory'); need('totalClients'); need('serveOrder'); need('closeRun');
   let s = mkGame(4);
   const TOTAL = G.totalClients(s);
-  assert.equal(TOTAL, 20, 'RED: TOTAL efectivo = 20 con capacidad level 0 [R16.1]');
+  assert.equal(TOTAL, 100, 'v2.21: TOTAL efectivo = 100');
   assert.equal(G.runVictory(s), false, 'RED: run recién abierta NO es victoria');
   let served = 0;
   while (s.run && s.run.clientsServed < TOTAL) {

@@ -74,10 +74,10 @@ test('T25b no permanent table purchase is available', () => {
   assert.equal(html.includes('buyTablesUp'), false);
   assert.equal(html.includes('permTilePrice'), false);
   assert.equal(html.includes('data-tables'), false);
-  assert.match(html, /GAME_VERSION = 'v2\.20\.0'/);
+  assert.match(html, /GAME_VERSION = 'v2\.21\.0'/);
 });
 
-test('T25c old save with permanent table fields loads and drops only those fields', () => {
+test('T25c old save loads without throwing; v2.21 drops persistent meta, keeps the per-run price', () => {
   const old = {
     version: 1,
     meta: { createdAt: 1, lastSavedAt: 1, lastSeenAt: 1, exportId: 'ccc-1-oldsave' },
@@ -111,40 +111,30 @@ test('T25c old save with permanent table fields loads and drops only those field
   };
   const s = G.deserializeState(JSON.stringify(old));
   assert.equal(s.version, 1);
-  assert.equal(s.progress.coins, 1234);
-  assert.equal(s.progress.totalGames, 7);
-  assert.equal(s.progress.colorsOwned, 6);
-  assert.equal(s.economy.multLevel, 2);
-  assert.equal(s.skills.destroyPile.owned, true);
-  assert.equal(s.skills.destroyPile.uses, 2);
-  assert.equal(s.skills.destroyPile.usesBought, 3);
-  assert.equal(s.skills.capacidad.level, 3);
-  assert.equal(s.idle.workers.level, 1);
-  assert.equal(s.settings.seenTutorial, true);
-  assert.equal(s.settings.boardRot, 90);
-  assert.equal(s.run.runTilesActivated, 2, 'the in-progress run counter is not the permanent shop');
-  assert.equal(s.run.board[0].dormant, false);
+  assert.equal(s.progress.coins, 0);
+  assert.equal(s.progress.totalGames, 0);
+  assert.equal(s.progress.colorsOwned, 4);
+  assert.equal(s.skills.destroyPile.owned, false);
+  assert.equal(s.skills.capacidad.level, 0);
+  assert.equal(s.idle.workers.level, 0);
+  assert.equal(s.run, null);
   assert.equal(Object.prototype.hasOwnProperty.call(s.progress, 'permTiles'), false);
-  assert.equal(Object.prototype.hasOwnProperty.call(s.skills, 'tables'), false);
-  assert.equal(s.skills.unlockLocks.owned, false, 'missing skills still get their defaults');
+  assert.equal(s.skills.tables, undefined);
 
   const again = G.deserializeState(G.serializeState(s));
-  assert.equal(JSON.stringify(again), JSON.stringify(s), 'dropped save round-trips');
+  assert.equal(JSON.stringify(again), JSON.stringify(s), 'fresh save round-trips');
 
   const imported = G.importSave(JSON.stringify(old));
   assert.equal(imported.error, undefined);
-  assert.equal(imported.progress.coins, 1234);
-  assert.equal(imported.skills.destroyPile.usesBought, 3);
-  assert.equal(Object.prototype.hasOwnProperty.call(imported.progress, 'permTiles'), false);
-  assert.equal(Object.prototype.hasOwnProperty.call(imported.skills, 'tables'), false);
+  assert.equal(imported.progress.coins, 0);
+  assert.equal(imported.skills.tables, undefined);
 
   const resumed = unwind(G.openRun(s, mulberry32(3)), s);
-  assert.equal(resumed.progress.coins, 1234);
-  assert.equal(resumed.progress.totalGames, 7);
   assert.equal(resumed.run.runTilesActivated, 0);
   assert.equal(G.runTilePrice(resumed), 40);
+  resumed.progress.coins = 40;
   const cell = eligible(resumed);
   const paid = unwind(G.activateTile(resumed, cell.id), resumed);
   assert.equal(paid.run.board.find(c => c.id === cell.id).dormant, false);
-  assert.equal(paid.progress.coins, 1234 - 40);
+  assert.equal(paid.progress.coins, 0);
 });

@@ -44,6 +44,32 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
   font-size:18px}
 .iconbtn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--wood-dark)}
 .iconbtn.mute-btn{width:auto;min-width:44px;padding:0 10px;font-family:var(--font-ui);font-weight:800;font-size:13px}
+.chip.dropping{background:var(--highlight);transition:transform .42s cubic-bezier(.2,.8,.2,1)}
+
+/* v2.21 — strip of the NEXT calamity. Same bar for both waves. */
+.cal-strip{display:flex;align-items:center;gap:8px;width:100%;margin:8px 0 2px;padding:4px 10px 4px 4px;
+  background:var(--panel);border:2px solid var(--ink);border-radius:999px;min-height:44px;cursor:pointer;
+  font-family:var(--font-ui);font-weight:800;color:var(--ink);box-shadow:0 3px 0 var(--wood-dark);text-align:left}
+.cal-strip:active{transform:translateY(2px);box-shadow:0 1px 0 var(--wood-dark)}
+.cal-ico{width:36px;height:36px;border-radius:50%;background:var(--highlight);border:2px solid var(--ink);
+  display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:14px;flex:0 0 auto}
+.cal-ico.wave2{background:var(--accent-2)}
+.cal-ico.clear{background:var(--success)}
+.cal-bar{flex:1;height:14px;background:var(--wood);border-radius:999px;overflow:hidden;border:2px solid var(--ink)}
+.cal-fill{display:block;height:100%;width:0;background:var(--danger)}
+.cal-meta{font-size:11px;color:var(--ink-soft);white-space:nowrap}
+.cal-pop p{margin:0 0 8px;font-size:14px;font-weight:700;line-height:1.35}
+.cal-pop .cal-bar{margin:10px 0 12px}
+
+.scene.resetting .board-wrap{opacity:0;transition:opacity .42s cubic-bezier(.4,0,.2,1)}
+.scene.dim .board-wrap,.scene.dim .pool,.scene.dim .powerbar,.scene.dim .queuebar{filter:brightness(.55)}
+.victory-veil{display:flex;flex-direction:column;align-items:center;gap:8px;margin:8px 0;padding:14px 12px;
+  background:color-mix(in srgb, var(--panel) 92%, var(--ink));border:3px solid var(--ink);border-radius:18px;
+  box-shadow:0 5px 0 var(--wood-dark);text-align:center;cursor:pointer}
+.victory-veil .host-line{margin:0;font-family:var(--font-display);font-weight:800;font-size:22px;line-height:1.2}
+.victory-veil .host-hint{margin:0;font-size:13px;font-weight:800;color:var(--ink-soft)}
+.foot{text-align:center;font-size:11px;color:var(--ink-soft);font-weight:700;margin:8px 0 4px}
+.order-card.legendary{box-shadow:0 0 0 3px var(--highlight),0 3px 0 var(--shadow)}
 
 /* buttons */
 .btn{font-family:var(--font-ui);font-weight:800;border:2px solid var(--ink);cursor:pointer;border-radius:16px;
@@ -473,6 +499,16 @@ body.tut-on #shopModal.show{z-index:100}
   <button class="btn btn-primary" id="offCollect" style="min-height:52px">Collect</button>
 </div></div>
 
+<div id="calPop" class="overlay"><div class="modal cal-pop">
+  <h3>Incoming calamity</h3>
+  <p>A hidden pile sleeps on a dark table until you unlock it.</p>
+  <p>A locked table hides a pile — Unlock reveals it.</p>
+  <p>A pile is already sitting on a table.</p>
+  <div class="cal-bar" aria-hidden="true"><span class="cal-fill" id="calPopFill"></span></div>
+  <div class="cal-meta" id="calPopMeta" style="text-align:center;margin-bottom:8px"></div>
+  <button type="button" class="btn btn-sec" id="calPopClose" style="width:100%">Close</button>
+</div></div>
+
 <div id="closeModal" class="overlay"><div class="modal">
   <h3 id="closeTitle">Café closed</h3>
   <p id="closeMsg" style="text-align:center;font-size:14px"></p>
@@ -551,6 +587,8 @@ import {
   bfsMergeGroups, computeBestChain, r2Target,
   // v2.1 — R16/R17: cola de clientes
   totalClients, runVictory, useQueueSkip,
+  // v2.21 — meta efímera, pedidos, oleada 2, victoria
+  restartRun, beginVictory, clearTables, calamityForecast,
 } from './js/game.js';
 import {
   bindCafeAudio, unlockCafeAudio, noteCafeOpen, noteCafeClosed,
@@ -559,7 +597,7 @@ import {
 
 let state = null;
 const KEY = 'cozy-cat-cafe.save.v1';
-const ui = { slot:false, mode:null, swapFirst:null, servingOrder:null, placeTile:false, previewSeed:1 };
+const ui = { slot:false, mode:null, swapFirst:null, servingOrder:null, placeTile:false, previewSeed:1, restarting:false };
 
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
@@ -638,40 +676,27 @@ async function settlePasses(){
   renderAll(); checkServedAll();
 }
 function persist(){ state.meta.lastSavedAt = Date.now(); localStorage.setItem(KEY, serializeState(state)); }
-function renderAll(){ persist(); state.run ? renderRun() : renderMenu(); }
+function renderAll(){
+  if(!state.run) state = openRun(state, Math.random);
+  persist();
+  renderRun();
+}
 
 // ============================================================================
 // MENU
 // ============================================================================
-function renderMenu(){
-  const p = state.progress;
-  $('#app').innerHTML = `
-    <div class="menu">
-      <div><div class="logo">☕ Cozy Cat Café <small>× HexaSort</small></div></div>
-      <div class="tableau">
-        ${spr('cat_worker',54)}${spr('cat_client_1',54)}${spr('cat_client_2',54)}
-        ${spr('cat_client_3',54)}${spr('machine_coffee',50)}${spr('icon_coin',42)}
-      </div>
-      <button class="btn btn-primary" id="btnOpen">🐾 Open Shop</button>
-      <div class="stats">Cafés closed: <b>${p.totalGames}</b> · 🪙 <b>${fmt(p.coins)}</b></div>
-      <div style="text-align:center;font-size:11px;color:var(--ink-soft);font-weight:700">☕ Cozy Cat Café ${GAME_VERSION}</div>
-      <div style="display:flex;gap:10px">
-        <button class="btn btn-sec" id="btnShop">🛒 Shop</button>
-        <button class="btn btn-sec" id="btnSave">💾 Save</button>
-      </div>
-    </div>`;
-  $('#btnOpen').onclick = openTheCafe;
-  $('#btnShop').onclick = showShop;
-  $('#btnSave').onclick = showSave;
-  noteCafeClosed();
-}
+// v2.21 — there is no menu. renderMenu stays as a name so old hooks fall
+// through into the single play screen.
+function renderMenu(){ renderRun(); }
 
 // ============================================================================
 // RUN SCENE
 // ============================================================================
 function renderRun(){
+  const won = state.run && state.run.phase === 'victory';
+  const bonus = (state.run && state.run.victoryBonus) || 0;
   $('#app').innerHTML = `
-    <div class="scene active">
+    <div class="scene active${won?' dim':''}">
       <div class="topbar">
         <div class="chip">🪙<span id="coinNum">${fmt(state.progress.coins)}</span></div>
         <div class="spacer"></div>
@@ -679,24 +704,70 @@ function renderRun(){
         <button class="iconbtn" id="btnShop">🛒</button>
         <button class="iconbtn" id="btnSave">💾</button>
       </div>
-      <details class="collap" id="idleWrap"><summary>🏠 Decor &amp; idle</summary><div class="idledecor" id="idleDecor"></div></details>
-      <div class="queuebar"><span id="queueCount" class="queuecount">0/20</span><div class="orders" id="orders"></div></div>
+      <button type="button" class="cal-strip" id="calStrip" aria-expanded="false" aria-controls="calPop">
+        <span class="cal-ico" id="calIco">I</span>
+        <span class="cal-bar" aria-hidden="true"><span class="cal-fill" id="calFill"></span></span>
+        <span class="cal-meta" id="calMeta">Next shift</span>
+      </button>
+      <div class="queuebar"><span id="queueCount" class="queuecount">0/100</span><div class="orders" id="orders"></div></div>
+      ${won ? `<div class="victory-veil" id="victoryVeil">
+        ${spr('cat_client_1', 96)}
+        <p class="host-line">Every guest is fed. The lights can rest.</p>
+        ${bonus>0 ? `<span class="bonus">Calamity bonus +${fmt(bonus)}</span>` : ''}
+        <p class="host-hint">Tap to open again · or hold restart</p>
+      </div>` : ''}
       <div class="board-wrap"><div class="board" id="board"></div></div>
       <div class="pool" id="pool"></div>
       <div class="preview" id="preview" style="display:none"></div>
       <div class="powerbar" id="powerbar"></div>
       <div class="run-actions">
         <button type="button" class="btn btn-sec" id="btnRotate" title="Rotate board 90°">↻ 90°</button>
-        <button type="button" class="btn btn-sec" id="btnClose">🚪 Hold 3s to close</button>
+        <button type="button" class="btn btn-sec" id="btnClose">↻ Hold 3s to restart</button>
       </div>
+      <div class="foot">☕ Cozy Cat Café ${GAME_VERSION}</div>
     </div>`;
   $('#btnShop').onclick=showShop; $('#btnSave').onclick=showSave;
   bindMute();
   bindRotateBoard();
   bindCloseHold();
-  renderIdle(); renderOrders(); renderBoard(); renderPool(); renderPreview(); renderPowers();
+  bindCalamity();
+  renderCalamity();
+  renderOrders(); renderBoard(); renderPool(); renderPreview(); renderPowers();
+  const veil = $('#victoryVeil');
+  if(veil) veil.addEventListener('click', ()=>{ restartCafe(); });
   noteCafeOpen();
   if(tutActive) showTutStep();
+}
+function renderCalamity(){
+  const f = calamityForecast(state);
+  const ico = $('#calIco'); const fill = $('#calFill'); const meta = $('#calMeta');
+  if(!ico || !fill || !meta) return;
+  const pct = Math.round(Math.max(0, Math.min(1, f.progress)) * 100);
+  fill.style.width = pct + '%';
+  ico.classList.remove('wave2','clear');
+  if(f.done){
+    ico.textContent = '✓'; ico.classList.add('clear');
+    meta.textContent = 'All clear';
+  } else if(f.wave === 2){
+    ico.textContent = 'II'; ico.classList.add('wave2');
+    meta.textContent = 'Guests';
+  } else {
+    ico.textContent = 'I';
+    meta.textContent = 'Tables';
+  }
+  const popFill = $('#calPopFill');
+  if(popFill) popFill.style.width = pct + '%';
+  const popMeta = $('#calPopMeta');
+  if(popMeta) popMeta.textContent = meta.textContent;
+}
+function bindCalamity(){
+  const strip = $('#calStrip'); if(!strip) return;
+  strip.addEventListener('click', ()=>{
+    const pop = $('#calPop'); if(!pop) return;
+    renderCalamity();
+    pop.classList.add('show');
+    strip.setAttribute('aria-expanded','true');
+  });
 }
 function muteBtnMarkup(){
   const m = cafeAudioMuted();
@@ -747,7 +818,7 @@ function renderOrders(){
     const name = ROSTER[(o.color||1)-1] || 'Creature';
     const ready = !o.served && orderIsReady(o);
     const sel = ui.servingOrder===o.id;
-    return `<div class="order-card ${o.served?'served':''} ${ready?'ready':''} ${sel?'selected':''}" data-oid="${o.id}"
+    return `<div class="order-card ${o.served?'served':''} ${ready?'ready':''} ${sel?'selected':''} ${o.legendary?'legendary':''}" data-oid="${o.id}"
       style="border-top:6px solid var(${tileVar(o.color)})">
       ${spr(cat,44)}
       <div class="bubble">${o.qty}<span class="minitile" style="--mc:var(${tileVar(o.color)})"></span></div>
@@ -913,7 +984,7 @@ function renderPool(){
     return `<div class="poolslot ${ui.slot===i?'selected':''} ${(!pile||!pile.length)?'drop':''}" data-slot="${i}">${inner}</div>`;
   }).join('');
   $$('#pool .poolslot').forEach(s=>s.addEventListener('click',()=>{
-    if(ui.anim) return;                        // cascada en curso: input bloqueado
+    if(cafeLocked()) return;
     const i=+(s.dataset.slot);
     if(!state.run.pool[i]||state.run.pool[i].length===0){ toast('That tray slot is empty'); return; }
     ui.servingOrder=null; ui.placeTile=false;
@@ -1285,8 +1356,11 @@ function renderPreview(){
 }
 
 // ---- tile interaction ------------------------------------------------------
+function cafeLocked(){
+  return ui.anim || ui.restarting || !!(state && state.run && state.run.phase==='victory');
+}
 function tapTile(id){
-  if(ui.anim) return;                          // cascada en curso: input bloqueado
+  if(cafeLocked()) return;
   const r=state.run, cell=r.board[id];
   if(ui.mode==='destroy'){ destroyFlow(id); return; }
   if(ui.mode==='swap'){ swapFlow(id); return; }
@@ -1351,7 +1425,7 @@ async function swapFlow(id){ if(ui.swapFirst===null){ ui.swapFirst=id; toast('No
   await settlePasses();                          // v2.4.1: clientes "apenas entre"
   renderAll(); checkFull(); checkServedAll(); }
 async function placeFlow(cell,slot){
-  if(ui.anim) return;                            // cascada en curso: input bloqueado
+  if(cafeLocked()) return;
   const res=placeStack(state,cell,slot);
   if(res.error){ err(res); return; }
   playCafeSfx('stack');
@@ -1404,19 +1478,16 @@ function serveOrderFlow(o,cellId){ const res=serveOrder(state,o,cellId);
   setTimeout(()=>{
     state=res; ui.servingOrder=null; ui.anim=false;
     if(el) floatOn(el,'+'+fmt(got)); confetti(); renderAll();
-    if(state.run && state.run.orders.every(x=>x.served)) doClose('allServed');
+    checkServedAll();
   }, Math.min(o.qty,6)*140+500);
 }
-function checkFull(){ const r=state.run; if(!r) return;
-  const free=r.board.filter(b=>!b.blocked && b.stack.length===0);
-  const any=r.orders.some(o=>!o.served);
-  if(free.length===0 && any) doClose('full'); }
-// v2 R13.6 fix (audit): la victoria debe alcanzar también por AUTO-SERVE —
-// si la cascada sirvió el último pedido, cerrar con 'allServed' igual que
-// serveOrderFlow. Sin esto, con autoServe ON el final de victoria es inalcanzable.
-function checkServedAll(){ const r=state.run; if(!r) return;
-  // v2.1 R16.4: victoria = TODA la cola servida (clientsServed === totalClients)
-  if(runVictory(state)) doClose('allServed'); }
+// v2.21 — a full floor is an informal loss. No "you lose" screen; the player
+// keeps the café and can hold restart.
+function checkFull(){ return; }
+// Victoria = los N clientes servidos. No hay pantalla pesada: cascada, luces,
+// gato anfitrión. Tap en el velo, o el hold, abren otra run.
+function checkServedAll(){ const r=state.run; if(!r || r.phase==='victory') return;
+  if(runVictory(state)) playVictory(); }
 function openTheCafe(){
   state=openRun(state, Math.random);
   ui.slot=false; ui.mode=null; ui.servingOrder=null; ui.placeTile=false;
@@ -1469,7 +1540,7 @@ function bindCloseHold(){
     raf=requestAnimationFrame(tickFill);
     holdTimer=setTimeout(()=>{
       holdDone=true; clearHold();
-      doClose('manual');
+      restartCafe();
     }, HOLD_MS);
   };
   const onUp=()=>{ if(!holdDone) clearHold(); };
@@ -1480,13 +1551,49 @@ function bindCloseHold(){
   p.addEventListener('click', ev=>{ ev.preventDefault(); ev.stopPropagation(); });
   p.addEventListener('contextmenu', ev=>ev.preventDefault());
 }
-function doClose(reason){ if(tutActive && reason==='manual') return; const res=closeRun(state, reason); state=res; persist();
-  $('#closeTitle').textContent = reason==='allServed' ? '☕ All cats served!' : reason==='full' ? 'Full & cleared!' : 'Café closed';
-  $('#closeMsg').textContent = reason==='allServed' ? 'A perfect closing — every order served!' :
-    reason==='full' ? 'No room to sort. You kept all your coins.' : 'You closed and kept all your coins.';
-  const b = res.metaClose && res.metaClose.bonus;
-  $('#closeBonus').innerHTML = b>0 ? `<span class="bonus">Bonus: +${fmt(b)}</span>` : '';
-  $('#closeModal').classList.add('show'); renderAll(); }
+async function restartCafe(){
+  if(ui.restarting) return;
+  ui.restarting = true;
+  ui.anim = true;
+  playCafeSfx('reset');
+  const scene = document.querySelector('.scene');
+  if(scene) scene.classList.add('resetting');
+  const cn = $('#coinNum');
+  if(cn){ cn.textContent = '0'; cn.classList.add('dropping'); }
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  await sleepMs(reduce ? 0 : 420);
+  state = restartRun(state, Math.random);
+  ui.slot=false; ui.mode=null; ui.swapFirst=null; ui.servingOrder=null; ui.placeTile=false;
+  ui.previewSeed=Math.floor(Math.random()*2147483647);
+  ui.restarting = false;
+  ui.anim = false;
+  const pop = $('#calPop'); if(pop) pop.classList.remove('show');
+  const strip = $('#calStrip'); if(strip) strip.setAttribute('aria-expanded','false');
+  renderAll();
+}
+async function playVictory(){
+  if(ui.restarting || !state.run || state.run.phase==='victory') return;
+  if(!runVictory(state)) return;
+  ui.anim = true;
+  state = beginVictory(state);
+  persist();
+  playCafeSfx('close');
+  const scene = document.querySelector('.scene');
+  if(scene) scene.classList.add('dim');
+  const cells = $$('#board .cell');
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(!reduce){
+    cells.forEach((el,i)=>{
+      el.style.transition = 'opacity .4s cubic-bezier(.4,0,.2,1)';
+      el.style.transitionDelay = (i * 18) + 'ms';
+      el.style.opacity = '0.12';
+    });
+    await sleepMs(Math.min(980, cells.length * 18 + 420));
+  }
+  state = clearTables(state);
+  ui.anim = false;
+  renderAll();
+}
 
 // ============================================================================
 // MODALS
@@ -1539,19 +1646,10 @@ function showShop(){ if(tutActive && (TUT_STEPS[tutStep]||{}).sel!=='#btnShop') 
       <div style="display:flex;gap:6px;align-items:center">${badge}${main}</div></div>`;
   }).join('');
   // capacidad (antes en Skills): LEVELS 0..80
-  const cap=state.skills.capacidad, capLv=cap.level||0,
-        capMax=CONFIG.MAX_CLIENTS-CONFIG.MIN_CLIENTS,
-        capPrice=Math.round(CONFIG.CAP_PRICE_BASE*Math.pow(CONFIG.CAP_RATIO,capLv));
-  const capRow = `<div class="rowcard"><div class="rowinfo"><b>Capacity +1 client</b>
-      <span>level ${capLv}/${capMax} · queue = ${totalClients(state)} clients</span></div>
-    ${capLv>=capMax ? `<span class="ownedbadge">MAX ${capLv}/${capMax}</span>`
-      : `<button class="btn btn-sm" data-buy="capacidad">${fmt(capPrice)}🪙</button>`}
-  </div>`;
   $('#shopBox').innerHTML = `
     <div class="shopsec">⚡ Active upgrades</div>
     ${actRows}
-    ${capRow}
-    <div class="shopsec">☕ Passive upgrades</div>
+    <div class="shopsec">☕ This café only</div>
     ${colorRow}
     <!-- v2.15: Extra table (progress.clients) eliminada — huérfano v1; Capacity es la
          expansión de clientes. Bigger floor (R6.2 OBSOLETA-v2, flujo muerto en
@@ -1559,7 +1657,7 @@ function showShop(){ if(tutActive && (TUT_STEPS[tutStep]||{}).sel!=='#btnShop') 
          en productsBought sin efecto — colores ahora son buyColor R13.7) ELIMINADAS -->
     <div class="rowcard"><div class="rowinfo"><b>Big-tip bonus</b><span>mult ${p.econ.multLevel} (superlinear)</span></div>
       ${multC?`<button class="btn btn-sm" data-exp="mult">${fmt(multC)}🪙</button>`:'<span style="color:var(--ink-soft);font-weight:700">max</span>'}</div>
-    ${idleRow('workers')}${idleRow('fame')}${idleRow('machines')}`;
+    `;
   $$('#shopBox [data-exp]').forEach(b=>b.addEventListener('click',()=>{
     const k=b.dataset.exp;
     if(k==='board'){
@@ -1597,12 +1695,8 @@ function showShop(){ if(tutActive && (TUT_STEPS[tutStep]||{}).sel!=='#btnShop') 
 // IDLE LOOP + PERSISTENCE + GLOBAL
 // ============================================================================
 function startLoop(){
-  setInterval(()=>{
-    if(!state || !state.run) return;
-    state=tickIdle(state,1);
-    const cn=$('#coinNum'); if(cn) cn.textContent=fmt(state.progress.coins);
-    persist();
-  },1000);
+  // v2.21 — no passive minting. Offline income is neutralized in game.js.
+  // The open café still snapshots on each action (renderAll) and on leave.
 }
 function bindGlobal(){
   document.addEventListener('click', e=>{
@@ -1641,8 +1735,20 @@ function bindGlobal(){
     renderAll();
     toast('Fresh start ✓');
   });
-  $('#closeAgain').addEventListener('click',()=>{ $('#closeModal').classList.remove('show'); openTheCafe(); });
-  $('#closeMenu').addEventListener('click',()=>{ $('#closeModal').classList.remove('show'); renderMenu(); });
+  $('#closeAgain').addEventListener('click',()=>{ $('#closeModal').classList.remove('show'); restartCafe(); });
+  $('#closeMenu').addEventListener('click',()=>{ $('#closeModal').classList.remove('show'); });
+  const calPop = $('#calPop');
+  const calPopClose = $('#calPopClose');
+  if(calPop) calPop.addEventListener('click', (e)=>{
+    if(e.target === calPop){
+      calPop.classList.remove('show');
+      const strip = $('#calStrip'); if(strip) strip.setAttribute('aria-expanded','false');
+    }
+  });
+  if(calPopClose) calPopClose.addEventListener('click', ()=>{
+    calPop.classList.remove('show');
+    const strip = $('#calStrip'); if(strip) strip.setAttribute('aria-expanded','false');
+  });
   // v2.18 tutorial controls (overlay lives outside #app)
   const tutSkip=$('#tutSkip'), tutNextBtn=$('#tutNext');
   if(tutSkip) tutSkip.addEventListener('click', finishTutorial);
@@ -1743,37 +1849,21 @@ async function boot(){
   normalizeOrders(state);          // v2: saves viejos pueden traer pedidos sin cell
   if(!state.meta.exportId || state.meta.exportId.indexOf('-0')>=0 || state.meta.exportId.length<8)
     state.meta.exportId = 'ccc-1-'+Date.now();
+  // v2.21: siempre en juego. Un save viejo llega sin run (meta descartada).
+  // La run en curso de esta versión se conserva. El mute no se toca.
+  if(!state.run) state = openRun(state, Math.random);
   await loadSprites();
-  // offline detection
-  const now = Date.now();
-  if(raw){
-    const dt = now - (state.meta.lastSeenAt||now);
-    if(dt>30*1000){
-      const res = applyOffline(state, now);
-      if(res.meta && res.meta.offlineReport && res.meta.offlineReport.total>0){
-        state = res; const rp = state.meta.offlineReport;
-        $('#offRep').innerHTML = `<div><span>Barista team</span><span>+${rp.workers}</span></div>
-          <div><span>Fame & tips</span><span>+${rp.fame}</span></div>
-          <div><span>Auto machines</span><span>+${rp.machines}</span></div>
-          <div style="border-top:2px solid var(--wood);padding-top:4px;font-weight:900"><span>Total</span><span>+${fmt(rp.total)}</span></div>`;
-        $('#offModal').classList.add('show');
-      }
-      persist();
-    }
-  }
   bindCafeAudio();
   renderAll();
   bindGlobal();
   startLoop();
   window.addEventListener('beforeunload',persist);
-  // v2.18: if a mid-run save still needs the tutorial, show it on the run scene
-  maybeStartTutorial();
 }
 // v2.20: mesas solo por partida (40 × 1.6^n, reset al reabrir). Sin tienda permanente.
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.20.0';
+const GAME_VERSION = 'v2.21.0';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };
