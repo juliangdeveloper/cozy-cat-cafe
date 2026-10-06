@@ -37,7 +37,7 @@ const base = () => {
 test('T20.a [v2.8] CONFIG: USES_SKILLS incluye unlockLocks (tope 5 aplica)', () => {
   needCfg('USES_SKILLS'); needCfg('MAX_USES_PER_SKILL');
   assert.deepEqual(G.CONFIG.USES_SKILLS,
-    ['destroyPile', 'swapPiles', 'refreshPool', 'queueSkip', 'tables', 'unlockLocks']);
+    ['destroyPile', 'swapPiles', 'refreshPool', 'queueSkip', 'unlockLocks']);
 });
 test('T20.b [v2.8] createGame: unlockLocks 250/LV5, sin base gratis', () => {
   const s = G.createGame();
@@ -169,7 +169,6 @@ test('T20.g [v2.8] applyCalamities alcanza celdas dormant (pila oculta revelable
   const d = fin.run.board.find((c) => c.dormant && !c.calamity && G.isActivateEligible(fin, c))
     || fin.run.board.find((c) => c.dormant && !c.calamity);
   d.calamity = true; d.hiddenStack = [3];
-  fin.skills.tables = { owned: true, uses: 1, usesBought: 1 };   // skill comprada
   const fin2 = G.activateTile(fin, fin.run.board.indexOf(d), () => 0.99);
   assert.ok(!fin2.error, `activateTile fallo: ${JSON.stringify(fin2.error)}`);
   assert.equal(fin2.run.board[fin.run.board.indexOf(d)].dormant, false);

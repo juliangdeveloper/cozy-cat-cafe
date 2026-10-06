@@ -1,8 +1,7 @@
 // ============================================================================
 // Cozy Cat Café × HexaSort — TDD suite v2.2 (node:test, no deps).
-// Block T14b — tablero RECTANGULAR 8×4 pointy (32 celdas) + Activate por USOS
-// (skill 'tables', modelo USES R17.2; compra permanente = buyTablesUp R14.4).
-// Fuente de verdad: RULES.md §R14 (v2.2), §R17.2, §R13.4.
+// Block T14b — tablero RECTANGULAR pointy + activación temporal ×1.6 (v2.20).
+// Fuente de verdad: RULES.md §R14.
 // Run: node --test test/v2.t14b.test.js
 // ============================================================================
 import { test } from 'node:test';
@@ -70,93 +69,80 @@ test('T14h [R14.2 v2.14] tras openRun: 7 jugables (núcleo 2-3-2) y 29 dormant',
 });
 
 // ---------------------------------------------------------------------------
-// Activate por USOS [R14.3 v2.2]: skill 'tables' modelo USES (R17.2).
-//  * activateTile consume 1 uso de skills.tables.uses (NO cobra coins).
-//  * CONFIG.USES_PER_RUN.tables = 1 (base por partida).
-//  * openRun repone uses = USES_PER_RUN.tables + usesBought.
-//  * sin usos => {error:'noUses'} sin mutar; sin owned => {error:'locked'}.
+// Activación temporal [R14.3 v2.20]: cobra 40 × 1.6^n. No hay skill de usos.
 // ---------------------------------------------------------------------------
-test('T14i [R14.3 v2.2] activateTile: consume 1 uso de tables, NO cobra coins', () => {
+test('T14i [R14.3 v2.20] activateTile cobra la curva y no pide la skill tables', () => {
   need('activateTile'); need('runTilePrice');
   const s = mkGame(1);
-  s.skills.tables = { owned: true, uses: 2, usesBought: 0 };
+  assert.equal(s.skills.tables, undefined);
   const cell = s.run.board.find(c => c.dormant && !c.blocked && G.isActivateEligible(s, c));
-  assert.ok(cell, 'RED: debe existir una celda dormant elegible (≥2 vecinos)');
+  assert.ok(cell, 'debe existir una celda dormant elegible (≥2 vecinos)');
   const coins0 = s.progress.coins;
+  const price = G.runTilePrice(s);
   const st = unwind(G.activateTile(s, cell.id), s);
-  const target = st.run.board.find(c => c.id === cell.id);
-  assert.equal(target.dormant, false, 'RED: la celda debe activarse');
-  assert.equal(st.run.runTilesActivated, 1, 'RED: run.runTilesActivated debe incrementarse');
-  assert.equal(st.skills.tables.uses, 1, 'RED: activateTile debe consumir 1 uso de skills.tables');
-  assert.equal(st.progress.coins, coins0, 'RED: activar NO debe cobrar coins (el costo vive en la tienda) [R14.3 v2.2]');
-  assert.equal(G.runTilePrice(st), 0, 'RED: runTilePrice === 0 (sin precio por activación)');
+  assert.equal(st.run.board.find(c => c.id === cell.id).dormant, false);
+  assert.equal(st.run.runTilesActivated, 1);
+  assert.ok(Math.abs((coins0 - st.progress.coins) - price) < 1e-6);
+  assert.ok(Math.abs(G.runTilePrice(st) - price * 1.6) < 1e-6);
 });
 
-test('T14j [R14.3 v2.2] activateTile sin usos => {error:"noUses"} sin mutar', () => {
+test('T14j [R14.3 v2.20] activateTile sin saldo => {error:"noFunds"} sin mutar', () => {
   need('activateTile');
   const s = mkGame(1);
-  s.skills.tables = { owned: true, uses: 0, usesBought: 0 };
-  const cell = s.run.board.find(c => c.dormant && !c.blocked);
-  const snap = { dormant: cell.dormant, coins: s.progress.coins };
+  s.progress.coins = 10; // por debajo de la base 40
+  const cell = s.run.board.find(c => c.dormant && !c.blocked && G.isActivateEligible(s, c));
   const ret = G.activateTile(s, cell.id);
-  assert.ok(ret && ret.error === 'noUses', `RED: sin usos debe dar {error:"noUses"}, dio ${JSON.stringify(ret)}`);
+  assert.equal(ret && ret.error, 'noFunds');
   const st = unwind(ret, s);
-  const target = st.run.board.find(c => c.id === cell.id);
-  assert.equal(target.dormant, snap.dormant, 'RED: noUses no debe activar la celda');
-  assert.equal(st.progress.coins, snap.coins, 'RED: noUses no debe tocar coins');
-  assert.equal(st.run.runTilesActivated, 0, 'RED: noUses no debe contar activaciones');
+  assert.equal(st.run.board.find(c => c.id === cell.id).dormant, true);
+  assert.equal(st.progress.coins, 10);
+  assert.equal(st.run.runTilesActivated || 0, 0);
 });
 
-test('T14k [R14.3 v2.2] activateTile sin la skill => {error:"locked"} sin mutar', () => {
+test('T14k [R14.3 v2.20] activar no exige skill tables (no locked)', () => {
   need('activateTile');
   const s = mkGame(1);
-  const cell = s.run.board.find(c => c.dormant && !c.blocked);
+  const cell = s.run.board.find(c => c.dormant && !c.blocked && G.isActivateEligible(s, c));
   const ret = G.activateTile(s, cell.id);
-  assert.ok(ret && ret.error === 'locked', `RED: sin skill debe dar {error:"locked"}, dio ${JSON.stringify(ret)}`);
-  const st = unwind(ret, s);
-  assert.equal(st.run.board.find(c => c.id === cell.id).dormant, true, 'RED: locked no debe activar');
+  assert.ok(!ret.error, `sin skill debe activar pagando monedas, dio ${JSON.stringify(ret && ret.error)}`);
+  assert.equal(unwind(ret, s).run.board.find(c => c.id === cell.id).dormant, false);
 });
 
-test('T14l [R17.2 v2.3] openRun repone tables.uses = usesBought', () => {
-  need('openRun');
-  const s = G.createGame({ progress: { coins: 10000 } });
-  s.skills.tables = { owned: true, uses: 0, usesBought: 2 };
+test('T14l [R14.3 v2.20] openRun no conserva mesas ni el precio de la run anterior', () => {
+  need('openRun'); need('activateTile');
+  let s = mkGame(1);
+  s.skills.tables = { owned: true, uses: 0, usesBought: 9 };
+  s.progress.permTiles = 12;
+  s = unwind(G.activateTile(s, s.run.board.find(c => c.dormant && G.isActivateEligible(s, c)).id), s);
+  assert.ok(G.runTilePrice(s) > 40);
   const st = unwind(G.openRun(s, rng(5)), s);
-  assert.equal(st.skills.tables.uses, 2,
-    'RED: openRun debe repone uses = usesBought (R17.2 v2.3, sin base)');
+  assert.equal(st.run.runTilesActivated, 0);
+  assert.equal(G.runTilePrice(st), 40);
+  assert.equal(st.run.board.filter(c => !c.dormant && !c.blocked).length, 7);
+  // los campos permanentes que el caller dejó en memoria no reponen usos
+  assert.notEqual(st.skills.tables && st.skills.tables.uses, 9);
 });
 
-// ---------------------------------------------------------------------------
-// Compra permanente = mesas activables por partida [R14.4 v2.2]:
-//  * buyTablesUp(state): permTiles+1 Y skills.tables.usesBought+1;
-//    precio = PERM_TILE_BASE * 1.35^permTiles (sin redondeo, igual que antes).
-//  * comprar NO activa ninguna celda (la activación es temporal por partida).
-// ---------------------------------------------------------------------------
-test('T14m [R14.4 v2.5] buyTablesUp: permTiles+1, usesBought+1, coins -= TABLES_PERM_BASE*RATIO^permTiles', () => {
-  need('buyTablesUp'); need('permTilePrice'); needCfg('PERM_TILE_BASE'); needCfg('TABLES_PERM_RATIO');
-  assert.equal(G.CONFIG.TABLES_PERM_BASE, 80, 'RED: v2.5 dial TABLES_PERM_BASE===80');
-  assert.equal(G.CONFIG.TABLES_PERM_RATIO, 1.25, 'RED: v2.5 dial TABLES_PERM_RATIO===1.25');
-  const s = G.createGame({ progress: { coins: 100000 } });
-  s.skills.tables = { owned: false, uses: 0, usesBought: 0 };
-  s.progress.permTiles = 1;
-  const price = G.permTilePrice(s);
-  const st = unwind(G.buyTablesUp(s), s);
-  assert.equal(st.progress.permTiles, 2, 'RED: buyTablesUp debe subir el techo permanente [R14.4]');
-  assert.equal(st.skills.tables.usesBought, 1, 'RED: buyTablesUp debe subir usesBought (mesas por partida)');
-  assert.equal(st.skills.tables.owned, true, 'RED: comprar la 1ª vez marca tables como owned');
-  assert.ok(Math.abs((st.progress.coins - 100000) + price) < 1e-6, 'RED: coins debe descontar permTilePrice exacto');
-  assert.equal(G.permTilePrice(st), G.CONFIG.TABLES_PERM_BASE * G.CONFIG.TABLES_PERM_RATIO ** st.progress.permTiles,
-    'RED: permTilePrice = TABLES_PERM_BASE * RATIO^permTiles [R14.4 v2.5]');
+test('T14m [R14.4 retirada] buyTablesUp y el dial permanente no existen', () => {
+  assert.equal(typeof G.buyTablesUp, 'undefined');
+  assert.equal(typeof G.permTilePrice, 'undefined');
+  assert.equal(G.CONFIG.TABLES_PERM_BASE, undefined);
+  assert.equal(G.CONFIG.TABLES_PERM_RATIO, undefined);
+  assert.equal(G.CONFIG.TABLES_CAP_FROM_BOARD, undefined);
+  const fresh = G.createGame();
+  assert.equal(fresh.progress.permTiles, undefined);
+  assert.equal(fresh.skills.tables, undefined);
+  assert.equal(G.CONFIG.USES_SKILLS.includes('tables'), false);
 });
 
-test('T14n [R14.4 v2.2] buyTablesUp sin saldo => {error:"noFunds"} sin mutar; comprar NO activa celdas', () => {
-  need('buyTablesUp');
+test('T14n [R14.3] un objeto tables residual no se puede comprar', () => {
   const s = G.createGame({ progress: { coins: 0 } });
-  s.skills.tables = { owned: false, uses: 0, usesBought: 0 };
+  s.skills.tables = { owned: false, uses: 0, usesBought: 0, price: 0 };
   s.progress.permTiles = 1;
-  const ret = G.buyTablesUp(s);
-  assert.ok(ret && ret.error === 'noFunds', `RED: sin saldo debe dar noFunds, dio ${JSON.stringify(ret)}`);
-  const st = unwind(ret, s);
-  assert.equal(st.progress.permTiles, 1, 'RED: noFunds no debe mutar permTiles');
-  assert.equal(st.skills.tables.usesBought, 0, 'RED: noFunds no debe mutar usesBought');
+  const coins = s.progress.coins;
+  assert.equal(G.buySkill(s, 'tables').error, 'noSkill');
+  assert.equal(G.buyUsesUp(s, 'tables').error, 'noUsesModel');
+  assert.equal(s.progress.coins, coins);
+  assert.equal(s.progress.permTiles, 1, 'la compra rechazada no toca el save en memoria');
+  assert.equal(s.skills.tables.usesBought, 0);
 });

@@ -19,9 +19,8 @@ export const CONFIG = {
   CALAMITY_MAX_FRAC: 1 / 3,         // R8.2 hi
   CALAMITY_THRESHOLD: 15,           // R8.1 only if boardCells > 15
   BLOCK_PROB: 0.5,                  // R8.3 ~50% blocked / ~50% prestockated
-  USES_SKILLS: ['destroyPile', 'swapPiles', 'refreshPool', 'queueSkip', 'tables', 'unlockLocks'], // v2.3 R7.2: skills modelo USOS (v2.8 += unlockLocks R7.8)
-  MAX_USES_PER_SKILL: 5,            // v2.4: tope de usos por partida en destroy/swap/refresh/queueSkip (tables NO: su capa = baldosas dormant)
-  TABLES_CAP_FROM_BOARD: true,      // v2.4: techo de buyTablesUp = celdas del tablero − núcleo 7
+  USES_SKILLS: ['destroyPile', 'swapPiles', 'refreshPool', 'queueSkip', 'unlockLocks'], // v2.3 R7.2: skills modelo USOS (v2.8 += unlockLocks R7.8). v2.20: tables ya no es skill de usos.
+  MAX_USES_PER_SKILL: 5,            // v2.4: tope de usos por partida en destroy/swap/refresh/queueSkip/unlockLocks
   PRODUCTS_PER_COLOR: 3,            // R10.1 [OBSOLETO v2 — reemplazado por R13.7]
   IDLE_RATE: { workers: 0.5, fame: 0.3, machines: 0.8 }, // R9.1
   IDLE_CAP:  { workers: 60,  fame: 100,  machines: 40 },  // R9.3 caps
@@ -34,10 +33,8 @@ export const CONFIG = {
   // v2 — mecánica v2 (R13 clientes-criaturas / R14 tablero dual) ⚖BALANCE
   UNLOCK_PLACED_PILES: 3,           // R13.4 pilas colocadas por cada desbloqueo de criatura
   COLOR_PRICE_BASE: 150,            // R13.7 precio color = BASE * (n-3), n = colorsOwned tras comprar
-  RUN_TILE_BASE: 40,                // R14.3 [OBSOLETO v2.2 — queda solo por compat de tests viejos; runTilePrice≡0]
-  PERM_TILE_BASE: 200,              // R14.4 v2.2: alias de TABLES_PERM_BASE (mismo valor)
-  TABLES_PERM_BASE: 80,             // v2.5 R14.4 precio compra permanente 'tables' = BASE * RATIO^permTiles (antes 200×1.35 — 1.04M coins)
-  TABLES_PERM_RATIO: 1.25,          // v2.5 R14.4 (dial balance, BALANCE_REPORT.md §6)
+  RUN_TILE_BASE: 40,                // R14.3 runTilePrice = BASE * RATIO^runTilesActivated (se resetea cada run)
+  RUN_TILE_RATIO: 1.6,              // R14.3 curva temporal por partida; no hay tienda permanente (2026-10-06)
   MAX_COLORS: 10,                   // R13.7 10 colores / criaturas en orden de desbloqueo (R13.2)
   DEBRIS_THRESHOLD: 10,             // v2 escombros: umbral para entrar en tablero
   DEBRIS_BONUS_PER: 25,             // v2 escombros: bonus por escombro limpiado
@@ -159,9 +156,6 @@ export function createGame(init = {}) {
       coins: 0, totalGames: 0, cafeLevel: 1, productsBought: 0,
       clients: 3, boardCells: 7, colorsUnlocked: 1, // board starts as 7-cell hex 2-3-2
       colorsOwned: 4,                               // v2 R13.7: 4 colores de inicio
-      permTiles: 1,                                 // v2 R14.2: techo inicial 1 (T14c/T14d:
-                                                    // la 1ª activación por partida es posible
-                                                    // sin comprar permanente)
       econ: { multLevel: 0 },
     },
     economy: { multLevel: 0 },
@@ -176,10 +170,6 @@ export function createGame(init = {}) {
       // v2.1 R17.1 — queueSkip: modelo USES (R7.4) — los 3 visibles van al
       // fondo de la cola y entran 3 nuevos. R17.2: usesBought (mejora de usos).
       queueSkip: { owned: false, uses: 0, usesBought: 0, price: 100, unlockLevel: 1 },
-      // v2.2 R14.3/R14.4 — tables ("Activate"): modelo USES (1 uso base/partida,
-      // repuesto por openRun). La compra permanente vive en la TIENDA
-      // (buyTablesUp); price:0 aquí para que buySkill nunca lo venda.
-      tables: { owned: false, uses: 0, usesBought: 0, unlockLevel: 1, price: 0 },
       // v2.8 R7.8 — unlockLocks ("Unlock"): modelo USES (tope MAX_USES 5/partida);
       // desbloquea UN candado de calamidad y REVELA su pila oculta (R8.4 v2).
       unlockLocks: { owned: false, uses: 0, usesBought: 0, price: 250, unlockLevel: 5 },
@@ -588,7 +578,6 @@ function refillClients(s, rng) {
 export function openRun(state, rng) {
   let s = clone(state);
   const r = rng || Math.random;
-  if (s.progress.permTiles == null) s.progress.permTiles = 1;      // v2 default (saves v1)
   const board = generateBoard(36, r);                            // R14.1 board dual 36 (rectángulo 6×6 pointy, v2.14)
   const rosterIdx = Math.min(5, rosterMax(s.progress.colorsOwned)); // R13.3 v2.1: 5 tipos activos
   const cu = poolMaxColor(rosterIdx, s.progress.colorsOwned);
@@ -603,7 +592,7 @@ export function openRun(state, rng) {
     calamitiesApplied: false,                                      // R14.5 una vez por partida
     rosterIndex: rosterIdx,
     placedCounter: 0,                                              // R13.4
-    runTilesActivated: 0,                                          // R14.3
+    runTilesActivated: 0,                                          // R14.3 precio ×1.6; se resetea con la run
     // v2.1 R16 — cola de clientes perezosa: 3 visibles, contadores, devueltos
     clientsDrawn: 0,                                               // R16.3 dibujados hasta ahora
     clientsServed: 0,                                              // R16.4 victoria = === TOTAL
@@ -927,23 +916,23 @@ export function buyColor(state) {
 }
 
 // ---------------------------------------------------------------------------
-// v2 — Economía de baldosas (R14.2/R14.3/R14.4; v2.2: Activate por USOS).
-// Tablero dual 32 (rectángulo 8×4 pointy v2.2): las celdas dormant se activan
-// TEMPORALMENTE por partida con la skill 'tables' (modelo USES R7.4/R17.2:
-// 1 uso base + usesBought por partida, repuesto por openRun; SIN costo de
-// monedas por activación — el costo vive en la TIENDA). La compra permanente
-// es buyTablesUp (R14.4 v2.2): sube permTiles (techo histórico, compat) Y
-// usesBought (+1 mesa/partida). Precio exponencial ⚖BALANCE:
-//   permTilePrice  = TABLES_PERM_BASE * 1.35^permTiles  (= PERM_TILE_BASE)
-// runTilePrice ≡ 0 desde v2.2 (sin precio por activación).
+// v2.20 — Economía de baldosas (R14.3, Julian 2026-10-06).
+// Una sola curva, TEMPORAL por partida:
+//   runTilePrice = RUN_TILE_BASE * RUN_TILE_RATIO^runTilesActivated
+//                = 40 * 1.6^n
+// Activar cobra ese precio en monedas y suma 1 a runTilesActivated (la
+// siguiente baldosa de la misma run cuesta ×1.6). openRun regenera el
+// tablero y pone runTilesActivated = 0, así que precio, contador y mesas
+// activadas vuelven al inicio. No hay techo permTiles ni compra permanente.
+//
+// Reconciliación con el modelo USES (v2.2–v2.19): la skill `tables` gastaba
+// usos comprados en tienda y runTilePrice era 0. Esa bolsa no sobrevive a
+// la run; el gesto (tap / hold, vecinos R14.6) se queda, y cada activación
+// se paga con la curva de monedas.
 // ---------------------------------------------------------------------------
 export function runTilePrice(state) {
-  return 0;   // v2.2: sin precio por activación (modelo usos de skills.tables)
-}
-
-export function permTilePrice(state) {
-  const m = (state.progress && state.progress.permTiles) || 0;
-  return CONFIG.TABLES_PERM_BASE * CONFIG.TABLES_PERM_RATIO ** m;
+  const n = (state && state.run && state.run.runTilesActivated) || 0;
+  return CONFIG.RUN_TILE_BASE * CONFIG.RUN_TILE_RATIO ** n;
 }
 
 function v2CellOf(s, cellId) {
@@ -959,14 +948,12 @@ export function activateTile(state, cellId, rng) {
   const cell = v2CellOf(s, cellId);
   if (!cell) return { error: 'noCell', state: s };
   if (!cell.dormant) return { error: 'notDormant', state: s };   // solo baldosas apagadas
-  // v2.2 R14.3: modelo USOS de la skill 'tables' (R7.8) — sin techo permTiles
-  // y SIN costo de coins (el costo vive en la compra permanente de la tienda).
-  const sk = s.skills && s.skills.tables;
-  if (!sk || !sk.owned) return { error: 'locked', state: s };   // R7.8
-  if ((sk.uses | 0) <= 0) return { error: 'noUses', state: s }; // R14.3 v2.2
   // v2.17 R14.6: solo si toca ≥2 mesas ya desbloqueadas (núcleo inicial ya
   // desbloqueado; primeras expansiones = anillos mid-edge del radio 2).
   if (!isActivateEligible(s, cell)) return { error: 'needTwoNeighbors', state: s };
+  // R14.3 v2.20: cobra la curva temporal. Sin usos ni techo permanente.
+  const price = runTilePrice(s);
+  if (s.progress.coins < price) return { error: 'noFunds', state: s };
   cell.dormant = false;                                // activa ESTA partida
   // v2.8 R8.1: revelar pila de calamidad oculta en baldosas (si la hay)
   if (cell.hiddenStack && cell.hiddenStack.length) {
@@ -974,7 +961,7 @@ export function activateTile(state, cellId, rng) {
     delete cell.hiddenStack;
   }
   s.run.runTilesActivated = (s.run.runTilesActivated || 0) + 1;
-  sk.uses -= 1;                                        // sin costo de coins
+  s.progress.coins -= price;
   // R14.5: al activar puede cruzarse el umbral de JUGABLES (> 15) — las
   // calamidades entran UNA sola vez por partida (flag run.calamitiesApplied;
   // applyCalamities es no-op si ya aplicaron o si no se cruzó el umbral).
@@ -986,14 +973,12 @@ export function activateTile(state, cellId, rng) {
 // v2.17 R14.3b — activateAroundUnlocked(state, rng): batch del hold-Tables.
 // Snapshot de elegibles al INICIO: dormant + vecinas del set desbloqueado
 // actual + ≥2 vecinos desbloqueados (R14.6). Orden estable = índice de board
-// ascendente. Activa en serie vía activateTile hasta agotar uses o candidatos.
+// ascendente. Activa en serie vía activateTile (cada una paga ×1.6). El set
+// desbloqueado no crece mid-batch. Para si no alcanza el saldo (noFunds).
 // ---------------------------------------------------------------------------
 export function activateAroundUnlocked(state, rng) {
   let s = clone(state);
   if (!s.run || !Array.isArray(s.run.board)) return { error: 'noRun', state: s };
-  const sk = s.skills && s.skills.tables;
-  if (!sk || !sk.owned) return { error: 'locked', state: s };
-  if ((sk.uses | 0) <= 0) return { error: 'noUses', state: s };
   // Snapshot: vecinos del set desbloqueado AHORA (no crece mid-batch).
   const unlocked = s.run.board.filter((c) => c && !c.dormant);
   const candidates = [];
@@ -1004,45 +989,21 @@ export function activateAroundUnlocked(state, rng) {
     candidates.push(i);
   });
   candidates.sort((a, b) => a - b); // board-scan order
+  if (!candidates.length) return { error: 'noneEligible', state: s };
   const activated = [];
+  let stoppedFunds = false;
   for (const idx of candidates) {
-    if ((s.skills.tables.uses | 0) <= 0) break;
     const res = activateTile(s, idx, rng);
+    if (res && res.error === 'noFunds') { stoppedFunds = true; break; }
     if (res && res.error) continue; // skip if somehow ineligible after prior
     s = res;
     activated.push(idx);
   }
-  if (!activated.length) return { error: 'noneEligible', state: s };
+  if (!activated.length) {
+    return { error: stoppedFunds ? 'noFunds' : 'noneEligible', state: s };
+  }
   return s;
 }
-
-// ---------------------------------------------------------------------------
-// v2.2 R14.4 — buyTablesUp (reemplaza a buyPermTile): compra permanente en la
-// TIENDA. Sube el techo histórico permTiles (+1) Y skills.tables.usesBought
-// (+1 mesa activable por partida). Mid-run: uses += 1 (sin devolver gastados);
-// openRun repone uses = usesBought. La 1ª compra marca tables.owned.
-// La celda elegida NO se activa aquí. Precio = TABLES_PERM_BASE * RATIO^permTiles.
-// ---------------------------------------------------------------------------
-export function buyTablesUp(state) {
-  const s = clone(state);
-  if (s.progress.permTiles == null) s.progress.permTiles = 1;
-  if (!s.skills.tables) s.skills.tables = { owned: false, uses: 0, usesBought: 0 };
-  // v2.4: el techo de mesas/partida depende del TAMAÑO DEL TABLERO —
-  // celdas totales − núcleo 7 (nunca tiene sentido comprar más activables
-  // que baldosas apagadas existan). Con 36 celdas (6×6 v2.14): tope 29.
-  const boardCap = (s.run && Array.isArray(s.run.board) ? s.run.board.length : 36) - 7;
-  if ((s.skills.tables.usesBought || 0) >= boardCap) return { error: 'maxUses', state: s };
-  const price = permTilePrice(s);
-  if (s.progress.coins < price) return { error: 'noFunds', state: s };
-  s.progress.permTiles += 1;                                    // techo permanente
-  s.skills.tables.usesBought = (s.skills.tables.usesBought || 0) + 1;  // mesas/partida
-  s.skills.tables.uses = (s.skills.tables.uses || 0) + 1;       // v2.15: +1 uso ya (sin devolver gastados)
-  s.skills.tables.owned = true;
-  s.progress.coins -= price;
-  return s;
-}
-// alias deprecado (compat imports viejos: buyPermTile(state, cellId))
-export const buyPermTile = buyTablesUp;
 
 // ---------------------------------------------------------------------------
 // serveOrder(state, orderId, cellId) — click client (order) then pile (cell).
@@ -1336,7 +1297,10 @@ export function closeRun(state, reason = 'manual') {
 // Skill tree / powers — R7
 // ---------------------------------------------------------------------------
 export function buySkill(state, power) {
-  const sk = state.skills[power];
+  // v2.20: activar mesas no se compra. Un save viejo puede traer skills.tables
+  // hasta que deserialize lo suelte; igual no se vende.
+  if (power === 'tables') return { error: 'noSkill' };
+  const sk = state.skills && state.skills[power];
   if (!sk) return { error: 'noSkill' };
   const s = clone(state);
   // v2 R15.1 — serveManual: modelo TOGGLE (owned, SIN uses)
@@ -1370,15 +1334,14 @@ export function buySkill(state, power) {
     s.skills.capacidad.level = level + 1;
     return s;
   }
-  // v2.3/v2.15/v2.16 R7.2 — skills modelo USOS (destroy/swap/refresh/queueSkip/tables/unlock):
+  // v2.3/v2.15/v2.16 R7.2 — skills modelo USOS (destroy/swap/refresh/queueSkip/unlock):
   // CADA uso se compra (sin base gratis): usesBought += 1 y uses += 1 (mid-run
   // usable ya; NO uses = usesBought — eso devolvería gastados). openRun repone
   // uses = usesBought. Precio = price * 1.35^usesBought. v2.16: sin gate cafeLevel.
   {
     const sk2 = s.skills[power];
-    // v2.4: tope de usos/partida = MAX_USES_PER_SKILL (5) para destroy/swap/
-    // refresh/queueSkip; 'tables' sin ese tope (su capa real = baldosas dormant).
-    const cap = power === 'tables' ? Infinity : CONFIG.MAX_USES_PER_SKILL;
+    // v2.4: tope de usos/partida = MAX_USES_PER_SKILL (5).
+    const cap = CONFIG.MAX_USES_PER_SKILL;
     const cost = Math.round(sk2.price * Math.pow(1.35, sk2.usesBought || 0));
     if ((sk2.usesBought || 0) >= cap) return { error: 'maxUses' };           // v2.4
     if (s.progress.coins < cost) return { error: 'noFunds' };                // R7.3
@@ -1428,9 +1391,9 @@ function buysOf(state, power) {
 export function buyUsesUp(state, power) {
   const sk = state && state.skills && state.skills[power];
   if (!sk) return { error: 'noSkill' };
-  if (!CONFIG.USES_SKILLS.includes(power)) return { error: 'noUsesModel' };  // solo modelo 'uses'
-  // v2.4: mismo tope que buySkill (5 por partida; tables sin tope 5)
-  const cap = power === 'tables' ? Infinity : CONFIG.MAX_USES_PER_SKILL;
+  if (power === 'tables' || !CONFIG.USES_SKILLS.includes(power)) return { error: 'noUsesModel' };  // solo modelo 'uses'
+  // v2.4: mismo tope que buySkill (5 por partida)
+  const cap = CONFIG.MAX_USES_PER_SKILL;
   if ((sk.usesBought || 0) >= cap) return { error: 'maxUses' };
   const s = clone(state);
   const cur = s.skills[power];
@@ -1635,7 +1598,6 @@ export function deserializeState(json) {
     if (s && s.version === 1) {
       // v2 defaults: saves v1 viejos no tienen los campos nuevos — no romper
       if (s.progress) {
-        if (s.progress.permTiles == null) s.progress.permTiles = 1;      // R14.2 (techo inicial, ver createGame)
         if (s.progress.colorsOwned == null) s.progress.colorsOwned = 4;  // R13.7
       }
       if (s.skills) {
@@ -1645,8 +1607,6 @@ export function deserializeState(json) {
         // v2.1 R17 defaults (cola de clientes / usos mejorados)
         if (!s.skills.queueSkip) s.skills.queueSkip = { owned: false, uses: 0, usesBought: 0 };
         if (!s.skills.capacidad) s.skills.capacidad = { owned: false, level: 0 };
-        // v2.2 R14.3 defaults (Activate = skill 'tables' modelo usos)
-        if (!s.skills.tables) s.skills.tables = { owned: false, uses: 0, usesBought: 0 };
         // v2.8 R7.8 defaults (Unlock = skill 'unlockLocks' modelo usos)
         if (!s.skills.unlockLocks) s.skills.unlockLocks = { owned: false, uses: 0, usesBought: 0 };
       }
@@ -1677,6 +1637,7 @@ export function deserializeState(json) {
       if (!s.settings) s.settings = { reducedMotion: false };
       if (s.settings.seenTutorial == null) s.settings.seenTutorial = true;
       if (s.settings.boardRot == null) s.settings.boardRot = 0;
+      dropPermanentTableFields(s);
       return s;
     }
     return createGame();
@@ -1685,11 +1646,27 @@ export function deserializeState(json) {
   }
 }
 
+// v2.20 — la tienda permanente de mesas ya no existe. Un save v2.19 puede
+// traer progress.permTiles y skills.tables (usos que sobrevivían a la run).
+// Se sueltan al cargar; el resto del progreso se queda. Lo activado en la
+// run en curso (board + runTilesActivated) no es esa tienda y se conserva.
+function dropPermanentTableFields(s) {
+  if (!s || typeof s !== 'object') return s;
+  if (s.progress && Object.prototype.hasOwnProperty.call(s.progress, 'permTiles')) {
+    delete s.progress.permTiles;
+  }
+  if (s.skills && Object.prototype.hasOwnProperty.call(s.skills, 'tables')) {
+    delete s.skills.tables;
+  }
+  return s;
+}
+
 // R1.3 import — valid version1 => state; invalid (no version / mis-shape) => {error}.
 export function importSave(json) {
   try {
     const s = JSON.parse(json);
     if (!s || s.version !== 1 || !s.progress || !s.meta) return { error: 'invalid' };
+    dropPermanentTableFields(s);
     return s;
   } catch (e) {
     return { error: 'invalid' };
