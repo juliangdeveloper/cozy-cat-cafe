@@ -1,5 +1,13 @@
 # Cozy Cat Café × HexaSort — Shared Understanding (post-grill)
 
+## v2.22.1 — una sola tira de cromo
+
+La fila de estado (monedas, calamidad, invitados, mute, guardar) y la banda de abajo (rotar 90°, hold 3s para reiniciar) son **una sola tira**, en la cabecera. No hay dos bandas a todo el ancho. En ~390px la tira no parte en dos filas: la barra de calamidad cede ancho y cada control sigue siendo un objetivo de ≥40px. El pie de versión se queda. La economía de skills (dos filas, pago por uso, sin tienda) y la meta efímera no cambian.
+
+El puñado de la bolsita, inicial y de recarga, pasa de 6..14 a **7..18** (`BAG_INITIAL_MIN/MAX` y `BAG_RELOAD_MIN/MAX`).
+
+Los skills son **solo icono**, con el próximo precio en monedas debajo. Un toque corto los usa igual que antes. Un hold de **500ms** abre un modal de una frase en inglés; se cierra tocando fuera o en Close. Ese hold no gasta monedas. El hold largo de Tables que activaba una corona queda fuera del botón para que el gesto no explique y cobre a la vez; abrir una mesa sigue siendo el toque corto.
+
 ## v2.22.0 — skills de pago por uso, sin tienda
 
 La tienda (carrito, modal, sección “This café only”) desaparece. Lo que se compraba ahí vive en la barra de poderes, en **dos filas de cinco**. Cada uso cobra monedas y el siguiente precio es `SKILL_USE_BASE × SKILL_USE_RATIOⁿ` = **40 × 1.6ⁿ**, la misma curva que las mesas (`RUN_TILE_BASE` / `RUN_TILE_RATIO`). `n` son los usos ya pagados en esta run y vuelve a 0 al reiniciar. No hay badge de “usos restantes” ni gate por `unlockLevel`: el botón se apaga solo si no alcanza para el siguiente precio.
