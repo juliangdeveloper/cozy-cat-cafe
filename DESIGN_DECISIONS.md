@@ -1,5 +1,14 @@
 # Cozy Cat Café × HexaSort — Shared Understanding (post-grill)
 
+## v2.22.0 — skills de pago por uso, sin tienda
+
+La tienda (carrito, modal, sección “This café only”) desaparece. Lo que se compraba ahí vive en la barra de poderes, en **dos filas de cinco**. Cada uso cobra monedas y el siguiente precio es `SKILL_USE_BASE × SKILL_USE_RATIOⁿ` = **40 × 1.6ⁿ**, la misma curva que las mesas (`RUN_TILE_BASE` / `RUN_TILE_RATIO`). `n` son los usos ya pagados en esta run y vuelve a 0 al reiniciar. No hay badge de “usos restantes” ni gate por `unlockLevel`: el botón se apaga solo si no alcanza para el siguiente precio.
+
+- **Fila:** Destroy, Swap, Refresh, Tables, Unlock, Queue, Waiter (toggle auto-serve), Board (pizarra, tope 3 tandas), Color (tope 10), Tips (tope `MULT_MAX` = 6, porque el exponente de `pay()` no tiene otro freno).
+- **No entran como skills:** idle (Barista / Fame / máquinas) — la UI ya no lo vendía y el offline sigue en 0. Capacidad sigue retirada (N = 100). Expansiones de tablero / menú ya estaban fuera de la tienda.
+- **Cabecera:** una sola fila — monedas, icono+barra de calamidad, invitados (`57/100`), mute y guardar. El pie de versión se queda.
+- **Meta:** igual que v2.21. El reinicio tira monedas, precios y colores. Solo el mute persiste.
+
 ## v2.21 (2026-10-06) — una pantalla, meta efímera
 
 Julian, en la llamada de voz de ese día. La economía de mesas de v2.20.0 no se toca: activar sigue costando `40 × 1.6ⁿ` monedas en la run y se resetea al reabrir. No hay tienda permanente de mesas.
