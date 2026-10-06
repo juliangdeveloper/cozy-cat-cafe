@@ -47,7 +47,7 @@ export const CONFIG = {
   DEBRIS_BONUS_PER: 25,             // v2 escombros: bonus por escombro limpiado
   CASCADE_STEP_MS: 600,             // v2.2.1: ms entre eslabones (antes 1600 — muy lento para seguir el orden)
   TABLES_HOLD_MS: 550,              // v2.17: press-and-hold Tables → batch activateAroundUnlocked
-  CLOSE_HOLD_MS: 3000,              // v2.19: hold Close café 3s to confirm
+  CLOSE_HOLD_MS: 3000,              // Hold 3s restarts the run; coins do not carry over
   TABLES_ACTIVATE_MIN_NEIGHBORS: 2, // v2.17 R14.6: unlock requires ≥2 already-unlocked neighbors
   PREVIEW_PRICE: 80,                // v2 R15.1 precio previewPool = PREVIEW_PRICE * level
   PILE_SIZE_WEIGHTS: [9, 8, 7, 6, 5, 4, 3], // v2.9 R3.1: peso del tamaño 1..7 —
@@ -209,8 +209,8 @@ export function createGame(init = {}) {
     metaClose: null,
     // v2.21: epoch marca un save de esta versión (la run en curso puede
     // recargarse). Un blob sin epoch es meta vieja: se descarta al cargar.
-    // seenTutorial sigue en false en un juego nuevo; la UI de una sola pantalla
-    // no muestra el tutorial del menú (enseñaba a conservar monedas).
+    // New games start with seenTutorial false so the spotlight can run once.
+    // A finished flag is not cleared here, on restart, or when an old save loads.
     settings: { reducedMotion: false, seenTutorial: false, boardRot: 0, epoch: 21 },
   };
   return deepMerge(base, init);
@@ -1726,12 +1726,17 @@ export function applyOffline(state, now) {
   return s;
 }
 
-// v2.21 — reinicio de la jugadora. Nada del state anterior pasa: monedas,
-// skills, colores, capacidad, idle, tablero. El mute vive fuera de este
-// objeto (localStorage cozy-cat-cafe.audio.mute) y esta función no lo toca.
+// v2.21 — reinicio de la jugadora. Monedas, skills, colores, capacidad,
+// idle y tablero empiezan de cero. El mute vive fuera de este objeto
+// (localStorage cozy-cat-cafe.audio.mute) y esta función no lo toca.
+// seenTutorial sí se conserva: un tutorial ya visto no se vuelve a mostrar.
 export function restartRun(state, rng) {
-  void state;
-  return openRun(createGame(), rng || Math.random);
+  // Coins, skills, and colors start over. A finished spotlight stays finished
+  // so Hold 3s does not replay the tutorial. Unseen stays unseen.
+  const seen = !!(state && state.settings && state.settings.seenTutorial);
+  const next = openRun(createGame(), rng || Math.random);
+  if (next.settings) next.settings.seenTutorial = seen;
+  return next;
 }
 
 // v2.21 — victoria formal: se sirvieron los N clientes. No cierra a un
@@ -1778,6 +1783,16 @@ export function serializeState(state) {
   return JSON.stringify(state);
 }
 
+// A pre-epoch blob is not this run's save. Coins and skills still start
+// over, but a finished spotlight (or a save that predates the flag) must
+// not be treated as unseen. Explicit false still means "not seen".
+function freshGameKeepingTutorial(blob) {
+  const fresh = createGame();
+  const flag = blob && blob.settings ? blob.settings.seenTutorial : undefined;
+  if (flag !== false) fresh.settings.seenTutorial = true;
+  return fresh;
+}
+
 // R1.2 roundtrip: deserialize(serialize(state)) restores identical.
 // R1.4 guard: unsupported version -> fresh createGame (never throws).
 export function deserializeState(json) {
@@ -1788,7 +1803,7 @@ export function deserializeState(json) {
       // permanente (monedas, skills, colores, idle). No se restaura: se
       // abre un juego nuevo. No lanza. La run en curso de v2.21 sí vuelve
       // (recarga ≠ reinicio). El mute no vive en este blob.
-      if (!s.settings || s.settings.epoch !== 21) return createGame();
+      if (!s.settings || s.settings.epoch !== 21) return freshGameKeepingTutorial(s);
       // v2 defaults: saves v1 viejos no tienen los campos nuevos — no romper
       if (s.progress) {
         if (s.progress.colorsOwned == null) s.progress.colorsOwned = 4;  // R13.7
@@ -1862,7 +1877,7 @@ export function importSave(json) {
   try {
     const s = JSON.parse(json);
     if (!s || s.version !== 1 || !s.progress || !s.meta) return { error: 'invalid' };
-    if (!s.settings || s.settings.epoch !== 21) return createGame();
+    if (!s.settings || s.settings.epoch !== 21) return freshGameKeepingTutorial(s);
     dropPermanentTableFields(s);
     return s;
   } catch (e) {

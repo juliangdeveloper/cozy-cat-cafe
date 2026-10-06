@@ -499,7 +499,8 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 
 /* v2.18 — first-run spotlight tutorial.
    Overlay blocks non-playable UI. Board + trays stay above the dim so the
-   player can keep placing. Spotlighted controls are raised; Close is visual-only. */
+   player can keep placing. Spotlighted controls are raised; the Hold 3s
+   restart control is visual-only on its step. */
 #tutOverlay{position:fixed;inset:0;z-index:80;display:none;pointer-events:none;background:transparent}
 #tutOverlay.show{display:block;pointer-events:auto;background:rgba(121,72,53,.55)}
 body.tut-on .board-wrap,body.tut-on .pool{position:relative;z-index:90}
@@ -1130,7 +1131,7 @@ const CONFIG = {
   DEBRIS_BONUS_PER: 25,             // v2 escombros: bonus por escombro limpiado
   CASCADE_STEP_MS: 600,             // v2.2.1: ms entre eslabones (antes 1600 — muy lento para seguir el orden)
   TABLES_HOLD_MS: 550,              // v2.17: press-and-hold Tables → batch activateAroundUnlocked
-  CLOSE_HOLD_MS: 3000,              // v2.19: hold Close café 3s to confirm
+  CLOSE_HOLD_MS: 3000,              // Hold 3s restarts the run; coins do not carry over
   TABLES_ACTIVATE_MIN_NEIGHBORS: 2, // v2.17 R14.6: unlock requires ≥2 already-unlocked neighbors
   PREVIEW_PRICE: 80,                // v2 R15.1 precio previewPool = PREVIEW_PRICE * level
   PILE_SIZE_WEIGHTS: [9, 8, 7, 6, 5, 4, 3], // v2.9 R3.1: peso del tamaño 1..7 —
@@ -1292,8 +1293,8 @@ function createGame(init = {}) {
     metaClose: null,
     // v2.21: epoch marca un save de esta versión (la run en curso puede
     // recargarse). Un blob sin epoch es meta vieja: se descarta al cargar.
-    // seenTutorial sigue en false en un juego nuevo; la UI de una sola pantalla
-    // no muestra el tutorial del menú (enseñaba a conservar monedas).
+    // New games start with seenTutorial false so the spotlight can run once.
+    // A finished flag is not cleared here, on restart, or when an old save loads.
     settings: { reducedMotion: false, seenTutorial: false, boardRot: 0, epoch: 21 },
   };
   return deepMerge(base, init);
@@ -2809,12 +2810,17 @@ function applyOffline(state, now) {
   return s;
 }
 
-// v2.21 — reinicio de la jugadora. Nada del state anterior pasa: monedas,
-// skills, colores, capacidad, idle, tablero. El mute vive fuera de este
-// objeto (localStorage cozy-cat-cafe.audio.mute) y esta función no lo toca.
+// v2.21 — reinicio de la jugadora. Monedas, skills, colores, capacidad,
+// idle y tablero empiezan de cero. El mute vive fuera de este objeto
+// (localStorage cozy-cat-cafe.audio.mute) y esta función no lo toca.
+// seenTutorial sí se conserva: un tutorial ya visto no se vuelve a mostrar.
 function restartRun(state, rng) {
-  void state;
-  return openRun(createGame(), rng || Math.random);
+  // Coins, skills, and colors start over. A finished spotlight stays finished
+  // so Hold 3s does not replay the tutorial. Unseen stays unseen.
+  const seen = !!(state && state.settings && state.settings.seenTutorial);
+  const next = openRun(createGame(), rng || Math.random);
+  if (next.settings) next.settings.seenTutorial = seen;
+  return next;
 }
 
 // v2.21 — victoria formal: se sirvieron los N clientes. No cierra a un
@@ -2861,6 +2867,16 @@ function serializeState(state) {
   return JSON.stringify(state);
 }
 
+// A pre-epoch blob is not this run's save. Coins and skills still start
+// over, but a finished spotlight (or a save that predates the flag) must
+// not be treated as unseen. Explicit false still means "not seen".
+function freshGameKeepingTutorial(blob) {
+  const fresh = createGame();
+  const flag = blob && blob.settings ? blob.settings.seenTutorial : undefined;
+  if (flag !== false) fresh.settings.seenTutorial = true;
+  return fresh;
+}
+
 // R1.2 roundtrip: deserialize(serialize(state)) restores identical.
 // R1.4 guard: unsupported version -> fresh createGame (never throws).
 function deserializeState(json) {
@@ -2871,7 +2887,7 @@ function deserializeState(json) {
       // permanente (monedas, skills, colores, idle). No se restaura: se
       // abre un juego nuevo. No lanza. La run en curso de v2.21 sí vuelve
       // (recarga ≠ reinicio). El mute no vive en este blob.
-      if (!s.settings || s.settings.epoch !== 21) return createGame();
+      if (!s.settings || s.settings.epoch !== 21) return freshGameKeepingTutorial(s);
       // v2 defaults: saves v1 viejos no tienen los campos nuevos — no romper
       if (s.progress) {
         if (s.progress.colorsOwned == null) s.progress.colorsOwned = 4;  // R13.7
@@ -2945,7 +2961,7 @@ function importSave(json) {
   try {
     const s = JSON.parse(json);
     if (!s || s.version !== 1 || !s.progress || !s.meta) return { error: 'invalid' };
-    if (!s.settings || s.settings.epoch !== 21) return createGame();
+    if (!s.settings || s.settings.epoch !== 21) return freshGameKeepingTutorial(s);
     dropPermanentTableFields(s);
     return s;
   } catch (e) {
@@ -4047,6 +4063,7 @@ async function restartCafe(){
   const pop = $('#calPop'); if(pop) pop.classList.remove('show');
   const strip = $('#calStrip'); if(strip) strip.setAttribute('aria-expanded','false');
   renderAll();
+  maybeStartTutorial();
 }
 async function playVictory(){
   if(ui.restarting || !state.run || state.run.phase==='victory') return;
@@ -4157,12 +4174,14 @@ function bindGlobal(){
 // ============================================================================
 // v2.18 — FIRST-RUN TUTORIAL (spotlight overlay)
 // ============================================================================
+// v2.22.3 — copy matches the live run: auto-serve, serve 100, Hold 3s
+// restarts (coins reset), tap a skill / hold for a one-line tip.
 const TUT_STEPS = [
-  { sel: '#pool',     text: 'Tap a tray, then a table — stack food.' },
-  { sel: '#orders',   text: 'Matching piles serve themselves — cats take the food.' },
-  { sel: '#queueCount', text: 'Goal: serve every customer.' },
-  { sel: '#btnClose', text: 'Stuck? Hold Close 3s — you keep the coins.' },
-  { sel: '#powerbar', text: 'Skills spend coins. Hold one to read what it does.' },
+  { sel: '#pool',       text: 'Tap a tray, then a table — stack food.' },
+  { sel: '#orders',     text: 'Matching tops serve themselves — cats take the food.' },
+  { sel: '#queueCount', text: 'Goal: serve 100 customers. This shows served/100.' },
+  { sel: '#btnClose',   text: 'Stuck? Hold 3s to restart this run. Coins reset.' },
+  { sel: '#powerbar',   text: 'Tap a skill to spend coins. Hold one for a one-line tip.' },
 ];
 let tutStep = 0;
 let tutActive = false;
@@ -4257,12 +4276,15 @@ async function boot(){
   bindGlobal();
   startLoop();
   window.addEventListener('beforeunload',persist);
+  // v2.22.3: show the spotlight when this save has not finished it.
+  // A finished flag stays finished — this does not clear seenTutorial.
+  maybeStartTutorial();
 }
 // v2.20: mesas solo por partida (40 × 1.6^n, reset al reabrir). Sin tienda permanente.
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.22.2';
+const GAME_VERSION = 'v2.22.3';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };

@@ -39,6 +39,8 @@ test('T24b old save without epoch loads and drops persistent meta', () => {
   assert.equal(s.progress.totalGames, 0);
   assert.equal(s.run, null);
   assert.equal(s.settings.epoch, 21);
+  assert.equal(s.settings.seenTutorial, true,
+    'old save without the flag must not replay the spotlight');
 });
 
 test('T24c deserialize with seenTutorial false stays false', () => {
@@ -54,4 +56,17 @@ test('T24d deserialize with seenTutorial true stays true', () => {
   g.settings.seenTutorial = true;
   const s = G.deserializeState(G.serializeState(g));
   assert.equal(s.settings.seenTutorial, true);
+});
+
+test('T24e restart keeps a finished tutorial finished and an unseen one unseen', () => {
+  const done = G.createGame();
+  done.settings.seenTutorial = true;
+  const kept = G.restartRun(done, () => 0.2);
+  assert.equal(kept.settings.seenTutorial, true);
+  assert.equal(kept.progress.coins, 0);
+
+  const fresh = G.createGame();
+  assert.equal(fresh.settings.seenTutorial, false);
+  const still = G.restartRun(fresh, () => 0.2);
+  assert.equal(still.settings.seenTutorial, false);
 });
