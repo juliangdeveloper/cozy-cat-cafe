@@ -67,7 +67,7 @@ test('the UI hooks the loop and the effects only on success', () => {
   assert.match(amb, /cozy-cat-cafe\.audio\.mute/);
   assert.match(html, /unlockCafeAudio\(\)/);
   assert.match(html, /noteCafeOpen\(\)/);
-  assert.match(html, /v2\.21\.0/);
+  assert.match(html, /v2\.21\.1/);
   assert.match(amb, /visibilitychange/);
   assert.match(amb, /hasFocus/);
   assert.doesNotMatch(amb, /playCafeSfx\('destroy/);

@@ -30,45 +30,50 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
 #app{max-width:560px;margin:0 auto;padding:0 10px calc(12px + env(safe-area-inset-bottom))}
 
 /* top bar */
-.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:6px;
-  padding:10px 2px;background:rgba(247,209,225,.94);backdrop-filter:blur(5px);
+.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:4px;
+  padding:4px 0;background:rgba(247,209,225,.94);backdrop-filter:blur(5px);
   border-bottom:2px solid var(--wood)}
-.chip{display:flex;align-items:center;gap:6px;background:var(--panel);border:2px solid var(--ink);
-  border-radius:999px;padding:5px 12px;font-weight:800;font-family:var(--font-display);
-  font-variant-numeric:tabular-nums;font-size:18px;box-shadow:0 3px 0 var(--wood-dark)}
-.chip.sm{font-size:13px;padding:5px 9px}
+.chip{display:flex;align-items:center;gap:4px;background:var(--panel);border:2px solid var(--ink);
+  border-radius:999px;padding:3px 10px;font-weight:800;font-family:var(--font-display);
+  font-variant-numeric:tabular-nums;font-size:16px;box-shadow:0 3px 0 var(--wood-dark)}
+.chip.sm{font-size:13px;padding:3px 8px}
 .chip.pops{background:var(--highlight)}
 .spacer{flex:1}
 .iconbtn{background:var(--panel);border:2px solid var(--ink);border-radius:10px;width:40px;height:40px;
   display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 3px 0 var(--wood-dark);
   font-size:18px}
 .iconbtn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--wood-dark)}
-.iconbtn.mute-btn{width:auto;min-width:44px;padding:0 10px;font-family:var(--font-ui);font-weight:800;font-size:13px}
+.iconbtn.mute-btn{width:44px;height:44px;min-width:44px;min-height:44px;padding:0;color:var(--ink)}
+.mute-ico{display:block;width:22px;height:22px}
 .chip.dropping{background:var(--highlight);transition:transform .42s cubic-bezier(.2,.8,.2,1)}
 
-/* v2.21 — strip of the NEXT calamity. Same bar for both waves. */
-.cal-strip{display:flex;align-items:center;gap:8px;width:100%;margin:8px 0 2px;padding:4px 10px 4px 4px;
+/* v2.21 — strip of the NEXT calamity. Same bar for both waves.
+   v2.21.1 — guest counter (served/100) lives in this strip, not its own card. */
+.cal-strip{display:flex;align-items:center;gap:6px;width:100%;margin:3px 0 0;padding:2px 6px 2px 2px;
   background:var(--panel);border:2px solid var(--ink);border-radius:999px;min-height:44px;cursor:pointer;
   font-family:var(--font-ui);font-weight:800;color:var(--ink);box-shadow:0 3px 0 var(--wood-dark);text-align:left}
 .cal-strip:active{transform:translateY(2px);box-shadow:0 1px 0 var(--wood-dark)}
-.cal-ico{width:36px;height:36px;border-radius:50%;background:var(--highlight);border:2px solid var(--ink);
-  display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:14px;flex:0 0 auto}
+.cal-ico{width:28px;height:28px;border-radius:50%;background:var(--highlight);border:2px solid var(--ink);
+  display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:13px;flex:0 0 auto}
 .cal-ico.wave2{background:var(--accent-2)}
 .cal-ico.clear{background:var(--success)}
-.cal-bar{flex:1;height:14px;background:var(--wood);border-radius:999px;overflow:hidden;border:2px solid var(--ink)}
+.cal-bar{flex:1;height:10px;background:var(--wood);border-radius:999px;overflow:hidden;border:2px solid var(--ink)}
 .cal-fill{display:block;height:100%;width:0;background:var(--danger)}
 .cal-meta{font-size:11px;color:var(--ink-soft);white-space:nowrap}
+.cal-strip .queuecount{flex:0 0 auto;font-size:11px;line-height:1.2;font-weight:800;
+  background:var(--highlight);border:2px solid var(--ink);border-radius:999px;padding:1px 6px;
+  box-shadow:none;font-variant-numeric:tabular-nums}
 .cal-pop p{margin:0 0 8px;font-size:14px;font-weight:700;line-height:1.35}
 .cal-pop .cal-bar{margin:10px 0 12px}
 
 .scene.resetting .board-wrap{opacity:0;transition:opacity .42s cubic-bezier(.4,0,.2,1)}
-.scene.dim .board-wrap,.scene.dim .pool,.scene.dim .powerbar,.scene.dim .queuebar{filter:brightness(.55)}
+.scene.dim .board-wrap,.scene.dim .pool,.scene.dim .powerbar,.scene.dim .orders,.scene.dim .queuebar{filter:brightness(.55)}
 .victory-veil{display:flex;flex-direction:column;align-items:center;gap:8px;margin:8px 0;padding:14px 12px;
   background:color-mix(in srgb, var(--panel) 92%, var(--ink));border:3px solid var(--ink);border-radius:18px;
   box-shadow:0 5px 0 var(--wood-dark);text-align:center;cursor:pointer}
 .victory-veil .host-line{margin:0;font-family:var(--font-display);font-weight:800;font-size:22px;line-height:1.2}
 .victory-veil .host-hint{margin:0;font-size:13px;font-weight:800;color:var(--ink-soft)}
-.foot{text-align:center;font-size:11px;color:var(--ink-soft);font-weight:700;margin:8px 0 4px}
+.foot{text-align:center;font-size:11px;color:var(--ink-soft);font-weight:700;margin:4px 0 2px;flex-shrink:0}
 .order-card.legendary{box-shadow:0 0 0 3px var(--highlight),0 3px 0 var(--shadow)}
 
 /* buttons */
@@ -101,12 +106,12 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .dit .dl{font-size:10px;font-weight:700;color:var(--ink-soft);line-height:1.1;text-align:center}
 .dit img,.dit .o{width:44px!important;height:44px!important;object-fit:contain}
 
-.queuebar{display:flex;align-items:center;gap:8px}
+.queuebar{display:flex;align-items:center;gap:6px}
 .queuecount{font-weight:800;font-size:12px;background:var(--highlight);border:2px solid var(--ink);border-radius:999px;padding:2px 8px;white-space:nowrap}
-.orders{display:flex;gap:8px;overflow-x:auto;padding:8px 0;scrollbar-width:none;flex:1}
+.orders{display:flex;gap:6px;overflow-x:auto;padding:3px 0;scrollbar-width:none;flex:0 0 auto}
 .orders::-webkit-scrollbar{display:none}
-.order-card{flex:0 0 auto;width:112px;background:var(--panel);border:3px solid var(--wood);border-radius:12px;
-  padding:6px;box-shadow:0 3px 0 var(--shadow);text-align:center;cursor:pointer}
+.order-card{flex:0 0 auto;width:96px;background:var(--panel);border:3px solid var(--wood);border-radius:12px;
+  padding:3px 3px 2px;box-shadow:0 3px 0 var(--shadow);text-align:center;cursor:pointer}
 .order-card.served{opacity:.5}
 .order-card.ready{background:var(--highlight);animation:pulse 1.2s infinite}
 /* v2.4: pop del cliente mientras su pedido vuela hasta él */
@@ -116,10 +121,10 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .order-card.selected .bubble{background:var(--accent-2)}
 .seltag{color:var(--ink);font-weight:900;font-size:14px;line-height:1;animation:breathe 1s ease-in-out infinite}
 @keyframes pulse{0%,100%{box-shadow:0 3px 0 var(--shadow)}50%{box-shadow:0 0 0 4px rgba(255,245,178,.7)}}
-.catimg{width:44px;height:44px;object-fit:contain;margin:0 auto;display:block;animation:breathe 2s ease-in-out infinite}
+.catimg{width:32px;height:32px;object-fit:contain;margin:0 auto;display:block;animation:breathe 2s ease-in-out infinite}
 @keyframes breathe{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.03)}}
-.bubble{display:flex;align-items:center;justify-content:center;gap:5px;background:var(--panel);border:2px solid var(--ink);
-  border-radius:999px;padding:2px 8px;margin-top:4px;font-family:var(--font-display);font-weight:800;font-size:16px}
+.bubble{display:flex;align-items:center;justify-content:center;gap:4px;background:var(--panel);border:2px solid var(--ink);
+  border-radius:999px;padding:1px 6px;margin-top:2px;font-family:var(--font-display);font-weight:800;font-size:14px}
 .order-card.ready .bubble{background:var(--highlight)}
 /* hexagonal minitile (same nested clip-path technique as .ttile): outer hex
    is a 30%-darkened rim, inner ::before hex carries the fill. Color arrives
@@ -139,7 +144,7 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
    (zero gaps, zero overlap). Rows are ABSOLUTELY positioned from the axial row
    index (r - minR); they must NOT be flex-centered per row — independent
    per-row centering breaks the half-hex offset between rows. */
-.board-wrap{overflow-x:auto;padding:10px 4px;position:relative} /* v2: 32 baldosas SIEMPRE visibles (sin max-height); relative = ancla del hint móvil */
+.board-wrap{overflow-x:auto;padding:4px 2px;position:relative} /* v2: 32 baldosas SIEMPRE visibles (sin max-height); relative = ancla del hint móvil */
 :root{ --hx:34px; --cw:calc(var(--hx)*1.732); --ch:calc(var(--hx)*2); }
 .board{position:relative;margin:0 auto;--hexclip:var(--hex-pointy)}
 .board.flat,.cell.hex-flat{--hexclip:var(--hex-flat)}
@@ -155,15 +160,24 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .cell.targetmode .hexbg{--hb:var(--danger);filter:drop-shadow(0 0 4px var(--danger))}
 .cell.swapmode .hexbg{--hb:var(--tile-blue);filter:drop-shadow(0 0 4px var(--tile-blue))}
 .cell.serve-target:not(.blocked) .hexbg{--hb:var(--accent-2);filter:drop-shadow(0 0 4px var(--accent-2))}
+/* v2.21.1 — selected order: glow only on cells the rules already accept. */
+.cell.order-glow:not(.blocked) .hexbg{--hb:var(--highlight);
+  filter:drop-shadow(0 0 8px var(--highlight)) drop-shadow(0 0 2px var(--accent-2));
+  animation:orderGlow 1.2s ease-in-out infinite}
+@keyframes orderGlow{
+  0%,100%{filter:drop-shadow(0 0 4px var(--highlight))}
+  50%{filter:drop-shadow(0 0 10px var(--highlight)) drop-shadow(0 0 3px var(--accent-2))}}
 .cell.calm .hexbg::before,.cell.targetable:not(.blocked) .hexbg::before,
 .cell.targetmode .hexbg::before,.cell.swapmode .hexbg::before,
-.cell.serve-target:not(.blocked) .hexbg::before,.board.actmode .cell.dormant.act-eligible .hexbg::before,
+.cell.serve-target:not(.blocked) .hexbg::before,.cell.order-glow:not(.blocked) .hexbg::before,
+.board.actmode .cell.dormant.act-eligible .hexbg::before,
 .cell.casc .hexbg::before,.expand-slot .hexbg::before{
   content:"";position:absolute;inset:0;background:var(--hb);
   clip-path:var(--hexclip)}
 .cell.calm .hexbg::after,.cell.targetable:not(.blocked) .hexbg::after,
 .cell.targetmode .hexbg::after,.cell.swapmode .hexbg::after,
-.cell.serve-target:not(.blocked) .hexbg::after,.board.actmode .cell.dormant.act-eligible .hexbg::after,
+.cell.serve-target:not(.blocked) .hexbg::after,.cell.order-glow:not(.blocked) .hexbg::after,
+.board.actmode .cell.dormant.act-eligible .hexbg::after,
 .cell.casc .hexbg::after,.expand-slot .hexbg::after{
   content:"";position:absolute;inset:var(--hbw,3px);background:inherit;
   clip-path:var(--hexclip)}
@@ -275,7 +289,7 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .oname{font-size:10px;font-weight:800;color:var(--ink-soft);line-height:1.15;margin-top:2px}
 
 /* pool */
-.pool{display:flex;gap:8px;padding:10px;background:var(--wood);border:3px solid var(--ink);border-radius:14px;margin-top:10px}
+.pool{display:flex;gap:6px;padding:8px;background:var(--wood);border:3px solid var(--ink);border-radius:14px;margin-top:6px}
 .poolslot{flex:1;height:64px;display:flex;align-items:flex-end;justify-content:center;background:rgba(248,241,213,.5);
   border:2px solid transparent;border-radius:10px;cursor:pointer}
 .poolslot.selected{background:var(--highlight);border:2px solid var(--accent)}
@@ -289,14 +303,21 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .ttile .tface,.ttile .tface::before{transform:translateY(calc(var(--hx)*-0.015));clip-path:var(--hex-pointy)}
 .poolempty{font-size:10px;color:var(--wood-dark);font-weight:700;text-align:center;width:100%;align-self:flex-end;padding-bottom:6px}
 
-/* powers */
-.powerbar{display:flex;flex-wrap:nowrap;gap:6px;margin:12px 0} /* v2.7: UNA fila siempre */
-.pow{flex:1 1 0;min-width:0;min-height:50px;display:flex;align-items:center;justify-content:center;gap:4px;background:var(--panel);
-  border:2px solid var(--ink);border-radius:12px;cursor:pointer;font-weight:800;font-size:11px;
-  box-shadow:0 3px 0 var(--wood-dark);position:relative;padding:4px 2px}
-.pow img,.pow .o{width:18px;height:18px}
-.pow .uses{position:absolute;top:-8px;right:-6px;background:var(--highlight);border:2px solid var(--ink);
-  border-radius:999px;font-size:11px;padding:0 6px;font-weight:800}
+/* powers — v2.21.1: two rows of 3, not a carousel. Price sits in the button. */
+.powerbar{display:grid;grid-template-columns:repeat(3,minmax(44px,1fr));gap:5px;margin:6px 0 4px}
+.pow{min-width:44px;min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:1px;background:var(--panel);border:2px solid var(--ink);border-radius:12px;cursor:pointer;font-weight:800;
+  font-size:12px;box-shadow:0 3px 0 var(--wood-dark);position:relative;padding:3px 3px 2px;overflow:hidden}
+.pow-face{display:flex;align-items:center;justify-content:center;gap:3px;max-width:100%;min-height:22px}
+.pow-ico{display:flex;align-items:center;justify-content:center;line-height:1}
+.pow-emoji{font-size:20px;line-height:1}
+.pow-label{font-size:12px;line-height:1.05;text-align:center;font-weight:800}
+.pow img,.pow .o{width:22px;height:22px}
+.pow-cost{position:static;display:block;max-width:100%;margin-top:1px;padding:0 4px;border-radius:999px;
+  background:var(--highlight);border:1.5px solid var(--ink);font-size:10px;font-weight:800;line-height:1.25;
+  font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pow .uses{position:absolute;top:2px;right:2px;background:var(--highlight);border:2px solid var(--ink);
+  border-radius:999px;font-size:11px;padding:0 5px;font-weight:800;line-height:1.2;pointer-events:none}
 .pow.locked{background:var(--lock);opacity:.8;cursor:not-allowed}
 .pow.depleted{opacity:.5;cursor:not-allowed}
 .pow.depleted .uses{background:var(--lock)}
@@ -355,7 +376,7 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .cf{position:absolute;width:9px;height:9px;border-radius:2px;opacity:0;animation:conf .85s ease-out forwards}
 @keyframes conf{0%{opacity:1;transform:translate(0,0) rotate(0)}60%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(720deg)}}
 
-@media(min-width:720px){#app{max-width:680px}.powerbar{flex-wrap:nowrap}}
+@media(min-width:720px){#app{max-width:680px}}
 /* v2.4: tablero RECTÁNGULO 8×4 pointy (32 celdas, 4 filas de 8) — extensión
    real del panal ≈ 16.7hx (8 columnas √3·hx + offset de fila impar 0.866·hx,
    con margen). El criterio es "máximo hx que quepa": hx = floor((vw-20)/16.7),
@@ -409,39 +430,40 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 @media(max-width:560px){
   #app{padding:0 6px calc(8px + env(safe-area-inset-bottom))}
   body{font-size:14px}
-  /* título/topbar compactos v2.7: UNA fila a 390 (chips + botones chicos) */
-  .topbar{padding:5px 2px;flex-wrap:nowrap;gap:4px}
-  .chip{font-size:14px;padding:4px 8px;min-width:0}
-  .chip.sm{font-size:10px;padding:3px 6px}
-  .iconbtn{width:32px;height:32px;font-size:15px}
-  .iconbtn.mute-btn{min-width:0;padding:0 7px;font-size:11px}
+  /* título/topbar compactos: una fila. Mute stays a 44px icon. */
+  .topbar{padding:2px 0;flex-wrap:nowrap;gap:3px}
+  .chip{font-size:13px;padding:2px 7px;min-width:0}
+  .chip.sm{font-size:10px;padding:2px 5px}
+  .iconbtn{width:36px;height:36px;font-size:15px}
+  .iconbtn.mute-btn{width:44px;height:44px;min-width:44px;min-height:44px;padding:0}
   .logo{font-size:26px}
   .menu{min-height:88vh;gap:10px;padding:12px 0}
   .btn-primary{min-height:56px;font-size:19px}
   /* secciones no críticas: sin márgenes verticales extra */
   .idledecor{margin:4px 0;padding:4px}
   /* BOARD PRIORITARIO: wrap sin padding extra, centrado (board margin:0 auto) */
-  .scene.active{display:flex;flex-direction:column;height:100dvh;height:100vh}
-  .board-wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:4px}
-  /* pedidos COMPACTOS: 3 tarjetas fijas (~64px alto), sprite 40px, qty badge;
-     >3 pedidos => scroll horizontal (flex-basis fijo + overflow-x ya en base) */
-  .orders{gap:6px;padding:4px 0}
-  .order-card{flex:0 0 calc((100% - 12px)/3);width:auto;min-height:56px;padding:4px 2px;position:relative}
-  .order-card .o,.order-card .catimg{width:34px!important;height:34px!important;margin:0 auto}
+  .scene.active{display:flex;flex-direction:column;height:100vh;height:100dvh;min-height:0}
+  .board-wrap{flex:1 1 auto;min-height:0;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:2px}
+  .board{margin:auto}
+  .topbar,.cal-strip,.orders,.pool,.preview,.powerbar,.run-actions,.foot,.victory-veil{flex:0 0 auto}
+  /* pedidos densos: 3 tarjetas, sprite chico; >3 => scroll horizontal */
+  .orders{gap:4px;padding:2px 0}
+  .order-card{flex:0 0 calc((100% - 8px)/3);width:auto;min-height:0;padding:2px 1px;position:relative}
+  .order-card .o,.order-card .catimg{width:28px!important;height:28px!important;margin:0 auto}
   .order-card .bubble{position:absolute;top:1px;right:3px;margin:0;padding:0 5px;gap:3px;font-size:11px}
   .order-card .bubble .minitile{width:13px;height:11px}
   .order-card .oname{font-size:9px}
   .seltag{font-size:10px}
   /* pool / preview: densidad -20% (v2.7 pedido Julián) */
-  .pool{gap:6px;padding:8px;margin-top:6px}
+  .pool{gap:6px;padding:6px;margin-top:4px}
   .poolslot{height:46px}
   .tray{width:40px} .ttile{width:40px;height:34px}
-  .preview{gap:8px;padding:6px 8px;margin-top:6px}
-  /* POWERBAR STICKY inferior: acceso constante sin robar espacio al tablero */
-  .powerbar{position:sticky;bottom:0;z-index:15;margin:8px -6px 0;
-    padding:8px 6px calc(8px + env(safe-area-inset-bottom));
-    background:var(--bg-primary);border-top:2px solid var(--wood)}
-  .pow{min-height:44px}   /* touch target >=44px */
+  .preview{gap:8px;padding:6px 8px;margin-top:4px}
+  /* POWERBAR STICKY inferior: 3+3, sin carrusel. Precio dentro del botón. */
+  .powerbar{position:sticky;bottom:0;z-index:15;margin:4px -6px 0;
+    padding:4px 6px calc(4px + env(safe-area-inset-bottom));
+    background:var(--bg-primary);border-top:2px solid var(--wood);overflow:visible}
+  .pow{min-height:44px;min-width:44px}
   /* colapsables compactos (idle/decor) */
   .collap{margin:4px 0}
   .collap summary{cursor:pointer;font-size:12px;font-weight:800;color:var(--ink-soft);
@@ -582,7 +604,7 @@ import {
   ROSTER, resolveCascade, activateTile, activateAroundUnlocked, runTilePrice, toggleServe, previewPool, pay,
   // v2.17 — 2-neighbor unlock + hold-Tables batch
   isActivateEligible, unlockedNeighborCount, sweepDebrisRuns,
-  HEX_ADJ, topGroup, topRunCount,
+  HEX_ADJ, topGroup, topRunCount, orderReadyOn,
   // v3 — R12.1: motor de merge hexasort original (espejo cascadeLinks)
   bfsMergeGroups, computeBestChain, r2Target,
   // v2.1 — R16/R17: cola de clientes
@@ -708,8 +730,9 @@ function renderRun(){
         <span class="cal-ico" id="calIco">I</span>
         <span class="cal-bar" aria-hidden="true"><span class="cal-fill" id="calFill"></span></span>
         <span class="cal-meta" id="calMeta">Next shift</span>
+        <span id="queueCount" class="queuecount" title="Guests served">0/100</span>
       </button>
-      <div class="queuebar"><span id="queueCount" class="queuecount">0/100</span><div class="orders" id="orders"></div></div>
+      <div class="orders" id="orders"></div>
       ${won ? `<div class="victory-veil" id="victoryVeil">
         ${spr('cat_client_1', 96)}
         <p class="host-line">Every guest is fed. The lights can rest.</p>
@@ -769,19 +792,23 @@ function bindCalamity(){
     strip.setAttribute('aria-expanded','true');
   });
 }
+function speakerMarkup(muted){
+  const extra = muted
+    ? '<path d="M16.2 9.1 20.8 14.7M20.8 9.1 16.2 14.7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>'
+    : '<path d="M15.6 9.1a3.4 3.4 0 0 1 0 5.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M18.1 6.8a6.2 6.2 0 0 1 0 10.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>';
+  return `<svg class="mute-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M4 9.2h3.3L12 5.1v13.8l-4.7-4.1H4z"/>${extra}</svg>`;
+}
 function muteBtnMarkup(){
   const m = cafeAudioMuted();
-  const label = m ? 'Unmute' : 'Mute';
   const aria = m ? 'Unmute music' : 'Mute music';
-  return `<button type="button" class="iconbtn mute-btn" id="btnMute" aria-pressed="${m?'true':'false'}" aria-label="${aria}" title="${aria}">${label}</button>`;
+  return `<button type="button" class="iconbtn mute-btn" id="btnMute" aria-pressed="${m?'true':'false'}" aria-label="${aria}" title="${aria}">${speakerMarkup(m)}</button>`;
 }
 function bindMute(){
   const b=$('#btnMute'); if(!b) return;
   b.addEventListener('click', ()=>{
     const m = toggleCafeAudio();
-    const label = m ? 'Unmute' : 'Mute';
     const aria = m ? 'Unmute music' : 'Mute music';
-    b.textContent = label;
+    b.innerHTML = speakerMarkup(m);
     b.setAttribute('aria-pressed', m ? 'true' : 'false');
     b.setAttribute('aria-label', aria);
     b.title = aria;
@@ -819,8 +846,8 @@ function renderOrders(){
     const ready = !o.served && orderIsReady(o);
     const sel = ui.servingOrder===o.id;
     return `<div class="order-card ${o.served?'served':''} ${ready?'ready':''} ${sel?'selected':''} ${o.legendary?'legendary':''}" data-oid="${o.id}"
-      style="border-top:6px solid var(${tileVar(o.color)})">
-      ${spr(cat,44)}
+      style="border-top:4px solid var(${tileVar(o.color)})">
+      ${spr(cat,32)}
       <div class="bubble">${o.qty}<span class="minitile" style="--mc:var(${tileVar(o.color)})"></span></div>
       <div class="oname">${o.served?'✔ ':''}${name}</div>
       ${sel?'<div class="seltag">▼</div>':''}</div>`;
@@ -846,6 +873,28 @@ function orderIsReady(o){
     for(let i=c.stack.length-1;i>=0;i--){ if(c.stack[i]!==t) break; n++; }
     return t===o.color && n===o.qty;
   });
+}
+function visibleOrder(id){
+  if(id==null || !state.run) return null;
+  const lists=[state.run.activeClients, state.run.orders];
+  for(const list of lists){
+    if(!Array.isArray(list)) continue;
+    const o=list.find(x=>String(x.id)===String(id));
+    if(o) return o;
+  }
+  return null;
+}
+// Selected order lights cells the rules already accept: a pile that can serve
+// it (orderReadyOn: top color + count), or an empty table where a tray pile
+// of that color can be placed (same empty/unlocked gate as placing).
+function orderGlowKind(cell, idx){
+  const o=visibleOrder(ui.servingOrder);
+  if(!o || o.served || !cell || cell.blocked || cell.dormant) return '';
+  if(orderReadyOn(state, o.id, idx)) return 'serve';
+  if(cell.stack && cell.stack.length) return '';
+  const pool=(state.run && state.run.pool) || [];
+  const toward=pool.some(pile=>pile && pile.length && topGroup(pile).color===o.color);
+  return toward ? 'place' : '';
 }
 
 function hx(){ const v=getComputedStyle(document.documentElement).getPropertyValue('--hx').trim(); const n=parseFloat(v); return isNaN(n)?36:n; }
@@ -874,10 +923,11 @@ function cellHTML(cell, idx){
   if(ui.mode==='destroy') cls+=' targetmode';
   if(ui.mode==='unlock') cls+=' targetmode';
   if(ui.mode==='swap') cls+=' swapmode';
-  // v2.2 R3.5: el modo colocar solo apunta a celdas VACÍAS (servir sí apunta
-  // a pilas — el borde serve-target NO se toca).
+  // v2.2 R3.5: colocar solo apunta a celdas vacías. v2.21.1: el pedido
+  // seleccionado enciende solo las celdas que el juego ya acepta.
   if(ui.slot!==false && !cell.blocked && !cell.dormant && !(cell.stack&&cell.stack.length)) cls+=' targetable';
-  if(ui.servingOrder!==null && !cell.blocked && !cell.dormant) cls+=' serve-target';
+  const glowKind=orderGlowKind(cell, idx);
+  if(glowKind) cls+=' order-glow';
   // tooltip: dormant se activa esta partida (curva ×1.6); blocked => calamidad
   const tip = cell.dormant ? 'Activate for this café'
             : cell.blocked ? 'Blocked tile (calamity)' : '';
@@ -894,7 +944,7 @@ function cellHTML(cell, idx){
         `<div class="tile" style="--lift:${-ci*step}px;--tc:var(${tileVar(c)})"><i class="tface"></i></div>`).join('')+
       (runN>1?`<span class="badge">${runN}</span>`:'')+'</div>';
   }
-  return `<div class="${cls}" data-id="${idx}"${tip?` title="${tip}"`:''}><div class="hexbg"></div>${stack}
+  return `<div class="${cls}" data-id="${idx}"${glowKind?` data-order-glow="${glowKind}"`:''}${tip?` title="${tip}"`:''}><div class="hexbg"></div>${stack}
     ${cell.blocked?'<div class="lockovl"><span>🔒</span></div>':''}</div>`;
 }
 function renderBoard(){
@@ -1013,19 +1063,23 @@ function renderPowers(){
     arr.push({skill:'queueSkip',icon:'📨',label:'Queue',mode:'queueskip'});
   box.innerHTML = arr.map(d=>{
     const s=state.skills[d.skill]||{owned:true};
-    // Badge unificado (clase .uses): contador de usos si comprado; si NO
-    // comprado, precio de compra. Tables (v2.20) no es skill: el badge es el
-    // precio de la próxima activación en esta run (40 × 1.6^n), siempre abierto.
+    // Uses stay in the corner. Coin prices sit in the button (never a floating bubble).
+    // Tables (v2.20) is not a uses skill: the chip is this run's next activation price.
+    // A power at 0 uses stays on the bar (greyed), including Queue.
     const activate = d.mode==='activate';
-    const uses = activate
-      ? `<span class="uses">🪙${fmt(runTilePrice(state))}</span>`
-      : (s.owned && typeof s.uses==='number')
-        ? `<span class="uses">${s.uses}</span>`
-        : (typeof s.price==='number' ? `<span class="uses">🪙${fmt(s.price)}</span>` : '');
+    const cost = (n) => `<span class="pow-cost">🪙${fmt(n)}</span>`;
+    const corner = (!activate && s.owned && typeof s.uses==='number')
+      ? `<span class="uses">${s.uses}</span>` : '';
+    const price = activate
+      ? cost(runTilePrice(state))
+      : (corner ? '' : (typeof s.price==='number' ? cost(s.price) : ''));
     const depleted = !activate && s.owned && typeof s.uses==='number' && s.uses<=0;
     const locked = activate ? false : !s.owned;
+    const icon = String(d.icon).startsWith('power_')
+      ? spr(d.icon, 22)
+      : `<span class="pow-emoji">${d.icon}</span>`;
     return `<div class="pow ${locked?'locked':''} ${depleted?'depleted':''} ${ui.mode===d.mode?'selected':''}" data-mode="${d.mode}" data-skill="${d.skill}">
-      ${String(d.icon).startsWith('power_') ? spr(d.icon,18) : `<span style="font-size:15px;line-height:1">${d.icon}</span>`}<span>${d.label}</span>${uses}</div>`;
+      ${corner}<span class="pow-face"><span class="pow-ico">${icon}</span><span class="pow-label">${d.label}</span></span>${price}</div>`;
   }).join('');
   $$('#powerbar .pow').forEach(p=>{
     const skill=p.dataset.skill, mode=p.dataset.mode;
@@ -1863,7 +1917,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.21.0';
+const GAME_VERSION = 'v2.21.1';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };
