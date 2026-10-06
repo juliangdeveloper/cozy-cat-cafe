@@ -23,12 +23,19 @@ const mulberry32 = (a) => () => {
 };
 const unwind = (ret, fallback) => (ret && ret.error) ? fallback : ret;
 
-// estado base con run abierta (32 celdas, núcleo jugable) y sin auto-serve
-// (cafeLevel 7: unlockLocks exige LV5)
+function parkOrders(s) {
+  const park = (o) => { if (o) { o.color = 10; o.qty = 99; } };
+  if (s && s.run) {
+    (s.run.orders || []).forEach(park);
+    (s.run.activeClients || []).forEach(park);
+  }
+  return s;
+}
+// estado base con run abierta (36 celdas, núcleo jugable). Pedidos aparcados
+// para que un tope de fixture no se sirva solo (cafeLevel 7: unlockLocks LV5).
 const base = () => {
   const s = G.openRun(G.createGame({ progress: { coins: 1e9, totalGames: 50, cafeLevel: 7 } }), mulberry32(3));
-  s.skills.serveManual.autoServe = false;
-  return s;
+  return parkOrders(s);
 };
 
 // ---------------------------------------------------------------------------

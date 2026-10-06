@@ -38,6 +38,16 @@ const mkGame = (seed = 1) => {
 const unwind = (ret, fallback) =>
   (ret && ret.state) ? ret.state : (ret && ret.progress ? ret : fallback);
 
+// Auto-serve is always on. Park visible orders so a fixture stack is not eaten.
+function parkOrders(s) {
+  const park = (o) => { if (o) { o.color = 10; o.qty = 99; } };
+  if (s && s.run) {
+    (s.run.orders || []).forEach(park);
+    (s.run.activeClients || []).forEach(park);
+  }
+  return s;
+}
+
 // ---------------------------------------------------------------------------
 // T11 — Merge y cascada [R12]
 // ---------------------------------------------------------------------------
@@ -54,7 +64,7 @@ test('T11a [R12.1 v3] merge hexasort: grupo contiguo fusiona; fuente conserva su
   const A = s.run.board[0], D = s.run.board[1];
   A.stack = [2, 2];
   D.stack = [1];
-  s.skills.serveManual.autoServe = false;
+  parkOrders(s);
   const placed = G.placeStack(s, 1, 0, [5, 2]);   // multicolor, tope 2 => sin ancla
   const src = unwind(placed, s);
   assert.deepEqual(src.run.board[1].stack, [1, 5, 2], 'RED: placeStack apila la pila en D sin fusionar');
@@ -106,7 +116,7 @@ test('T11c [R15.2 + R12.2] orden eslabon: auto-servir ANTES de evaluar umbral', 
 test('T11d [R12.2] resolveCascade es pura: {state, steps}; estable => steps 0 y no muta', () => {
   need('createGame'); need('resolveCascade');
   const s = mkGame();
-  s.skills.serveManual.autoServe = false; // aislar de clientes iniciales servibles
+  parkOrders(s);
   s.run.board[0].stack = [1, 1]; // estable: sin merge ni threshold pendiente
   const snapshot = JSON.stringify(s);
   const res = G.resolveCascade(s);
@@ -116,7 +126,7 @@ test('T11d [R12.2] resolveCascade es pura: {state, steps}; estable => steps 0 y 
   assert.deepEqual(res.state, JSON.parse(snapshot), 'RED: resolveCascade no debe mutar el estado de entrada (deep-equal)');
   // con una mutación pendiente itera hasta estabilizar
   const s2 = mkGame();
-  s2.skills.serveManual.autoServe = false; // aislar
+  parkOrders(s2);
   s2.run.board[0].stack = Array.from({ length: 10 }, () => 4); // debris threshold pendiente
   const res2 = G.resolveCascade(s2);
   assert.ok(res2.steps >= 1, 'RED: con mutación pendiente steps >= 1');
@@ -127,7 +137,7 @@ test('T11e [R12.3] debris: grupo contiguo de 10 fichas color 1 => destruido y co
   assert.equal(G.CONFIG.DEBRIS_THRESHOLD, 10, 'RED: CONFIG.DEBRIS_THRESHOLD debe ser 10');
   assert.equal(G.CONFIG.DEBRIS_BONUS_PER, 25, 'RED: CONFIG.DEBRIS_BONUS_PER debe ser 25');
   const s = mkGame();
-  s.skills.serveManual.autoServe = false; // v2.9: aislar debris — un pedido visible no debe comerse el tope antes del umbral (convención de la suite, cf. T11a/T12e)
+  parkOrders(s);
   s.run.board[0].stack = Array.from({ length: 10 }, () => 1);
   const coinsBefore = s.progress.coins;
   const res = G.resolveCascade(s);
@@ -216,26 +226,22 @@ test('T12d [R5.1] paga pay(order) exacto: Math.round(5*qty**1.25)', () => {
   assert.equal(st.progress.coins, coinsBefore + expected, `RED: coins debe subir exactamente pay(order)=${expected}`);
 });
 
-test('T12e [R15.2] autoServe=false => resolveCascade NO sirve; celda marcada servible', () => {
-  need('createGame'); need('resolveCascade'); need('isServeReady');
+test('T12e [R15.2] a matching top always auto-serves', () => {
+  need('createGame'); need('resolveCascade');
   const s = mkGame();
-  s.skills = s.skills || {};
-  s.skills.serveManual = { autoServe: false };
   s.run.orders.length = 0;
   s.run.orders.push({ id: 'o12e', color: 2, qty: 3, cell: null, served: false });
   s.run.activeClients = [s.run.orders[0]]; // v2.1-clients: solo visibles se sirven [R16.4]
   s.run.board[0].stack = [2, 2, 2];
   const res = G.resolveCascade(s);
   const st = unwind(res, s);
-  assert.ok(!st.run.orders.find(o => o.id === 'o12e').served, 'RED: autoServe=false => NO debe auto-servir');
-  assert.equal(G.isServeReady(st, 0), true, 'RED: celda con tope servible debe marcarse ready');
+  assert.ok(st.run.orders.find(o => o.id === 'o12e').served, 'a matching top always auto-serves');
+  assert.equal(st.run.board[0].stack.length, 0, 'the matching top is consumed');
 });
 
-test('T12f [R15.2] autoServe=false: serveOrder(state, orderId) manual sirve igual que T12c', () => {
+test('T12f [R4.3] serveOrder(state, orderId) without a cell still serves the closest top', () => {
   need('createGame'); need('serveOrder');
   const s = mkGame();
-  s.skills = s.skills || {};
-  s.skills.serveManual = { autoServe: false };
   s.run.orders.length = 0;
   s.run.orders.push({ id: 'o12f', color: 2, qty: 3, cell: null, served: false });
   s.run.activeClients = [s.run.orders[0]]; // v2.1-clients: solo visibles se sirven [R16.4]
