@@ -61,7 +61,7 @@ const importBlock = [
  'useUnlockLocks',                                           // v2.8 R7.8
  'buyIdleUpgrade','tickIdle','applyOffline','colorsUnlocked','serializeState','deserializeState',
  'importSave','mulberry32','ROSTER','resolveCascade','activateTile','activateAroundUnlocked','runTilePrice',
- 'buyColor','buyUsesUp','usesUpPrice',                       // v2.1 R13.7/R17
+ 'buyColor','colorPrice','tipPrice','previewPrice','skillUsePrice','skillUseCount',
  'toggleServe','previewPool','pay',
  'isActivateEligible','unlockedNeighborCount','sweepDebrisRuns', // v2.17
  'topRunCount','orderReadyOn','bfsMergeGroups','computeBestChain','r2Target',   // v2.2/v3 + v2.21.1 glow
@@ -102,9 +102,9 @@ try {
   } else {
     results.noPlaceable = true;
   }
-  document.getElementById('btnShop').click(); await sleep(20);
-  results.shopOpens = document.getElementById('shopModal').classList.contains('show');
-  document.getElementById('shopModal').classList.remove('show');
+  results.shopGone = !document.getElementById('btnShop') && !document.getElementById('shopModal');
+  results.powerCount = document.querySelectorAll('#powerbar .pow').length;
+  results.headerKids = document.querySelector('.topbar') ? document.querySelector('.topbar').children.length : 0;
   // a click is not a restart; the hold is 3s and must not open a lose modal
   document.getElementById('btnClose').click(); await sleep(20);
   results.closeOpens = document.getElementById('closeModal').classList.contains('show');
@@ -116,5 +116,6 @@ results.asyncError = global.__asyncErr;
 console.log(JSON.stringify(results, null, 2));
 try{ unlinkSync(tmp); }catch(_){}
 const ok = results.opened && results.menuShows === false && results.hasCalStrip
+  && results.shopGone && results.powerCount === 10
   && results.closeOpens === false && !results.runError;
 process.exit(ok ? 0 : 1);

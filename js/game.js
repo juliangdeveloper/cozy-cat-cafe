@@ -35,6 +35,13 @@ export const CONFIG = {
   COLOR_PRICE_BASE: 150,            // R13.7 precio color = BASE * (n-3), n = colorsOwned tras comprar
   RUN_TILE_BASE: 40,                // R14.3 runTilePrice = BASE * RATIO^runTilesActivated (se resetea cada run)
   RUN_TILE_RATIO: 1.6,              // R14.3 curva temporal por partida; no hay tienda permanente (2026-10-06)
+  // v2.22 — cada skill se paga al usarla. Siguiente precio =
+  //   SKILL_USE_BASE * SKILL_USE_RATIO^n
+  // n = usos ya pagados en ESTA run (se pone a 0 al abrir/reiniciar).
+  // Misma curva que las mesas (RUN_TILE_BASE × RUN_TILE_RATIO^n = 40 × 1.6^n).
+  // Color: n = colorsOwned − 4. Tips: n = multLevel. Pizarra: n = preview level.
+  SKILL_USE_BASE: 40,
+  SKILL_USE_RATIO: 1.6,
   MAX_COLORS: 10,                   // R13.7 10 colores / criaturas en orden de desbloqueo (R13.2)
   DEBRIS_THRESHOLD: 10,             // v2 escombros: umbral para entrar en tablero
   DEBRIS_BONUS_PER: 25,             // v2 escombros: bonus por escombro limpiado
@@ -711,6 +718,7 @@ export function openRun(state, rng) {
     rosterIndex: rosterIdx,
     placedCounter: 0,                                              // R13.4
     runTilesActivated: 0,                                          // R14.3 precio ×1.6; se resetea con la run
+    skillUses: {},                                                 // v2.22 usos pagados esta run (precio ×1.6)
     // v2.1 R16 — cola de clientes perezosa: 3 visibles, contadores, devueltos
     clientsDrawn: 0,                                               // R16.3 dibujados hasta ahora
     clientsServed: 0,                                              // R16.4 victoria = === TOTAL
@@ -1025,10 +1033,10 @@ export function buyColor(state) {
   const s = clone(state);
   if (s.progress.colorsOwned == null) s.progress.colorsOwned = 4; // v2 default
   if (s.progress.colorsOwned >= CONFIG.MAX_COLORS) return { error: 'maxed', state: s };
-  const n = s.progress.colorsOwned + 1;
-  const price = CONFIG.COLOR_PRICE_BASE * (n - 3);
+  // v2.22: misma curva 40×1.6^n (n = colores ya comprados esta run). Tope 10.
+  const price = colorPrice(s);
   if (s.progress.coins < price) return { error: 'noFunds', state: s }; // sin mutar
-  s.progress.colorsOwned = n;
+  s.progress.colorsOwned += 1;
   s.progress.coins -= price;
   return s;
 }
@@ -1051,6 +1059,55 @@ export function buyColor(state) {
 export function runTilePrice(state) {
   const n = (state && state.run && state.run.runTilesActivated) || 0;
   return CONFIG.RUN_TILE_BASE * CONFIG.RUN_TILE_RATIO ** n;
+}
+
+// v2.22 — bolsa de usos pagados. Vive en la run (se tira al reiniciar).
+// Sin run (tests que compran antes de abrir) cae en state.skillUses.
+function skillUseBag(state) {
+  if (state && state.run) return state.run.skillUses || null;
+  return (state && state.skillUses) || null;
+}
+
+export function skillUseCount(state, power) {
+  const bag = skillUseBag(state);
+  return (bag && bag[power]) || 0;
+}
+
+export function skillUsePrice(state, power) {
+  const n = skillUseCount(state, power);
+  return Math.round(CONFIG.SKILL_USE_BASE * CONFIG.SKILL_USE_RATIO ** n);
+}
+
+// Cobra el precio actual y anota el uso. No muta si no alcanza.
+// `s` ya es un clone del caller.
+function chargeSkill(s, power) {
+  const price = skillUsePrice(s, power);
+  if ((s.progress.coins || 0) < price) return { error: 'noFunds' };
+  s.progress.coins -= price;
+  if (s.run) {
+    if (!s.run.skillUses) s.run.skillUses = {};
+    s.run.skillUses[power] = (s.run.skillUses[power] || 0) + 1;
+  } else {
+    if (!s.skillUses) s.skillUses = {};
+    s.skillUses[power] = (s.skillUses[power] || 0) + 1;
+  }
+  return null;
+}
+
+export function colorPrice(state) {
+  const owned = (state && state.progress && state.progress.colorsOwned) || 4;
+  const n = Math.max(0, owned - 4);
+  return Math.round(CONFIG.SKILL_USE_BASE * CONFIG.SKILL_USE_RATIO ** n);
+}
+
+export function tipPrice(state) {
+  const lvl = (state && state.progress && state.progress.econ && state.progress.econ.multLevel) || 0;
+  return Math.round(CONFIG.SKILL_USE_BASE * CONFIG.SKILL_USE_RATIO ** lvl);
+}
+
+export function previewPrice(state) {
+  const level = (state && state.skills && state.skills.previewPool && state.skills.previewPool.level) || 0;
+  return Math.round(CONFIG.SKILL_USE_BASE * CONFIG.SKILL_USE_RATIO ** level);
 }
 
 function v2CellOf(s, cellId) {
@@ -1436,7 +1493,8 @@ export function buySkill(state, power) {
   if (power === 'previewPool') {
     const level = sk.level || 0;
     if (level >= 3) return { error: 'max' };
-    const price = CONFIG.PREVIEW_PRICE * (level + 1);   // p.ej. 80*level
+    // v2.22: 40×1.6^level. El tope sigue en 3 tandas (no hay más bandeja que mostrar).
+    const price = previewPrice(s);
     if (s.progress.coins < price) return { error: 'noFunds' };             // R7.3
     s.progress.coins -= price;
     s.skills.previewPool.owned = true;
@@ -1472,16 +1530,16 @@ export function buySkill(state, power) {
 // entran 3 nuevos (draw). NO consume nada más. {error} si uses===0 o !owned.
 // ---------------------------------------------------------------------------
 export function useQueueSkip(state) {
-  const guard = ensureOwnedUses(state, 'queueSkip');
-  if (guard) return guard;
   const s = clone(state);
+  if (!s.run || !Array.isArray(s.run.activeClients)) return { error: 'noRun' };
+  const bill = chargeSkill(s, 'queueSkip');
+  if (bill) return bill;
   const old = s.run.activeClients.splice(0, s.run.activeClients.length);
   s.run.queueBack.push(...old);                 // R17.1: al fondo, orden FIFO
   // v2.1 FIX (T17e): drawClientInto MUTA `s` (el caller ya clonó); drawClient
   // es el export PURO (clona y descarta) — no dibujaba nada.
   for (let i = 0; i < 3; i++) drawClientInto(s, Math.random);  // 3 nuevos (R16.3)
   refillClients(s, Math.random);                // edge: cola agotada → re-entran
-  s.skills.queueSkip.uses -= 1;
   return s;
 }
 
@@ -1523,9 +1581,13 @@ export function buyUsesUp(state, power) {
 // Requiere la skill comprada; si no, {error} sin mutar.
 // ---------------------------------------------------------------------------
 export function toggleServe(state) {
-  const sk = state.skills && state.skills.serveManual;
-  if (!sk || !sk.owned) return { error: 'locked' };
   const s = clone(state);
+  if (!s.skills) s.skills = {};
+  if (!s.skills.serveManual) s.skills.serveManual = { owned: false, autoServe: true };
+  // v2.22: el cambio de modo se paga (40×1.6^n). No exige compra previa.
+  const bill = chargeSkill(s, 'serveManual');
+  if (bill) return bill;
+  s.skills.serveManual.owned = true;
   s.skills.serveManual.autoServe = !s.skills.serveManual.autoServe;
   return s;
 }
@@ -1560,52 +1622,53 @@ function ensureOwnedUses(state, power) {
 }
 
 export function useDestroyPile(state, cellId) {
-  const guard = ensureOwnedUses(state, 'destroyPile');
-  if (guard) return guard;
   const s = clone(state);
-  const cell = s.run ? s.run.board[cellId] : null;
+  if (!s.run) return { error: 'noRun' };
+  const cell = s.run.board[cellId];
   if (!cell) return { error: 'noCell' };
   if (cell.blocked) return { error: 'blocked' };                        // R7.5 block
+  const bill = chargeSkill(s, 'destroyPile');
+  if (bill) return bill;
   cell.stack = [];                                                       // R7.5 empty
-  s.skills.destroyPile.uses -= 1;
   return s;
 }
 
 export function useSwapPiles(state, a, b) {
-  const guard = ensureOwnedUses(state, 'swapPiles');
-  if (guard) return guard;
   const s = clone(state);
+  if (!s.run) return { error: 'noRun' };
   const board = s.run.board;
   if (a === b) return { error: 'same' };
   if (!board[a] || !board[b]) return { error: 'noCell' };
   if (board[a].blocked || board[b].blocked) return { error: 'blocked' }; // R7.6
+  const bill = chargeSkill(s, 'swapPiles');
+  if (bill) return bill;
   const tmp = board[a].stack;
   board[a].stack = board[b].stack;                                        // R7.6 swap
   board[b].stack = tmp;
-  s.skills.swapPiles.uses -= 1;
   return s;
 }
 
 export function useUnlockLocks(state, cellId) {
-  const guard = ensureOwnedUses(state, 'unlockLocks');
-  if (guard) return guard;
   const s = clone(state);
-  const cell = s.run ? s.run.board[cellId] : null;
+  if (!s.run) return { error: 'noRun' };
+  const cell = s.run.board[cellId];
   if (!cell) return { error: 'noCell' };
   if (!cell.blocked) return { error: 'notBlocked' };                    // R7.8 v2.8
+  const bill = chargeSkill(s, 'unlockLocks');
+  if (bill) return bill;
   cell.blocked = false;
   if (cell.hiddenStack && cell.hiddenStack.length) {                    // R8.4 v2: revelar
     cell.stack = (cell.stack || []).concat(cell.hiddenStack);
     delete cell.hiddenStack;
   }
-  s.skills.unlockLocks.uses -= 1;
   return s;
 }
 
 export function useRefreshPool(state, rng) {
-  const guard = ensureOwnedUses(state, 'refreshPool');
-  if (guard) return guard;
   const s = clone(state);
+  if (!s.run) return { error: 'noRun' };
+  const bill = chargeSkill(s, 'refreshPool');
+  if (bill) return bill;
   // v2.10 R18: useRefreshPool consume de s.run.bag
   const r = rng || Math.random;
   const cu = poolMaxColor(s.run && s.run.rosterIndex, s.progress.colorsOwned);
@@ -1613,7 +1676,6 @@ export function useRefreshPool(state, rng) {
   s.run.pool = piles;
   s.run.bag = nextBag;
   s.run.poolPlaced = 0;                                                   // R7.7
-  s.skills.refreshPool.uses -= 1;
   return s;
 }
 
@@ -1640,10 +1702,13 @@ export function buyMultiplier(state) {
   const s = clone(state);
   const lvl = s.progress.econ.multLevel;
   if (lvl >= CONFIG.MULT_MAX) return { error: 'maxed' };                 // R5.2 cap
-  const price = CONFIG.MULT_PRICE_BASE * (lvl + 1);
+  // v2.22: 40×1.6^multLevel. El tope MULT_MAX se queda: el exponente de
+  // pay() no tiene otro freno. El botón se apaga al llegar.
+  const price = tipPrice(s);
   if (s.progress.coins < price) return { error: 'noFunds' };
   s.progress.coins -= price;
   s.progress.econ.multLevel = lvl + 1;
+  if (s.economy) s.economy.multLevel = s.progress.econ.multLevel;
   return s;
 }
 

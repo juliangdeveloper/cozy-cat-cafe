@@ -143,22 +143,16 @@ test('T17d [v2.21] capacidad no cambia N: TOTAL queda en 100 y la compra está r
 // ---------------------------------------------------------------------------
 test('T17e [R17.1] queueSkip: 3 visibles al fondo de la cola, entran 3 nuevos; re-entran FIFO', () => {
   need('useQueueSkip'); need('buySkill'); need('serveOrder');
-  // {error} si !owned
+  // v2.22: sin monedas no rota; con monedas rota desde el inicio (sin compra)
   const sNo = mkGame(3);
+  sNo.progress.coins = 0;
   const r0 = G.useQueueSkip(sNo);
-  assert.ok(r0 && r0.error, `RED: queueSkip sin owned → {error}, dio ${JSON.stringify(r0)}`);
-  // comprar (v2.3: la compra ES el 1er uso) → uses=1; openRun repone uses=usesBought
+  assert.equal(r0 && r0.error, 'noFunds');
   let s = G.createGame({ progress: { coins: 1e9 } });
-  s = unwind(G.buySkill(s, 'queueSkip'), s);
-  assert.equal(s.skills.queueSkip.owned, true, 'RED: buySkill(queueSkip) → owned=true');
-  assert.equal(s.skills.queueSkip.uses, 1, 'RED: v2.3 compra = 1 uso');
   s = unwind(G.openRun(s, rng(3)), s);
-  assert.equal(s.skills.queueSkip.uses, 1,
-    'RED: openRun repone uses = usesBought [R7.4/R17.1 v2.3]');
   const oldIds = s.run.activeClients.map(c => c.id);
   const st = unwind(G.useQueueSkip(s), s);
-  assert.equal(st.skills.queueSkip.uses, 0,
-    'RED: usar queueSkip decrementa uses en 1 [R17.1]');
+  assert.equal(st.run.skillUses.queueSkip, 1, 'RED: queueSkip anota el uso pagado');
   assert.equal(st.run.activeClients.length, 3, 'RED: siguen 3 visibles tras queueSkip');
   const newIds = st.run.activeClients.map(c => c.id);
   assert.equal(newIds.filter(id => oldIds.includes(id)).length, 0,
@@ -175,11 +169,6 @@ test('T17e [R17.1] queueSkip: 3 visibles al fondo de la cola, entran 3 nuevos; r
     'RED: los devueltos por queueSkip re-entran (FIFO) al servir [R17.1]');
   assert.equal(st2.run.clientsDrawn, 6,
     'RED: queueBack se consume ANTES de dibujar nuevos (clientsDrawn no cambia)');
-  // uses===0 → {error}
-  const sZero = unwind(G.buySkill(mkGame(4, 1e9), 'queueSkip'), mkGame(3));
-  sZero.skills.queueSkip.uses = 0;
-  const rNo = G.useQueueSkip(sZero);
-  assert.ok(rNo && rNo.error, `RED: queueSkip con uses===0 → {error}, dio ${JSON.stringify(rNo)}`);
 });
 
 // ---------------------------------------------------------------------------

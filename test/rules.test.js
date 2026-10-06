@@ -299,12 +299,13 @@ test('T4.1 pago base', () => {
 test('T4.2 superlinealidad 4 > 2*2', () => {
   assert.ok(pay({ qty: 4 }) > 2 * pay({ qty: 2 }));
 });
-test('T4.3 multi sube pago, cuesta 100*(lvl+1)', () => {
+test('T4.3 multi sube pago, cuesta SKILL_USE_BASE (40×1.6^lvl)', () => {
   assert.ok(pay({ qty: 3 }, 1) > pay({ qty: 3 }, 0));
   let s = createGame(); s.progress.coins = 500;
   const after = buyMultiplier(s);
   assert.equal(after.progress.econ.multLevel, 1);
-  assert.equal(after.progress.coins, 400);
+  assert.equal(after.economy.multLevel, 1);
+  assert.equal(after.progress.coins, 500 - Math.round(CONFIG.SKILL_USE_BASE));
 });
 test('T4.4 bonus calamidad al cerrar', () => {
   let s = baseRun();
@@ -373,12 +374,14 @@ test('T6.2 compra exige nivel + saldo (v2.3: compra = 1 uso, uses=usesBought=1)'
 test('T6.2b compra sin saldo => noFunds', () => {
   assert.equal(buySkill(createGame(), 'refreshPool').error, 'noFunds');
 });
-test('T6.3 DESTROY PILE vacia pila', () => {
-  let s = baseRun(); s.skills.destroyPile.owned = true; s.skills.destroyPile.uses = 3;
+test('T6.3 DESTROY PILE vacia pila y cobra 40×1.6^n', () => {
+  let s = baseRun();
   s.run.board[0].stack = [2, 2, 2];
+  const before = s.progress.coins;
   s = useDestroyPile(s, 0);
   assert.deepEqual(s.run.board[0].stack, []);
-  assert.equal(s.skills.destroyPile.uses, 2);
+  assert.equal(before - s.progress.coins, Math.round(CONFIG.SKILL_USE_BASE));
+  assert.equal(s.run.skillUses.destroyPile, 1);
 });
 test('T6.4 DESTROY no afecta bloqueada', () => {
   let s = baseRun(); s.skills.destroyPile.owned = true; s.skills.destroyPile.uses = 3;
@@ -388,25 +391,30 @@ test('T6.4 DESTROY no afecta bloqueada', () => {
   assert.equal(s.skills.destroyPile.uses, 3);
 });
 test('T6.5 SWAP intercambia stacks', () => {
-  let s = baseRun(); s.skills.swapPiles.owned = true; s.skills.swapPiles.uses = 3;
+  let s = baseRun();
   s.run.board[0].stack = [1, 1]; s.run.board[1].stack = [2];
   s = useSwapPiles(s, 0, 1);
   assert.deepEqual(s.run.board[0].stack, [2]);
   assert.deepEqual(s.run.board[1].stack, [1, 1]);
-  assert.equal(s.skills.swapPiles.uses, 2);
+  assert.equal(s.run.skillUses.swapPiles, 1);
 });
 test('T6.6 REFRESH genera 3 nuevas', () => {
-  let s = baseRun(); s.skills.refreshPool.owned = true; s.skills.refreshPool.uses = 2;
+  let s = baseRun();
   s.run.pool = [[1], [2], [3]]; s.run.poolPlaced = 1;
   s = useRefreshPool(s, rng(7));
   assert.equal(s.run.pool.length, 3);
   assert.equal(s.run.poolPlaced, 0);
-  assert.equal(s.skills.refreshPool.uses, 1);
+  assert.equal(s.run.skillUses.refreshPool, 1);
 });
-test('T6.7 sin owned/usos => error', () => {
+test('T6.7 sin saldo => noFunds; con saldo se usa desde el inicio', () => {
+  let broke = baseRun();
+  broke.progress.coins = 0;
+  broke.run.board[0].stack = [1];
+  const res = useDestroyPile(broke, 0);
+  assert.equal(res.error, 'noFunds');
+  assert.deepEqual(broke.run.board[0].stack, [1]);
   let s = baseRun();
-  assert.ok(useDestroyPile(s, 0).error);
-  assert.ok(useRefreshPool(s).error);
+  assert.ok(!useRefreshPool(s, rng(3)).error);
 });
 test('T6.8 usos se reponen al reabrir (v2.3: uses = usesBought, sin base)', () => {
   let s = createGame({ progress: { coins: 100000, totalGames: 6 } });

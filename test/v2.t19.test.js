@@ -74,7 +74,8 @@ test('T19d [v2.4] useRefreshPool genera multicolor igual que openRun (bug monoco
   let monocolorBig = 0, big = 0, refreshErrors = 0;
   let cur = st;
   for (let i = 0; i < 60; i++) {
-    cur.skills.refreshPool.uses = 999;          // sondeo sin tope del guard
+    cur.progress.coins = 1e15;                  // v2.22 cada refresh cobra; el sondeo no testa la curva
+    if (cur.run) cur.run.skillUses = {};
     const r = G.useRefreshPool(cur, mulberry32(100 + i));
     if (r.error) { refreshErrors++; continue; }
     cur = r;

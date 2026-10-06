@@ -30,7 +30,7 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
 #app{max-width:560px;margin:0 auto;padding:0 10px calc(12px + env(safe-area-inset-bottom))}
 
 /* top bar */
-.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:4px;
+.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;flex-wrap:nowrap;gap:4px;
   padding:4px 0;background:rgba(247,209,225,.94);backdrop-filter:blur(5px);
   border-bottom:2px solid var(--wood)}
 .chip{display:flex;align-items:center;gap:4px;background:var(--panel);border:2px solid var(--ink);
@@ -47,11 +47,11 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
 .mute-ico{display:block;width:22px;height:22px}
 .chip.dropping{background:var(--highlight);transition:transform .42s cubic-bezier(.2,.8,.2,1)}
 
-/* v2.21 — strip of the NEXT calamity. Same bar for both waves.
-   v2.21.1 — guest counter (served/100) lives in this strip, not its own card. */
-.cal-strip{display:flex;align-items:center;gap:6px;width:100%;margin:3px 0 0;padding:2px 6px 2px 2px;
-  background:var(--panel);border:2px solid var(--ink);border-radius:999px;min-height:44px;cursor:pointer;
-  font-family:var(--font-ui);font-weight:800;color:var(--ink);box-shadow:0 3px 0 var(--wood-dark);text-align:left}
+/* v2.22 — one header row: coins | calamity icon+bar | guests | mute+save. */
+.cal-strip{display:flex;align-items:center;gap:4px;flex:1 1 auto;min-width:0;width:auto;margin:0;
+  padding:2px 4px 2px 2px;position:relative;
+  background:var(--panel);border:2px solid var(--ink);border-radius:999px;min-height:34px;cursor:pointer;
+  font-family:var(--font-ui);font-weight:800;color:var(--ink);box-shadow:0 2px 0 var(--wood-dark);text-align:left}
 .cal-strip:active{transform:translateY(2px);box-shadow:0 1px 0 var(--wood-dark)}
 .cal-ico{width:28px;height:28px;border-radius:50%;background:var(--highlight);border:2px solid var(--ink);
   display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:13px;flex:0 0 auto}
@@ -60,9 +60,14 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
 .cal-bar{flex:1;height:10px;background:var(--wood);border-radius:999px;overflow:hidden;border:2px solid var(--ink)}
 .cal-fill{display:block;height:100%;width:0;background:var(--danger)}
 .cal-meta{font-size:11px;color:var(--ink-soft);white-space:nowrap}
-.cal-strip .queuecount{flex:0 0 auto;font-size:11px;line-height:1.2;font-weight:800;
-  background:var(--highlight);border:2px solid var(--ink);border-radius:999px;padding:1px 6px;
-  box-shadow:none;font-variant-numeric:tabular-nums}
+.cal-strip .cal-meta{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.topbar .queuecount{flex:0 0 auto;font-size:12px;line-height:1.1;font-weight:800;
+  background:var(--highlight);border:2px solid var(--ink);border-radius:999px;padding:3px 6px;
+  box-shadow:0 2px 0 var(--wood-dark);font-variant-numeric:tabular-nums}
+.hdr-tools{display:flex;flex:0 0 auto;align-items:center;gap:3px}
+.hdr-tools .iconbtn{width:36px;height:36px;min-width:36px;min-height:36px;padding:0;font-size:15px;border-radius:9px}
+.hdr-tools .mute-ico{width:18px;height:18px}
 .cal-pop p{margin:0 0 8px;font-size:14px;font-weight:700;line-height:1.35}
 .cal-pop .cal-bar{margin:10px 0 12px}
 
@@ -303,19 +308,21 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .ttile .tface,.ttile .tface::before{transform:translateY(calc(var(--hx)*-0.015));clip-path:var(--hex-pointy)}
 .poolempty{font-size:10px;color:var(--wood-dark);font-weight:700;text-align:center;width:100%;align-self:flex-end;padding-bottom:6px}
 
-/* powers — v2.21.1: two rows of 3, not a carousel. Price sits in the button. */
-.powerbar{display:grid;grid-template-columns:repeat(3,minmax(44px,1fr));gap:5px;margin:6px 0 4px}
-.pow{min-width:44px;min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+/* powers — v2.22: two rows (5×2), not one row and not a carousel. Price sits in the button. */
+.powerbar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;margin:6px 0 4px}
+.pow{min-width:0;min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:1px;background:var(--panel);border:2px solid var(--ink);border-radius:12px;cursor:pointer;font-weight:800;
-  font-size:12px;box-shadow:0 3px 0 var(--wood-dark);position:relative;padding:3px 3px 2px;overflow:hidden}
+  font-size:11px;box-shadow:0 3px 0 var(--wood-dark);position:relative;padding:3px 2px 2px;overflow:hidden}
 .pow-face{display:flex;align-items:center;justify-content:center;gap:3px;max-width:100%;min-height:22px}
 .pow-ico{display:flex;align-items:center;justify-content:center;line-height:1}
 .pow-emoji{font-size:20px;line-height:1}
-.pow-label{font-size:12px;line-height:1.05;text-align:center;font-weight:800}
-.pow img,.pow .o{width:22px;height:22px}
-.pow-cost{position:static;display:block;max-width:100%;margin-top:1px;padding:0 4px;border-radius:999px;
-  background:var(--highlight);border:1.5px solid var(--ink);font-size:10px;font-weight:800;line-height:1.25;
+.pow-label{font-size:10px;line-height:1.05;text-align:center;font-weight:800;max-width:100%;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pow img,.pow .o{width:16px;height:16px}
+.pow-cost{position:static;display:block;max-width:100%;margin-top:1px;padding:0 3px;border-radius:999px;
+  background:var(--highlight);border:1.5px solid var(--ink);font-size:9px;font-weight:800;line-height:1.25;
   font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pow.broke{opacity:.5}
 .pow .uses{position:absolute;top:2px;right:2px;background:var(--highlight);border:2px solid var(--ink);
   border-radius:999px;font-size:11px;padding:0 5px;font-weight:800;line-height:1.2;pointer-events:none}
 .pow.locked{background:var(--lock);opacity:.8;cursor:not-allowed}
@@ -347,20 +354,8 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .modal p{font-size:14px}
 .x{float:right;width:32px;height:32px;border:2px solid var(--ink);border-radius:9px;background:var(--accent);
   font-weight:800;cursor:pointer;font-size:15px;margin:-6px -6px 0 0}
-.skillrow{display:flex;align-items:center;gap:10px;background:var(--panel);border:2px solid var(--wood);
-  border-radius:12px;padding:10px;margin-bottom:8px}
-.sname{font-weight:800;font-size:15px;flex:1}
-.sprop{font-size:11px;color:var(--ink-soft);font-weight:700;margin-top:2px}
-.rowcard{display:flex;align-items:center;gap:10px;background:var(--panel);border:2px solid var(--wood);
-  border-radius:12px;padding:10px;margin-bottom:8px}
-.rowinfo{flex:1}.rowinfo b{display:block;font-size:15px;margin-bottom:2px}
-.rowinfo span{font-size:12px;color:var(--ink-soft);font-weight:700}
-.ownedbadge{display:inline-block;background:var(--success);color:var(--ink);font-weight:800;border-radius:10px;padding:3px 10px}
 .bonus{display:inline-block;background:var(--danger);color:#fff8ec;font-weight:800;border-radius:10px;padding:3px 10px;
   font-family:var(--font-display)}
-/* v2.1 — tienda única: encabezados de sección (activas / pasivas) */
-.shopsec{font-family:var(--font-display);font-weight:800;font-size:13px;color:var(--ink-soft);
-  letter-spacing:.5px;text-transform:uppercase;margin:12px 0 6px;border-bottom:2px solid var(--wood);padding-bottom:3px}
 .offreps{display:flex;flex-direction:column;gap:5px;font-size:14px;font-weight:700;margin:10px 0}
 .offreps div{display:flex;justify-content:space-between}
 
@@ -432,10 +427,11 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   body{font-size:14px}
   /* título/topbar compactos: una fila. Mute stays a 44px icon. */
   .topbar{padding:2px 0;flex-wrap:nowrap;gap:3px}
+  .topbar .cal-strip{flex:1 1 auto;min-width:0}
   .chip{font-size:13px;padding:2px 7px;min-width:0}
   .chip.sm{font-size:10px;padding:2px 5px}
   .iconbtn{width:36px;height:36px;font-size:15px}
-  .iconbtn.mute-btn{width:44px;height:44px;min-width:44px;min-height:44px;padding:0}
+  .hdr-tools .iconbtn,.iconbtn.mute-btn{width:36px;height:36px;min-width:36px;min-height:36px;padding:0}
   .logo{font-size:26px}
   .menu{min-height:88vh;gap:10px;padding:12px 0}
   .btn-primary{min-height:56px;font-size:19px}
@@ -445,7 +441,7 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   .scene.active{display:flex;flex-direction:column;height:100vh;height:100dvh;min-height:0}
   .board-wrap{flex:1 1 auto;min-height:0;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:2px}
   .board{margin:auto}
-  .topbar,.cal-strip,.orders,.pool,.preview,.powerbar,.run-actions,.foot,.victory-veil{flex:0 0 auto}
+  .topbar,.orders,.pool,.preview,.powerbar,.run-actions,.foot,.victory-veil{flex:0 0 auto}
   /* pedidos densos: 3 tarjetas, sprite chico; >3 => scroll horizontal */
   .orders{gap:4px;padding:2px 0}
   .order-card{flex:0 0 calc((100% - 8px)/3);width:auto;min-height:0;padding:2px 1px;position:relative}
@@ -459,11 +455,11 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   .poolslot{height:46px}
   .tray{width:40px} .ttile{width:40px;height:34px}
   .preview{gap:8px;padding:6px 8px;margin-top:4px}
-  /* POWERBAR STICKY inferior: 3+3, sin carrusel. Precio dentro del botón. */
+  /* POWERBAR STICKY inferior: 5×2, sin carrusel. Precio dentro del botón. */
   .powerbar{position:sticky;bottom:0;z-index:15;margin:4px -6px 0;
     padding:4px 6px calc(4px + env(safe-area-inset-bottom));
     background:var(--bg-primary);border-top:2px solid var(--wood);overflow:visible}
-  .pow{min-height:44px;min-width:44px}
+  .pow{min-height:44px;min-width:0}
   /* colapsables compactos (idle/decor) */
   .collap{margin:4px 0}
   .collap summary{cursor:pointer;font-size:12px;font-weight:800;color:var(--ink-soft);
@@ -483,19 +479,12 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 body.tut-on .board-wrap,body.tut-on .pool{position:relative;z-index:90}
 body.tut-on .tut-spot{position:relative;z-index:90;outline:3px solid var(--highlight);border-radius:12px}
 body.tut-on .tut-spot-block{pointer-events:none!important}
-body.tut-on.tut-raise-shop .topbar{z-index:90}
-body.tut-on.tut-raise-shop .topbar .chip,
-body.tut-on.tut-raise-shop #btnSave{pointer-events:none}
-body.tut-on.tut-raise-shop #btnShop{pointer-events:auto}
-/* Mute stays tappable during the spotlight: the bar sits above the dim,
-   and every control except Mute (and Shop on its own step) stays inert. */
+/* Mute stays tappable during the spotlight. The header sits above the dim. */
 body.tut-on .topbar{z-index:90}
 body.tut-on .topbar .chip,
-body.tut-on .topbar #btnSave,
-body.tut-on .topbar #btnShop{pointer-events:none}
-body.tut-on.tut-raise-shop #btnShop{pointer-events:auto}
+body.tut-on .topbar #btnSave{pointer-events:none}
 body.tut-on .topbar #btnMute{pointer-events:auto}
-body.tut-on #shopModal.show{z-index:100}
+body.tut-on .powerbar.tut-spot{z-index:90}
 .tut-hole{position:absolute;border-radius:14px;pointer-events:none;outline:3px solid var(--highlight);
   transition:left .2s,top .2s,width .2s,height .2s}
 .tut-card{pointer-events:auto;position:fixed;left:50%;transform:translateX(-50%);
@@ -541,24 +530,6 @@ body.tut-on #shopModal.show{z-index:100}
   </div>
 </div></div>
 
-<div id="skillsModal" class="overlay" style="display:none"><div class="modal" style="display:none">
-  <span class="x" data-close="skillsModal">✕</span>
-  <h3>🌿 Café Skills</h3>
-  <div style="text-align:center;font-size:12px;color:var(--ink-soft);font-weight:700;margin-bottom:8px">
-    Buy skills anytime — coins only. Upgrade uses by buying again.
-  </div>
-  <div id="skillsBox"></div>
-  <p style="font-size:11px;color:var(--ink-soft);font-weight:700;text-align:center;margin-top:8px">
-    Level grows with every café you close. Purchased upgrades appear in the café scene.
-  </p>
-</div></div>
-
-<div id="shopModal" class="overlay"><div class="modal">
-  <span class="x" data-close="shopModal">✕</span>
-  <h3>🛒 Café Shop</h3>
-  <div id="shopBox"></div>
-</div></div>
-
 <div id="saveModal" class="overlay"><div class="modal">
   <span class="x" data-close="saveModal">✕</span>
   <h3>💾 Backup / Restore</h3>
@@ -598,7 +569,7 @@ import {
   buyMultiplier, useDestroyPile, useSwapPiles, useRefreshPool, buyExpansion,
   useUnlockLocks,                    // v2.8 R7.8: Unlock 🔓 (candados de calamidad)
   buyIdleUpgrade, tickIdle, applyOffline, colorsUnlocked,
-  buyColor, buyUsesUp, usesUpPrice,   // v2.1 UI: colores R13.7 + mejora de usos R17.2
+  buyColor, colorPrice, tipPrice, previewPrice, skillUsePrice, skillUseCount, // v2.22 pay-per-use
   serializeState, deserializeState, importSave, mulberry32,
   // v2 — R13/R14/R15: roster, cascada, baldosas, toggle auto-serve, preview
   ROSTER, resolveCascade, activateTile, activateAroundUnlocked, runTilePrice, toggleServe, previewPool, pay,
@@ -720,18 +691,18 @@ function renderRun(){
   $('#app').innerHTML = `
     <div class="scene active${won?' dim':''}">
       <div class="topbar">
-        <div class="chip">🪙<span id="coinNum">${fmt(state.progress.coins)}</span></div>
-        <div class="spacer"></div>
-        ${muteBtnMarkup()}
-        <button class="iconbtn" id="btnShop">🛒</button>
-        <button class="iconbtn" id="btnSave">💾</button>
+        <div class="chip" title="Coins">🪙<span id="coinNum">${fmt(state.progress.coins)}</span></div>
+        <button type="button" class="cal-strip" id="calStrip" aria-expanded="false" aria-controls="calPop" aria-label="Incoming calamity">
+          <span class="cal-ico" id="calIco" aria-hidden="true">I</span>
+          <span class="cal-bar" aria-hidden="true"><span class="cal-fill" id="calFill"></span></span>
+          <span class="cal-meta" id="calMeta">Next shift</span>
+        </button>
+        <span id="queueCount" class="queuecount" title="Guests served" aria-label="Guests served">0/100</span>
+        <div class="hdr-tools">
+          ${muteBtnMarkup()}
+          <button class="iconbtn" id="btnSave" aria-label="Save" title="Save">💾</button>
+        </div>
       </div>
-      <button type="button" class="cal-strip" id="calStrip" aria-expanded="false" aria-controls="calPop">
-        <span class="cal-ico" id="calIco">I</span>
-        <span class="cal-bar" aria-hidden="true"><span class="cal-fill" id="calFill"></span></span>
-        <span class="cal-meta" id="calMeta">Next shift</span>
-        <span id="queueCount" class="queuecount" title="Guests served">0/100</span>
-      </button>
       <div class="orders" id="orders"></div>
       ${won ? `<div class="victory-veil" id="victoryVeil">
         ${spr('cat_client_1', 96)}
@@ -749,7 +720,7 @@ function renderRun(){
       </div>
       <div class="foot">☕ Cozy Cat Café ${GAME_VERSION}</div>
     </div>`;
-  $('#btnShop').onclick=showShop; $('#btnSave').onclick=showSave;
+  $('#btnSave').onclick=showSave;
   bindMute();
   bindRotateBoard();
   bindCloseHold();
@@ -782,6 +753,8 @@ function renderCalamity(){
   if(popFill) popFill.style.width = pct + '%';
   const popMeta = $('#calPopMeta');
   if(popMeta) popMeta.textContent = meta.textContent;
+  const strip = $('#calStrip');
+  if(strip) strip.setAttribute('aria-label', 'Incoming calamity: ' + meta.textContent);
 }
 function bindCalamity(){
   const strip = $('#calStrip'); if(!strip) return;
@@ -821,7 +794,7 @@ function renderIdle(){
   const w=Math.min(state.idle.workers.level,3), f=Math.min(state.idle.fame.level,2), m=Math.min(state.idle.machines.level,2);
   // v2.1: el café arranca VACÍO — todo el decor/idle se compra en la tienda
   if(!w&&!f&&!m){
-    box.innerHTML='<div class="idleempty">Empty café — buy staff, fame &amp; machines in the Shop 🛒</div>';
+    box.innerHTML='<div class="idleempty">Empty café</div>';
     return;
   }
   let h='';
@@ -838,7 +811,12 @@ function renderOrders(){
   // v2.1 R16.4: solo los 3 clientes VISIBLES (activeClients); contador de cola X/TOTAL
   const vis = Array.isArray(r.activeClients) ? r.activeClients : r.orders;
   const cnt = $('#queueCount');
-  if(cnt) cnt.textContent = `${r.clientsServed||0}/${totalClients(state)}`;
+  if(cnt){
+    const label = `${r.clientsServed||0}/${totalClients(state)}`;
+    cnt.textContent = label;
+    cnt.title = 'Guests ' + label;
+    cnt.setAttribute('aria-label', 'Guests ' + label);
+  }
   box.innerHTML = vis.map((o,i)=>{
     const cat = 'cat_client_'+( (i%3)+1 );
     // v2 R13.2: nombre del ROSTER — el pedido de una criatura usa SOLO su color
@@ -1043,43 +1021,56 @@ function renderPool(){
   }));
 }
 function renderPoolSel(){ $$('#pool .poolslot').forEach(x=>x.classList.toggle('selected', +x.dataset.slot===ui.slot)); }
+function skillIsMaxed(id){
+  if(id==='color') return (state.progress.colorsOwned||4) >= CONFIG.MAX_COLORS;
+  if(id==='tips') return ((state.progress.econ&&state.progress.econ.multLevel)||0) >= CONFIG.MULT_MAX;
+  if(id==='previewPool') return ((state.skills.previewPool&&state.skills.previewPool.level)||0) >= 3;
+  return false;
+}
+function skillNextPrice(id){
+  if(id==='tables') return runTilePrice(state);
+  if(id==='color') return colorPrice(state);
+  if(id==='tips') return tipPrice(state);
+  if(id==='previewPool') return previewPrice(state);
+  return skillUsePrice(state, id);
+}
 function renderPowers(){
   const box=$('#powerbar'); if(!box) return;
+  // v2.22 — two rows. Former shop items live here. Every button shows the NEXT coin price.
   const arr=[
-    {skill:'destroyPile',icon:'power_destroy',label:'Destroy',mode:'destroy'},
-    {skill:'swapPiles',icon:'power_swap',label:'Swap',mode:'swap'},
-    {skill:'refreshPool',icon:'power_refresh',label:'Refresh',mode:'refresh'},
-    // v2.20 R14.3 — activar baldosa dormant ESTA partida (paga runTilePrice, se resetea)
-    {skill:'tables',icon:'power_activate',label:'Tables',mode:'activate'},
-    // v2.8 R7.8: Unlock — desbloquea un candado y revela su pila oculta
-    {skill:'unlockLocks',icon:'🔓',label:'Unlock',mode:'unlock'},
+    {skill:'destroyPile',icon:'power_destroy',label:'Destroy',mode:'destroy',title:'Destroy a stack'},
+    {skill:'swapPiles',icon:'power_swap',label:'Swap',mode:'swap',title:'Swap two stacks'},
+    {skill:'refreshPool',icon:'power_refresh',label:'Refresh',mode:'refresh',title:'Draw a new tray'},
+    {skill:'tables',icon:'power_activate',label:'Tables',mode:'activate',title:'Open a table for this café'},
+    {skill:'unlockLocks',icon:'🔓',label:'Unlock',mode:'unlock',title:'Unlock a locked table'},
+    {skill:'queueSkip',icon:'📨',label:'Queue',mode:'queueskip',title:'Send the visible guests to the back'},
+    {skill:'serveManual',icon:'power_autoserve',label:'Waiter',mode:'waiter',title:'Waiter mode'},
+    {skill:'previewPool',icon:'📋',label:'Board',mode:'preview',title:'Chalkboard — upcoming trays'},
+    {skill:'color',icon:'🎨',label:'Color',mode:'color',title:'Buy the next roster color'},
+    {skill:'tips',icon:'✨',label:'Tips',mode:'tips',title:'Big-tip bonus'},
   ];
-  // v2 R15.1: toggle auto-serve solo si serveManual.owned (modelo TOGGLE)
-  if(state.skills.serveManual && state.skills.serveManual.owned)
-    arr.push({skill:'serveManual',icon:'power_autoserve',
-      label:'Auto: '+(state.skills.serveManual.autoServe?'ON':'OFF'),mode:'autoserve'});
-  // v2.1 R17.1: "Enviar a la cola" solo si queueSkip.owned (contador de usos auto)
-  if(state.skills.queueSkip && state.skills.queueSkip.owned)
-    arr.push({skill:'queueSkip',icon:'📨',label:'Queue',mode:'queueskip'});
   box.innerHTML = arr.map(d=>{
-    const s=state.skills[d.skill]||{owned:true};
-    // Uses stay in the corner. Coin prices sit in the button (never a floating bubble).
-    // Tables (v2.20) is not a uses skill: the chip is this run's next activation price.
-    // A power at 0 uses stays on the bar (greyed), including Queue.
-    const activate = d.mode==='activate';
-    const cost = (n) => `<span class="pow-cost">🪙${fmt(n)}</span>`;
-    const corner = (!activate && s.owned && typeof s.uses==='number')
-      ? `<span class="uses">${s.uses}</span>` : '';
-    const price = activate
-      ? cost(runTilePrice(state))
-      : (corner ? '' : (typeof s.price==='number' ? cost(s.price) : ''));
-    const depleted = !activate && s.owned && typeof s.uses==='number' && s.uses<=0;
-    const locked = activate ? false : !s.owned;
+    const maxed = skillIsMaxed(d.skill);
+    const priceN = maxed ? 0 : skillNextPrice(d.skill);
+    const broke = maxed || state.progress.coins < priceN;
+    const auto = state.skills.serveManual ? state.skills.serveManual.autoServe !== false : true;
+    let detail = d.title;
+    if(d.skill==='serveManual') detail = 'Waiter mode, auto-serve '+(auto?'ON':'OFF');
+    if(d.skill==='previewPool'){
+      const lv = (state.skills.previewPool&&state.skills.previewPool.level)||0;
+      detail = 'Chalkboard, '+lv+' upcoming tray'+(lv===1?'':'s');
+    }
+    if(d.skill==='color') detail = 'Roster colors '+(state.progress.colorsOwned||4)+'/'+CONFIG.MAX_COLORS;
+    if(d.skill==='tips') detail = 'Big-tip bonus, level '+((state.progress.econ&&state.progress.econ.multLevel)||0);
+    const tip = maxed ? detail+' — maxed' : detail+' — next '+fmt(priceN)+' coins';
+    const cost = maxed
+      ? `<span class="pow-cost">Max</span>`
+      : `<span class="pow-cost">🪙${fmt(priceN)}</span>`;
     const icon = String(d.icon).startsWith('power_')
-      ? spr(d.icon, 22)
+      ? spr(d.icon, 16)
       : `<span class="pow-emoji">${d.icon}</span>`;
-    return `<div class="pow ${locked?'locked':''} ${depleted?'depleted':''} ${ui.mode===d.mode?'selected':''}" data-mode="${d.mode}" data-skill="${d.skill}">
-      ${corner}<span class="pow-face"><span class="pow-ico">${icon}</span><span class="pow-label">${d.label}</span></span>${price}</div>`;
+    return `<div class="pow ${broke?'broke':''} ${ui.mode===d.mode?'selected':''}" data-mode="${d.mode}" data-skill="${d.skill}" data-maxed="${maxed?'1':'0'}" role="button" title="${tip}" aria-label="${tip}">
+      <span class="pow-face"><span class="pow-ico">${icon}</span><span class="pow-label">${d.label}</span></span>${cost}</div>`;
   }).join('');
   $$('#powerbar .pow').forEach(p=>{
     const skill=p.dataset.skill, mode=p.dataset.mode;
@@ -1101,6 +1092,9 @@ function renderPowers(){
       };
       const onDown=(ev)=>{
         if(ui.anim) return;
+        if(p.classList.contains('broke')){
+          toast(p.dataset.maxed==='1' ? ERRT.maxed : ERRT.noFunds); return;
+        }
         if(ev.button!=null && ev.button!==0) return;
         holdDone=false; holdStart=performance.now();
         p.classList.add('holding');
@@ -1139,25 +1133,41 @@ function renderPowers(){
     }
     p.addEventListener('click',()=>{
     if(ui.anim) return;
-    // v2.2 guard agotado: toast y salida ANTES de entrar al modo (espejo del
-    // guard ensureOwnedUses de game.js; la lógica de gastar usos NO cambia)
-    const gs=state.skills[skill]||{owned:true};
-    if(gs.owned && typeof gs.uses==='number' && gs.uses<=0){ toast(ERRT.noUses); return; }
-    if(mode==='autoserve'){                   // v2 R15.1: toggleServe
-      const r=toggleServe(state);
-      if(r.error){ err(r); } else { state=r; toast('Auto-serve '+(state.skills.serveManual.autoServe?'ON':'OFF')); }
-      renderPowers(); return;
+    if(p.classList.contains('broke')){
+      toast(p.dataset.maxed==='1' ? ERRT.maxed : ERRT.noFunds); return;
     }
-    if(mode==='queueskip'){                   // v2.1 R17.1: los 3 visibles al fondo
+    if(mode==='waiter'){
+      const r=toggleServe(state);
+      if(r.error){ err(r); return; }
+      state=r;
+      toast('Waiter mode: auto-serve '+(state.skills.serveManual.autoServe?'ON':'OFF'));
+      renderAll(); return;
+    }
+    if(mode==='preview'){
+      const r=buySkill(state,'previewPool');
+      if(r.error){ err(r); return; }
+      state=r; toast('Chalkboard shows '+(state.skills.previewPool.level)+' upcoming');
+      renderAll(); return;
+    }
+    if(mode==='color'){
+      const r=buyColor(state);
+      if(r.error){ err(r); return; }
+      state=r; toast('New roster color ✓'); renderAll(); return;
+    }
+    if(mode==='tips'){
+      const r=buyMultiplier(state);
+      if(r.error){ err(r); return; }
+      state=r; toast('Big-tip bonus level '+(state.progress.econ.multLevel));
+      renderAll(); return;
+    }
+    if(mode==='queueskip'){
       const r=useQueueSkip(state);
       if(r.error){ err(r); } else {
         state=r; toast('Clients sent to the back of the queue 📨'); renderAll();
-        // v2.4.1 "apenas entre": los 3 que ENTRAR pueden llegar servibles (animado)
         settlePasses();
       }
       return;
     }
-    if(!state.skills[skill].owned){ showShop(); toast('Buy this power in the Shop (🛒)'); return; }
     if(mode==='refresh'){ refreshFlow(); return; }
     ui.mode = ui.mode===mode?null:mode; ui.swapFirst=null;
     renderPowers(); renderBoard();
@@ -1654,96 +1664,6 @@ async function playVictory(){
 // ============================================================================
 function showSave(){ $('#saveModal').classList.add('show'); }
 
-function showShop(){ if(tutActive && (TUT_STEPS[tutStep]||{}).sel!=='#btnShop') return; 
-  const p=state.progress;
-  const price = k => Math.round(CONFIG.EXPAND[k].price(state));
-  const multC = p.econ.multLevel>=CONFIG.MULT_MAX ? null : CONFIG.MULT_PRICE_BASE*(p.econ.multLevel+1);
-  // v2.1: 1ª compra (level 0) cuesta 50; después la curva 50*(level+1)^2
-  const idlePrice = k => CONFIG.IDLE_PRICE * (state.idle[k].level + 1) * (state.idle[k].level + 1);
-  const idleRow = k => `<div class="rowcard"><div class="rowinfo"><b>${({workers:'Barista team',fame:'Fame & tips',machines:'Auto machines'})[k]}</b>
-      <span>Lv ${state.idle[k].level} · ${(state.idle[k].ratePerSec||0).toFixed(1)} coins/s${state.idle[k].level?'':` · next ${CONFIG.IDLE_RATE[k]} coins/s`}</span></div>
-      <button class="btn btn-sm" data-idle="${k}">${fmt(idlePrice(k))}🪙</button></div>`;
-  // v2.1 R13.7 — compra del siguiente color: COLOR_PRICE_BASE*(n-3), n=colorsOwned+1.
-  // rosterMax = min(colorsOwned+1, MAX_COLORS): comprar sube el techo → los nuevos
-  // clientes de ese color SÍ se generan en el pool (poolMaxColor).
-  const co = state.progress.colorsOwned || 4;
-  let colorRow;
-  if(co >= CONFIG.MAX_COLORS){
-    colorRow = `<div class="rowcard"><div class="rowinfo"><b>Roster colors</b>
-      <span>${co}/${CONFIG.MAX_COLORS} unlocked · full roster</span></div>
-      <span style="color:var(--ink-soft);font-weight:700">MAX</span></div>`;
-  } else {
-    const n = co + 1, cPrice = CONFIG.COLOR_PRICE_BASE * (n - 3), can = state.progress.coins >= cPrice;
-    colorRow = `<div class="rowcard"><div class="rowinfo">
-      <b>Buy color ${n} <span class="minitile" style="--mc:var(${tileVar(n)})"></span></b>
-      <span>${co}/${CONFIG.MAX_COLORS} colors · roster up to ${Math.min(n + 1, CONFIG.MAX_COLORS)} creatures</span></div>
-      <button class="btn btn-sm" data-color="1" ${can ? '' : 'disabled'}>${fmt(cPrice)}🪙</button></div>`;
-  }
-  // v2.1 — TIENDA ÚNICA: skills ACTIVAS + sus "+1 uso" viven aquí (el modal
-  // Skills desaparece; la lógica buySkill/buyUsesUp no cambia — solo UI).
-  const actDefs=[
-    ['refreshPool','power_refresh','Refresh pool','Draw 3 new stacks'],
-    ['swapPiles','power_swap','Swap piles','Exchange two stacks'],
-    ['destroyPile','power_destroy','Destroy pile','Clear one stack'],
-    ['queueSkip','📨','Send to back','rotates the 3 visible clients'],
-    ['unlockLocks','🔓','Unlock lock','Reveal a locked tile\'s hidden stack'], // v2.8 R7.8
-  ];
-  const actRows = actDefs.map(d=>{
-    const s=state.skills[d[0]]; const usesModel = CONFIG.USES_SKILLS.includes(d[0]);
-    // v2.16: sin gate cafeLevel — todas las skills comprables desde el inicio.
-    // v2.3 R7.2: un solo botón — 1ª compra desbloquea (incluye 1 uso), la
-    // recompra suma +1 uso/partida. Precio siguiente = price * 1.35^usesBought.
-    const nextP = usesModel ? Math.round(s.price * Math.pow(1.35, s.usesBought||0)) : s.price;
-    const badge = s.owned && usesModel ? `<span class="ownedbadge">${s.uses||0} uses/run</span>` : '';
-    const main = `<button class="btn btn-sm" data-buy="${d[0]}">${fmt(nextP)}🪙</button>`;
-    return `<div class="rowcard"><div class="rowinfo"><b>${d[2]}</b><span>${d[3]}</span></div>
-      <div style="display:flex;gap:6px;align-items:center">${badge}${main}</div></div>`;
-  }).join('');
-  // capacidad (antes en Skills): LEVELS 0..80
-  $('#shopBox').innerHTML = `
-    <div class="shopsec">⚡ Active upgrades</div>
-    ${actRows}
-    <div class="shopsec">☕ This café only</div>
-    ${colorRow}
-    <!-- v2.15: Extra table (progress.clients) eliminada — huérfano v1; Capacity es la
-         expansión de clientes. Bigger floor (R6.2 OBSOLETA-v2, flujo muerto en
-         tablero dual 32 fijo, v2-shape) y "Menu variety" (R6.3 OBSOLETA-v2, gastaba monedas
-         en productsBought sin efecto — colores ahora son buyColor R13.7) ELIMINADAS -->
-    <div class="rowcard"><div class="rowinfo"><b>Big-tip bonus</b><span>mult ${p.econ.multLevel} (superlinear)</span></div>
-      ${multC?`<button class="btn btn-sm" data-exp="mult">${fmt(multC)}🪙</button>`:'<span style="color:var(--ink-soft);font-weight:700">max</span>'}</div>
-    `;
-  $$('#shopBox [data-exp]').forEach(b=>b.addEventListener('click',()=>{
-    const k=b.dataset.exp;
-    if(k==='board'){
-      if(!state.run || freeSlots(state.run.board).length===0){ toast('No free slot next to the board'); return; }
-      ui.placeTile=true; ui.slot=false; ui.servingOrder=null;
-      $('#shopModal').classList.remove('show');
-      toast('Tap a ✨ slot to place the table');
-      renderAll(); return;
-    }
-    const res = k==='mult' ? buyMultiplier(state) : buyExpansion(state,k);
-    if(res.error){ err(res); } else { state=res; persist(); renderAll(); showShop(); confetti(); }
-  }));
-  $$('#shopBox [data-idle]').forEach(b=>b.addEventListener('click',()=>{
-    const res=buyIdleUpgrade(state,b.dataset.idle);
-    if(res.error){ err(res); } else { state=res; persist(); renderAll(); showShop(); }
-  }));
-  // v2.1 R13.7: comprar el siguiente color → sube rosterMax (pool genera el color nuevo)
-  $$('#shopBox [data-color]').forEach(b=>b.addEventListener('click',()=>{
-    const res=buyColor(state);
-    if(res.error){ err(res); } else { state=res; persist(); renderAll(); showShop(); confetti(); }
-  }));
-  // v2.1: skills de la tienda única (antes en Skills): buySkill + mejora de usos
-  $$('#shopBox [data-buy]').forEach(b=>b.addEventListener('click',()=>{
-    const res=buySkill(state,b.dataset.buy);
-    if(res.error){ err(res); } else { state=res; persist(); renderAll(); showShop(); }
-  }));
-  $$('#shopBox [data-up]').forEach(b=>b.addEventListener('click',()=>{
-    const res=buyUsesUp(state,b.dataset.up);
-    if(res.error){ err(res); } else { state=res; persist(); renderAll(); showShop(); }
-  }));
-  $('#shopModal').classList.add('show');
-}
 
 // ============================================================================
 // IDLE LOOP + PERSISTENCE + GLOBAL
@@ -1817,7 +1737,7 @@ const TUT_STEPS = [
   { sel: '#orders',   text: 'Matching piles serve themselves — cats take the food.' },
   { sel: '#queueCount', text: 'Goal: serve every customer.' },
   { sel: '#btnClose', text: 'Stuck? Hold Close 3s — you keep the coins.' },
-  { sel: '#btnShop',  text: 'Shop 🛒 — spend coins on skills.' },
+  { sel: '#powerbar', text: 'Skills spend coins. Each use costs more.' },
 ];
 let tutStep = 0;
 let tutActive = false;
@@ -1839,7 +1759,7 @@ function startTutorial(){
 }
 function applyTutLayer(){
   document.body.classList.toggle('tut-on', tutActive);
-  document.body.classList.toggle('tut-raise-shop', tutActive && (TUT_STEPS[tutStep]||{}).sel==='#btnShop');
+  
   $$('.tut-spot').forEach(el=>{ el.classList.remove('tut-spot','tut-spot-block'); });
   if(!tutActive) return;
   const step = TUT_STEPS[tutStep]; if(!step) return;
@@ -1883,7 +1803,7 @@ function positionTut(sel){
 }
 function finishTutorial(){
   tutActive = false;
-  document.body.classList.remove('tut-on','tut-raise-shop');
+  document.body.classList.remove('tut-on');
   $$('.tut-spot').forEach(el=>{ el.classList.remove('tut-spot','tut-spot-block'); });
   const ov = $('#tutOverlay'); if(ov) ov.classList.remove('show');
   if(!state.settings) state.settings = { reducedMotion: false };
@@ -1917,7 +1837,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.21.1';
+const GAME_VERSION = 'v2.22.0';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };

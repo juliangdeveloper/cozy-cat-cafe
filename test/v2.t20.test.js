@@ -97,7 +97,7 @@ test('T20.e1 [v2.8] useUnlockLocks: revela hiddenStack y desbloquea (cascada la 
   s.skills.unlockLocks = { owned: true, uses: 1, usesBought: 1 };
   const fin = G.useUnlockLocks(s, lk);
   assert.ok(!fin.error, `useUnlockLocks fallo: ${JSON.stringify(fin.error)}`);
-  assert.equal(fin.skills.unlockLocks.uses, 0);
+  assert.equal(fin.run.skillUses.unlockLocks, 1);
   assert.equal(fin.run.board[lk].blocked, false);
   assert.deepEqual(fin.run.board[lk].stack, [1, 1], 'hiddenStack revelado en stack');
   assert.equal(fin.run.board[lk].hiddenStack, undefined, 'hiddenStack consumido');
@@ -113,12 +113,14 @@ test('T20.e2 [v2.8] useUnlockLocks: error en celda no bloqueada y sin usos/owned
   s.skills.unlockLocks = { owned: true, uses: 1, usesBought: 1 };
   const r1 = G.useUnlockLocks(s, free);
   assert.equal(r1.error, 'notBlocked');
-  // SIN owned => error del guard
+  // v2.22: sin saldo no abre el candado (ya no hay gate de owned)
   const s2 = base();
+  s2.progress.coins = 0;
   const lk2 = s2.run.board.findIndex((c) => c && !c.dormant);
   s2.run.board[lk2].blocked = true;
   const r2 = G.useUnlockLocks(s2, lk2);
-  assert.ok(r2.error, 'sin skill comprada => error');
+  assert.equal(r2.error, 'noFunds');
+  assert.equal(s2.run.board[lk2].blocked, true);
 });
 
 // ---------------------------------------------------------------------------
