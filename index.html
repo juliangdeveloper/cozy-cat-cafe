@@ -179,8 +179,8 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   color:var(--ink);font-size:24px;font-weight:900;pointer-events:none;z-index:2}
 @keyframes pulseGlow{0%,100%{box-shadow:0 0 0 0 rgba(246,167,193,.0)}50%{box-shadow:0 0 0 9px rgba(246,167,193,.4)}}
 
-/* v2 board dual (R14): dormant = visible pero apagada (se activa/compra en
-   partida o tienda); v2.17 actmode solo re-habilita dormants elegibles (≥2 vecinos) */
+/* v2 board dual (R14): dormant = visible pero apagada (se activa esta
+   partida, 40×1.6^n); v2.17 actmode solo re-habilita dormants elegibles (≥2 vecinos) */
 .cell.dormant{opacity:.55;pointer-events:none}
 .board.actmode .cell.dormant.act-eligible{pointer-events:auto;cursor:pointer;opacity:.85}
 .board.actmode .cell.dormant.act-eligible .hexbg{--hb:var(--tile-mint);filter:drop-shadow(0 0 4px var(--tile-mint))}
@@ -543,9 +543,7 @@ import {
   buyColor, buyUsesUp, usesUpPrice,   // v2.1 UI: colores R13.7 + mejora de usos R17.2
   serializeState, deserializeState, importSave, mulberry32,
   // v2 — R13/R14/R15: roster, cascada, baldosas, toggle auto-serve, preview
-  ROSTER, resolveCascade, activateTile, activateAroundUnlocked, runTilePrice, permTilePrice, toggleServe, previewPool, pay,
-  // v2.2 — R14.4: compra permanente 'tables' en tienda
-  buyTablesUp,
+  ROSTER, resolveCascade, activateTile, activateAroundUnlocked, runTilePrice, toggleServe, previewPool, pay,
   // v2.17 — 2-neighbor unlock + hold-Tables batch
   isActivateEligible, unlockedNeighborCount, sweepDebrisRuns,
   HEX_ADJ, topGroup, topRunCount,
@@ -809,8 +807,8 @@ function cellHTML(cell, idx){
   // a pilas — el borde serve-target NO se toca).
   if(ui.slot!==false && !cell.blocked && !cell.dormant && !(cell.stack&&cell.stack.length)) cls+=' targetable';
   if(ui.servingOrder!==null && !cell.blocked && !cell.dormant) cls+=' serve-target';
-  // tooltip v2: dormant => compra permanente en la tienda; blocked => calamidad
-  const tip = cell.dormant ? 'Buy permanently in the shop'
+  // tooltip: dormant se activa esta partida (curva ×1.6); blocked => calamidad
+  const tip = cell.dormant ? 'Activate for this café'
             : cell.blocked ? 'Blocked tile (calamity)' : '';
   let stack='';
   if(cell.stack&&cell.stack.length){
@@ -930,7 +928,7 @@ function renderPowers(){
     {skill:'destroyPile',icon:'power_destroy',label:'Destroy',mode:'destroy'},
     {skill:'swapPiles',icon:'power_swap',label:'Swap',mode:'swap'},
     {skill:'refreshPool',icon:'power_refresh',label:'Refresh',mode:'refresh'},
-    // v2.2 R14.3 — activar baldosa dormant ESTA partida (skill 'tables', modelo usos)
+    // v2.20 R14.3 — activar baldosa dormant ESTA partida (paga runTilePrice, se resetea)
     {skill:'tables',icon:'power_activate',label:'Tables',mode:'activate'},
     // v2.8 R7.8: Unlock — desbloquea un candado y revela su pila oculta
     {skill:'unlockLocks',icon:'🔓',label:'Unlock',mode:'unlock'},
@@ -945,17 +943,17 @@ function renderPowers(){
   box.innerHTML = arr.map(d=>{
     const s=state.skills[d.skill]||{owned:true};
     // Badge unificado (clase .uses): contador de usos si comprado; si NO
-    // comprado, precio de compra. Activate (skill 'tables', modelo usos v2.2):
-    // owned => contador de usos; no owned => precio de la compra permanente en
-    // TIENDA (permTilePrice). El 🪙 distingue un precio de un contador de usos.
-    const uses = d.mode==='activate'
-      ? (s.owned ? `<span class="uses">${s.uses}</span>`
-                 : `<span class="uses">🪙${fmt(Math.round(permTilePrice(state)))}</span>`)
+    // comprado, precio de compra. Tables (v2.20) no es skill: el badge es el
+    // precio de la próxima activación en esta run (40 × 1.6^n), siempre abierto.
+    const activate = d.mode==='activate';
+    const uses = activate
+      ? `<span class="uses">🪙${fmt(runTilePrice(state))}</span>`
       : (s.owned && typeof s.uses==='number')
         ? `<span class="uses">${s.uses}</span>`
         : (typeof s.price==='number' ? `<span class="uses">🪙${fmt(s.price)}</span>` : '');
-    const depleted = s.owned && typeof s.uses==='number' && s.uses<=0;
-    return `<div class="pow ${!s.owned?'locked':''} ${depleted?'depleted':''} ${ui.mode===d.mode?'selected':''}" data-mode="${d.mode}" data-skill="${d.skill}">
+    const depleted = !activate && s.owned && typeof s.uses==='number' && s.uses<=0;
+    const locked = activate ? false : !s.owned;
+    return `<div class="pow ${locked?'locked':''} ${depleted?'depleted':''} ${ui.mode===d.mode?'selected':''}" data-mode="${d.mode}" data-skill="${d.skill}">
       ${String(d.icon).startsWith('power_') ? spr(d.icon,18) : `<span style="font-size:15px;line-height:1">${d.icon}</span>`}<span>${d.label}</span>${uses}</div>`;
   }).join('');
   $$('#powerbar .pow').forEach(p=>{
@@ -979,9 +977,6 @@ function renderPowers(){
       const onDown=(ev)=>{
         if(ui.anim) return;
         if(ev.button!=null && ev.button!==0) return;
-        const gs=state.skills.tables||{owned:false};
-        if(!gs.owned){ /* tap will open shop via click */ return; }
-        if((gs.uses|0)<=0){ toast(ERRT.noUses); return; }
         holdDone=false; holdStart=performance.now();
         p.classList.add('holding');
         if(!p.querySelector('.holdfill')){
@@ -990,14 +985,13 @@ function renderPowers(){
         raf=requestAnimationFrame(tickFill);
         holdTimer=setTimeout(()=>{
           holdDone=true; clearHold();
+          const before=(state.run&&state.run.runTilesActivated)||0;
           const res=activateAroundUnlocked(state, Math.random);
-          if(res.error==='locked'){ toast('Unlock "Tables" in the Shop 🛒'); return; }
-          if(res.error==='noUses'){ toast(ERRT.noUses); return; }
           if(res.error==='noneEligible'){ toast('No eligible tables nearby (need 2 neighbors)'); return; }
           if(res.error){ err(res); return; }
           state=res; ui.mode=null;
-          const n=state.run.runTilesActivated;
-          toast(`Tables expanded ✨ (${state.skills.tables.uses} uses left)`);
+          const n=(state.run.runTilesActivated||0)-before;
+          toast(`Tables expanded ✨ (${n})`);
           renderAll();
         }, HOLD_MS);
       };
@@ -1007,9 +1001,6 @@ function renderPowers(){
         clearHold();
         // short tap (< hold): toggle activate mode (existing behavior)
         if(elapsed>0 && elapsed<HOLD_MS){
-          const gs=state.skills.tables||{owned:false};
-          if(!gs.owned){ showShop(); toast('Buy this power in the Shop (🛒)'); return; }
-          if((gs.uses|0)<=0){ toast(ERRT.noUses); return; }
           ui.mode = ui.mode==='activate'?null:'activate'; ui.slot=false; ui.servingOrder=null;
           renderPowers(); renderBoard();
         }
@@ -1313,17 +1304,17 @@ function tapTile(id){
   if(cell.blocked){ toast('Blocked'); return; }
   if(r.orders.some(o=>!o.served)) toast('Tap a client in the queue first, then a stack.');
 }
-// v2.2 R14.3 — activar UNA baldosa dormant por partida (skill 'tables', modelo usos)
+// v2.20 R14.3 — activar UNA baldosa dormant por partida (paga runTilePrice)
 function activateFlow(id){
   const cell=state.run.board[id];
   if(!cell||!cell.dormant){ toast('That tile is already active'); return; }
+  const paid=runTilePrice(state);
   const res=activateTile(state, id, Math.random);
-  if(res.error==='locked'){ toast('Unlock "Tables" in the Shop 🛒'); return; }
   if(res.error==='needTwoNeighbors'){ toast('Need 2 unlocked neighbor tables'); return; }
   if(res.error){ err(res); return; }
   state=res; ui.mode=null;
   const el=$(`#board .cell[data-id="${id}"]`); if(el) floatOn(el,'🪧');
-  toast(`Table activated ✨ (${state.skills.tables.uses} uses left)`);
+  toast(`Table activated ✨ (${fmt(paid)}🪙)`);
   renderAll();
 }
 // v2.8 R7.8 — Unlock: desbloquea UN candado y revela su pila oculta; la cascada
@@ -1527,13 +1518,6 @@ function showShop(){ if(tutActive && (TUT_STEPS[tutStep]||{}).sel!=='#btnShop') 
       <span>${co}/${CONFIG.MAX_COLORS} colors · roster up to ${Math.min(n + 1, CONFIG.MAX_COLORS)} creatures</span></div>
       <button class="btn btn-sm" data-color="1" ${can ? '' : 'disabled'}>${fmt(cPrice)}🪙</button></div>`;
   }
-  // v2.2 R14.4 — compra permanente 'tables' en TIENDA: +1 mesa activable por
-  // partida (usesBought); la 1ª compra marca owned. Precio permTilePrice.
-  const tables = state.skills.tables || { owned: false, usesBought: 0 };
-  const tPrice = Math.round(permTilePrice(state));
-  const tablesRow = `<div class="rowcard"><div class="rowinfo"><b>Tables</b>
-    <span>${tables.owned ? `${tables.usesBought} → +1 per run` : 'unlock: activate dormant tiles each run'}</span></div>
-    <button class="btn btn-sm" data-tables="1">${fmt(tPrice)}🪙</button></div>`;
   // v2.1 — TIENDA ÚNICA: skills ACTIVAS + sus "+1 uso" viven aquí (el modal
   // Skills desaparece; la lógica buySkill/buyUsesUp no cambia — solo UI).
   const actDefs=[
@@ -1567,7 +1551,6 @@ function showShop(){ if(tutActive && (TUT_STEPS[tutStep]||{}).sel!=='#btnShop') 
     <div class="shopsec">⚡ Active upgrades</div>
     ${actRows}
     ${capRow}
-    ${tablesRow}
     <div class="shopsec">☕ Passive upgrades</div>
     ${colorRow}
     <!-- v2.15: Extra table (progress.clients) eliminada — huérfano v1; Capacity es la
@@ -1606,11 +1589,6 @@ function showShop(){ if(tutActive && (TUT_STEPS[tutStep]||{}).sel!=='#btnShop') 
   $$('#shopBox [data-up]').forEach(b=>b.addEventListener('click',()=>{
     const res=buyUsesUp(state,b.dataset.up);
     if(res.error){ err(res); } else { state=res; persist(); renderAll(); showShop(); }
-  }));
-  // v2.2 R14.4: comprar '+1 mesa activable por partida' → buyTablesUp
-  $$('#shopBox [data-tables]').forEach(b=>b.addEventListener('click',()=>{
-    const res = buyTablesUp(state);
-    if(res.error){ err(res); } else { state=res; persist(); renderAll(); showShop(); confetti(); }
   }));
   $('#shopModal').classList.add('show');
 }
@@ -1791,10 +1769,11 @@ async function boot(){
   // v2.18: if a mid-run save still needs the tutorial, show it on the run scene
   maybeStartTutorial();
 }
-// v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40, tables 80×1.25;
+// v2.20: mesas solo por partida (40 × 1.6^n, reset al reabrir). Sin tienda permanente.
+// v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.19.9';
+const GAME_VERSION = 'v2.20.0';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };

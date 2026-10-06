@@ -426,9 +426,6 @@ test('T6.8 usos se reponen al reabrir (v2.3: uses = usesBought, sin base)', () =
 const T7 = () => {
   // activar `k` baldosas dormant con rng determinista por (seed, paso)
   const act = (st, k, seed) => {
-    // v2.2 R14.3: activateTile es modelo USOS de skills.tables — inyectar usos
-    // para activar libremente en este harness de calamidades.
-    st.skills.tables = { owned: true, uses: 99, usesBought: 0 };
     for (let j = 0; j < k; j++) {
       const d = st.run.board.map((c, i) => ({ c, i }))
         .filter((x) => x.c.dormant && !x.c.blocked && unlockedNeighborCount(st, x.c) >= 2);

@@ -28,9 +28,8 @@ const rng = n => mulberry32(n);
 //    (R14.1 v2-shape: panal con picos filas [7,9,9,7]). Se pasa 32 explícito
 //    para que el test no dependa de un default interno.
 //  * openRun(state, rng) -> state con state.run = { board, runTilesActivated, ... }
-//  * activateTile(state, cellId) / buyPermTile(state, cellId) -> mutan state
-//    y retornan state (o {state} / {error}) — unwind() cubre ambos estilos.
-//  * runTilePrice(state) / permTilePrice(state) -> precio actual.
+//  * activateTile(state, cellId) cobra runTilePrice y retorna state (o {error,state}).
+//  * runTilePrice(state) = RUN_TILE_BASE * 1.6^runTilesActivated.
 // ---------------------------------------------------------------------------
 const unwind = (ret, s) => (ret && ret.state) ? ret.state : (ret || s);
 const boardOf = (x) => Array.isArray(x) ? x : (x && Array.isArray(x.board) ? x.board : null);
@@ -102,112 +101,95 @@ test('T14b [R14.2] tras openRun: 7 jugables y 29 dormant/blocked', () => {
 });
 
 // ---------------------------------------------------------------------------
-// T14c — Activación temporal por USOS [R14.3 v2.2]: skill 'tables' modelo USES
-// (1 uso base/partida + usesBought; SIN costo de monedas — el costo vive en la
-// compra permanente de la tienda, buyTablesUp).
+// T14c — Activación temporal por monedas [R14.3 v2.20]: 40 × 1.6^n.
 // ---------------------------------------------------------------------------
-test('T14c [R14.3 v2.2] activateTile: celda dormant -> activa, consume 1 uso de tables, coins SIN cambio', () => {
-  need('activateTile'); need('runTilePrice');
+test('T14c [R14.3 v2.20] activateTile cobra RUN_TILE_BASE y la siguiente es ×1.6', () => {
+  need('activateTile'); need('runTilePrice'); needCfg('RUN_TILE_BASE'); needCfg('RUN_TILE_RATIO');
+  assert.equal(G.CONFIG.RUN_TILE_BASE, 40, 'base histórica de la curva temporal');
+  assert.equal(G.CONFIG.RUN_TILE_RATIO, 1.6, 'crecimiento ×1.6 por baldosa de la run');
   const s = mkGame(1);
-  s.skills.tables = { owned: true, uses: 2, usesBought: 0 };   // GIVEN skill con 2 usos
   const cell = dormantCell(s);
-  assert.ok(cell, 'RED: debe existir una celda dormant que activar');
+  assert.ok(cell, 'debe existir una celda dormant elegible');
   const coins0 = s.progress.coins;
+  const price = G.runTilePrice(s);
+  assert.equal(price, 40);
   const st = unwind(G.activateTile(s, cell.id), s);
   const target = st.run.board.find(c => c.id === cell.id);
-  assert.ok(target, 'RED: la celda activada debe seguir en run.board');
-  assert.equal(target.dormant, false, 'RED: la celda debe dejar de estar dormant tras activateTile');
-  assert.equal(st.run.runTilesActivated, (s.run.runTilesActivated || 0) + 1,
-    'RED: run.runTilesActivated debe incrementarse en 1 [R14.3]');
-  assert.equal(st.skills.tables.uses, 1, 'RED: activateTile debe consumir 1 uso de skills.tables [R14.3 v2.2]');
-  assert.equal(st.progress.coins, coins0, 'RED: activar NO debe cobrar coins (modelo usos v2.2)');
-  assert.equal(G.runTilePrice(st), 0, 'RED: runTilePrice === 0 desde v2.2 (sin precio por activación)');
+  assert.equal(target.dormant, false, 'la celda deja de estar dormant');
+  assert.equal(st.run.runTilesActivated, 1);
+  assert.ok(Math.abs((coins0 - st.progress.coins) - price) < 1e-6, 'descuenta el precio de esa activación');
+  assert.ok(Math.abs(G.runTilePrice(st) / price - 1.6) < 1e-9, 'la siguiente cuesta ×1.6');
 });
 
 // ---------------------------------------------------------------------------
-// T14d — Activate sin usos [R14.3 v2.2]: skills.tables.uses === 0 ->
-// {error:"noUses"} sin mutar (reemplaza el techo permTiles del modelo anterior).
+// T14d — Sin saldo no activa. El gate de usos (noUses) ya no existe.
 // ---------------------------------------------------------------------------
-test('T14d [R14.3 v2.2] skills.tables.uses === 0 -> activateTile {error:"noUses"} sin mutar', () => {
+test('T14d [R14.3 v2.20] sin saldo => {error:"noFunds"} sin mutar', () => {
   need('activateTile');
   const s = mkGame(1);
-  s.skills.tables = { owned: true, uses: 0, usesBought: 0 };   // GIVEN sin usos
+  s.progress.coins = 0;
   const cell = dormantCell(s);
-  assert.ok(cell, 'RED: debe existir una celda dormant que activar');
-  const snap = { activated: s.run.runTilesActivated || 0, dormant: cell.dormant, coins: s.progress.coins };
+  assert.ok(cell);
   const ret = G.activateTile(s, cell.id);
-  assert.ok(ret && ret.error === 'noUses',
-    `RED: sin usos, activateTile debe retornar {error:"noUses"}, retornó ${JSON.stringify(ret)}`);
+  assert.equal(ret && ret.error, 'noFunds');
   const st = unwind(ret, s);
-  const target = st.run.board.find(c => c.id === cell.id);
-  assert.equal(st.run.runTilesActivated, snap.activated, 'RED: error noUses no debe mutar runTilesActivated');
-  assert.equal(target.dormant, snap.dormant, 'RED: error noUses no debe activar la celda');
-  assert.equal(st.progress.coins, snap.coins, 'RED: error noUses no debe cobrar coins');
+  assert.equal(st.run.board.find(c => c.id === cell.id).dormant, true);
+  assert.equal(st.run.runTilesActivated || 0, 0);
+  assert.equal(st.progress.coins, 0);
 });
 
 // ---------------------------------------------------------------------------
-// T14e — Compra permanente en TIENDA [R14.4 v2.2]: buyTablesUp sube permTiles
-// (+1, techo histórico) Y skills.tables.usesBought (+1 mesa activable/partida);
-// la 1ª compra marca owned. Precio = permTilePrice = PERM_TILE_BASE*1.35^permTiles.
+// T14e — No hay compra permanente. Un permTiles residual no techa la activación.
 // ---------------------------------------------------------------------------
-test('T14e [R14.4 v2.2] buyTablesUp: permTiles+1, usesBought+1, owned; precio PERM_TILE_BASE*1.35^permTiles', () => {
-  need('buyTablesUp'); need('permTilePrice'); needCfg('PERM_TILE_BASE'); needCfg('TABLES_PERM_RATIO');
+test('T14e [R14.4 retirada] no hay compra permanente y permTiles no techa', () => {
+  assert.equal(typeof G.buyTablesUp, 'undefined');
+  assert.equal(typeof G.buyPermTile, 'undefined');
+  assert.equal(typeof G.permTilePrice, 'undefined');
+  assert.equal(G.CONFIG.TABLES_PERM_BASE, undefined);
+  assert.equal(G.CONFIG.TABLES_PERM_RATIO, undefined);
+  assert.equal(G.CONFIG.PERM_TILE_BASE, undefined);
   const s = mkGame(1);
-  s.skills.tables = { owned: false, uses: 0, usesBought: 0 };
+  s.progress.permTiles = 0;
   const cell = dormantCell(s);
-  assert.ok(cell, 'RED: debe existir una celda dormant para comprar permanente');
-  const price = G.permTilePrice(s);
-  const coins0 = s.progress.coins;
-  const perm0 = s.progress.permTiles ?? 0;
-  const st = unwind(G.buyTablesUp(s), s);
-  assert.equal(st.progress.permTiles, perm0 + 1, 'RED: buyTablesUp debe hacer progress.permTiles+1 [R14.4]');
-  assert.equal(st.skills.tables.usesBought, 1, 'RED: buyTablesUp debe hacer skills.tables.usesBought+1 [R14.4 v2.2]');
-  assert.equal(st.skills.tables.uses, 1, 'RED: v2.15 buyTablesUp debe hacer uses+1 al comprar');
-  assert.equal(st.skills.tables.owned, true, 'RED: la 1ª compra debe marcar skills.tables.owned=true');
-  assert.ok(Math.abs((coins0 - st.progress.coins) - price) < 1e-6,
-    'RED: coins debe descontar exactamente permTilePrice [R14.4]');
-  // fórmula con el estado ya mutado: TABLES_PERM_BASE * TABLES_PERM_RATIO^permTiles (v2.5 dial)
-  assert.equal(G.permTilePrice(st), G.CONFIG.TABLES_PERM_BASE * G.CONFIG.TABLES_PERM_RATIO ** st.progress.permTiles,
-    'RED: permTilePrice = TABLES_PERM_BASE * RATIO^permTiles [R14.4 v2.5]');
+  const st = unwind(G.activateTile(s, cell.id), s);
+  assert.equal(st.run.board.find(c => c.id === cell.id).dormant, false,
+    'permTiles=0 no impide activar: se paga con monedas');
+  assert.equal(G.buySkill(G.createGame({ progress: { coins: 1e9 } }), 'tables').error, 'noSkill');
 });
 
 // ---------------------------------------------------------------------------
-// T14f — Comprar permanente NO activa celdas [R14.4 v2.2]; con usos repuestos
-// (openRun repone uses = USES_PER_RUN.tables + usesBought) activateTile activa.
+// T14f — Al reabrir, contador, precio y baldosas activadas vuelven al inicio.
 // ---------------------------------------------------------------------------
-test('T14f [R14.4 v2.2] buyTablesUp NO activa la celda; tras openRun (uses repuestos) activateTile activa', () => {
-  need('buyTablesUp'); need('activateTile'); need('openRun');
-  const s = mkGame(1);
-  const cell = dormantCell(s);
-  assert.ok(cell, 'RED: debe existir una celda dormant para comprar permanente');
-  const st = unwind(G.buyTablesUp(s), s);
-  const target = st.run.board.find(c => c.id === cell.id);
-  assert.ok(target, 'RED: la celda comprada debe seguir en run.board');
-  assert.equal(target.dormant, true,
-    'RED: la compra permanente NO activa ninguna celda (sigue dormant) [R14.4]');
-  // openRun repone los usos por partida (= usesBought, v2.3 sin base) y enable activateTile
-  const st2 = unwind(G.openRun(st, mulberry32(7)), st);
-  assert.equal(st2.skills.tables.uses, (st.skills.tables.usesBought || 0),
-    'RED: openRun debe repone uses = usesBought [R17.2 v2.3]');
-  const ret = G.activateTile(st2, cell.id);
-  assert.ok(!ret.error, `RED: con usos disponibles activateTile debe funcionar, dio ${JSON.stringify(ret && ret.error)}`);
-  const st3 = unwind(ret, st2);
-  const target3 = st3.run.board.find(c => c.id === cell.id);
-  assert.equal(target3.dormant, false,
-    'RED: con techo/usos disponibles, activateTile debe activar la baldosa [R14.2,R14.4]');
-  assert.equal(st3.run.runTilesActivated, (st2.run.runTilesActivated || 0) + 1,
-    'RED: la activación temporal cuenta en runTilesActivated [R14.3]');
+test('T14f [R14.3] openRun resetea precio, contador y baldosas activadas', () => {
+  need('activateTile'); need('openRun');
+  let s = mkGame(1);
+  s = unwind(G.activateTile(s, dormantCell(s).id), s);
+  s = unwind(G.activateTile(s, dormantCell(s).id), s);
+  assert.equal(s.run.runTilesActivated, 2);
+  assert.ok(Math.abs(G.runTilePrice(s) - 40 * 1.6 ** 2) < 1e-6);
+  const st = unwind(G.openRun(s, mulberry32(7)), s);
+  assert.equal(st.run.runTilesActivated, 0);
+  assert.equal(G.runTilePrice(st), 40);
+  assert.equal(st.run.board.filter(c => !c.dormant && !c.blocked).length, 7,
+    'la siguiente run vuelve al núcleo 2-3-2');
 });
 
 // ---------------------------------------------------------------------------
-// T14g — [v2.15] buyTablesUp mid-run: usesBought+=1 y uses+=1 sin devolver gastados.
+// T14g — Tres activaciones seguidas: 40, luego ×1.6, luego ×1.6.
 // ---------------------------------------------------------------------------
-test('T14g [R14.4 v2.15] buyTablesUp mid-run: uses += 1 sin restaurar gastados', () => {
-  need('buyTablesUp');
-  const s = mkGame(1);
-  s.progress.coins = 1e9;
-  s.skills.tables = { owned: true, uses: 0, usesBought: 2 }; // compró 2, gastó/nunca recibió 2
-  const st = unwind(G.buyTablesUp(s), s);
-  assert.equal(st.skills.tables.usesBought, 3, 'RED: usesBought debe ser 3');
-  assert.equal(st.skills.tables.uses, 1, 'RED: mid-run compra suma +1 uso, no uses=usesBought');
+test('T14g [R14.3] tres activaciones cobran 40, 64 y 102.4', () => {
+  need('activateTile'); need('runTilePrice');
+  let s = mkGame(1);
+  const paid = [];
+  for (let i = 0; i < 3; i++) {
+    const before = s.progress.coins;
+    const price = G.runTilePrice(s);
+    paid.push(price);
+    s = unwind(G.activateTile(s, dormantCell(s).id), s);
+    assert.ok(Math.abs((before - s.progress.coins) - price) < 1e-6, `activación ${i} cobra su precio`);
+  }
+  assert.ok(Math.abs(paid[0] - 40) < 1e-9);
+  assert.ok(Math.abs(paid[1] / paid[0] - 1.6) < 1e-9);
+  assert.ok(Math.abs(paid[2] / paid[1] - 1.6) < 1e-9);
+  assert.equal(s.run.runTilesActivated, 3);
 });
