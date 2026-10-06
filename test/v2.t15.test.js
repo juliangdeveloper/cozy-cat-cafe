@@ -67,11 +67,15 @@ test('T15b [R15.1] toggleServe invierte autoServe; sin owned -> {error}', () => 
     'RED: toggleServe debe retornar state con skills.serveManual');
   assert.equal(st2.skills.serveManual.autoServe, !a0,
     `RED: toggleServe debe invertir autoServe (${a0} -> ${!a0}) [R15.1]`);
-  // sin owned: {error}
-  const s2 = mkGame(); // nunca comprada
+  // v2.22: no hace falta comprarla. Sin monedas no gira; con monedas sí, desde el inicio.
+  const s2 = mkGame();
+  s2.progress.coins = 0;
   const ret2 = G.toggleServe(s2);
-  assert.ok(ret2 && typeof ret2 === 'object' && ret2.error,
-    `RED: toggleServe sin owned debe retornar {error}, retornó ${JSON.stringify(ret2)} [R15.1]`);
+  assert.equal(ret2 && ret2.error, 'noFunds');
+  const s3 = mkGame();
+  const before = s3.skills.serveManual.autoServe;
+  const st3b = unwind(G.toggleServe(s3), s3);
+  assert.equal(st3b.skills.serveManual.autoServe, !before);
 });
 
 // ---------------------------------------------------------------------------
@@ -161,8 +165,8 @@ test('T15e [R7.4 v2.3] destroyPile modelo uses: compra=1 uso, decrementa al usar
   if (st3 && st3.error === 'noCell') st3 = G.useDestroyPile(s2, board.indexOf(cell));
   assert.ok(st3 && st3.skills,
     `RED: useDestroyPile debe retornar state (ret=${JSON.stringify(st3)}) [R7.4]`);
-  assert.equal(st3.skills.destroyPile.uses, 0,
-    'RED: usar destroyPile debe decrementar uses en 1 (1→0, v2.3) [R7.4]');
+  assert.ok(!st3.error, `RED: destroy desde el inicio de la run, dio ${JSON.stringify(st3 && st3.error)}`);
+  assert.equal(st3.run.skillUses.destroyPile, 1, 'RED: el uso pagado queda en run.skillUses');
   // serveManual (toggle) y previewPool (levels) NUNCA tienen/tocan uses
   const st4 = unwind(G.buySkill(st3, 'serveManual'), st3);
   assert.ok(st4.skills && st4.skills.serveManual && st4.skills.serveManual.owned === true,

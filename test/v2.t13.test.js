@@ -189,20 +189,19 @@ test('T13d [R13.5] con colorsOwned=4, muchas pilas → rosterIndex se estanca en
 // coins -= COLOR_PRICE_BASE*(n-3) con n=colorsOwned+1; sin saldo →
 // {error:'noFunds'} sin mutar. (R13.6 victoria se testea en otro archivo.)
 // ---------------------------------------------------------------------------
-test('T13f [R13.7] buyColor: colorsOwned+1, precio BASE*(n-3); sin saldo → {error:"noFunds"}', () => {
-  need('buyColor'); needCfg('COLOR_PRICE_BASE');
+test('T13f [v2.22] buyColor: colorsOwned+1, precio 40×1.6^(owned-4); sin saldo → {error:"noFunds"}', () => {
+  need('buyColor'); need('colorPrice');
   need('createGame');
-  // caso feliz: 4 owned → n=5 → precio = COLOR_PRICE_BASE * (5-3)
   const s = G.createGame({ progress: { coins: 10000 } });
-  if (!s.progress.colorsOwned) s.progress.colorsOwned = 4; // R13.7: 4 de inicio
+  if (!s.progress.colorsOwned) s.progress.colorsOwned = 4;
   const n = s.progress.colorsOwned + 1;
-  const price = G.CONFIG.COLOR_PRICE_BASE * (n - 3);
-  assert.ok(price > 0, 'RED: COLOR_PRICE_BASE*(n-3) debe ser > 0 con n=colorsOwned+1');
+  const price = G.colorPrice(s);
+  assert.equal(price, Math.round(G.CONFIG.SKILL_USE_BASE));
   const st = unwind(G.buyColor(s), s);
   assert.equal(st.progress.colorsOwned, n,
     `RED: buyColor debe hacer colorsOwned+1 (${n}) [R13.7], hay ${JSON.stringify(st.progress.colorsOwned)}`);
   assert.equal(st.progress.coins, 10000 - price,
-    `RED: coins debe descontar COLOR_PRICE_BASE*(n-3)=${price} [R13.7], hay ${JSON.stringify(st.progress.coins)}`);
+    `RED: coins debe descontar colorPrice=${price}, hay ${JSON.stringify(st.progress.coins)}`);
   // sin saldo: {error:'noFunds'} y SIN mutar
   const s2 = G.createGame({ progress: { coins: 0 } });
   if (!s2.progress.colorsOwned) s2.progress.colorsOwned = 4;

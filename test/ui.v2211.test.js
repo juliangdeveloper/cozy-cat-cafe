@@ -1,5 +1,5 @@
-// v2.21.1 UI contract: compact header, in-button prices, 3+3 powers,
-// speaker mute, order glow. Queue stays on the bar when it has no uses.
+// v2.22 UI contract: one header row, shop gone, skills in a 2-row grid,
+// next price inside the button, speaker mute, order glow.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -17,38 +17,62 @@ function sliceFn(name, next) {
   return html.slice(start, end);
 }
 
-test('version footer stays and reads v2.21.1', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.21\.1'/);
+test('version footer stays and reads v2.22.0', () => {
+  assert.match(html, /GAME_VERSION = 'v2\.22\.0'/);
   assert.match(html, /☕ Cozy Cat Café \$\{GAME_VERSION\}/);
   assert.match(html, /Hold 3s to restart/);
 });
 
-test('guest counter sits in the calamity strip', () => {
+test('money, calamity, and guests share one header row', () => {
   const run = sliceFn('renderRun', 'renderCalamity');
-  const strip = run.indexOf('id="calStrip"');
-  const count = run.indexOf('id="queueCount"');
+  const top = run.indexOf('class="topbar"');
   const orders = run.indexOf('id="orders"');
-  assert.ok(strip >= 0 && count > strip && count < orders);
-  assert.equal(run.includes('class="queuebar"'), false);
-  assert.match(css, /\.cal-strip \.queuecount\{/);
+  const header = run.slice(top, orders);
+  assert.ok(header.includes('id="coinNum"'));
+  assert.ok(header.includes('id="calStrip"'));
+  assert.ok(header.includes('id="queueCount"'));
+  assert.ok(header.includes('id="btnSave"'));
+  assert.ok(header.includes('muteBtnMarkup()'));
+  assert.equal(header.includes('id="btnShop"'), false);
+  assert.equal(header.includes('class="queuebar"'), false);
+  const strip = header.indexOf('id="calStrip"');
+  const count = header.indexOf('id="queueCount"');
+  assert.ok(strip >= 0 && count > strip);
+  assert.match(css, /\.topbar\{[^}]*flex-wrap:\s*nowrap/);
+  assert.match(css, /\.cal-strip\{[^}]*flex:\s*1\s+1\s+auto/);
 });
 
-test('power prices stay inside the button and the bar is a 3-column grid', () => {
+test('shop panel is gone and former café buys sit in the skill grid', () => {
+  assert.equal(html.includes('id="shopModal"'), false);
+  assert.equal(html.includes('id="btnShop"'), false);
+  assert.equal(html.includes('function showShop'), false);
+  assert.equal(html.includes('This café only'), false);
+  const powers = sliceFn('renderPowers', 'refreshFlow');
+  for (const label of ['Destroy', 'Swap', 'Refresh', 'Tables', 'Unlock', 'Queue', 'Waiter', 'Board', 'Color', 'Tips']) {
+    assert.match(powers, new RegExp(`label:'${label}'`));
+  }
+  assert.match(powers, /mode:'waiter'/);
+  assert.match(powers, /mode:'preview'/);
+  assert.match(powers, /mode:'color'/);
+  assert.match(powers, /mode:'tips'/);
+  assert.doesNotMatch(powers, /queueSkip\.owned\)\s*\n\s*arr\.push/);
+  assert.match(powers, /class="pow-cost"/);
+  assert.doesNotMatch(powers, /class="uses"/);
+});
+
+test('skills are two rows, prices stay inside the button', () => {
   assert.match(css, /\.powerbar\{[^}]*display:grid/);
-  assert.match(css, /\.powerbar\{[^}]*grid-template-columns:repeat\(3,minmax\(44px,1fr\)\)/);
-  assert.match(css, /\.pow\{[^}]*min-height:44px/);
-  assert.match(css, /\.pow\{[^}]*min-width:44px/);
-  assert.match(css, /\.pow-cost\{[^}]*position:static/);
-  assert.doesNotMatch(css, /\.pow \.uses\{[^}]*top:\s*-/);
+  assert.match(css, /\.powerbar\{[^}]*grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
+  assert.doesNotMatch(css, /grid-template-columns:repeat\(3/);
   assert.doesNotMatch(css, /\.powerbar\{[^}]*overflow-x:\s*auto/);
   assert.doesNotMatch(css, /\.powerbar\{[^}]*flex-wrap:\s*nowrap/);
-  const powers = sliceFn('renderPowers', 'destroyFlow');
-  assert.match(powers, /class="pow-cost"/);
-  assert.match(powers, /class="uses"/);
-  assert.doesNotMatch(powers, /class="uses">🪙/);
-  assert.match(powers, /label:'Queue'/);
-  assert.match(powers, /queueSkip\.owned\)\s*\n\s*arr\.push/);
-  assert.match(powers, /depleted\?'depleted'/);
+  assert.match(css, /\.pow\{[^}]*min-height:44px/);
+  assert.match(css, /\.pow-cost\{[^}]*position:static/);
+  assert.doesNotMatch(css, /\.pow \.uses\{[^}]*top:\s*-/);
+  const powers = sliceFn('renderPowers', 'refreshFlow');
+  assert.match(powers, /title=/);
+  assert.match(powers, /aria-label=/);
+  assert.match(powers, /broke/);
 });
 
 test('mute is a speaker icon and still names Mute music', () => {
