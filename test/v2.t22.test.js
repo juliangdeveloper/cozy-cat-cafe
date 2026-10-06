@@ -21,9 +21,17 @@ const unwind = (ret, s) => (ret && ret.state) ? ret.state : (ret || s);
 const mulberry32 = s => () => { s|=0; s=s+0x6D2B79F5|0; let t=Math.imul(s^s>>>15,1|s); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; };
 const rng = n => mulberry32(n);
 
+function parkOrders(s) {
+  const park = (o) => { if (o) { o.color = 10; o.qty = 99; } };
+  if (s && s.run) {
+    (s.run.orders || []).forEach(park);
+    (s.run.activeClients || []).forEach(park);
+  }
+  return s;
+}
 const mkGame = (seed = 1) => {
   const s = G.createGame({ progress: { coins: 10000 } });
-  return unwind(G.openRun(s, rng(seed)), s);
+  return parkOrders(unwind(G.openRun(s, rng(seed)), s));
 };
 
 // ---------------------------------------------------------------------------
@@ -35,7 +43,6 @@ const mkGame = (seed = 1) => {
 test('T22a [R12.4c] multi colocada: el vecino monocolor puro es el destino', () => {
   need('placeStack'); need('resolveCascade');
   const s = mkGame(1);
-  s.skills.serveManual.autoServe = false;
   // v2.14-shape: D=15 (q0,r0); A=14 (q-1,r0) y E=8 (q0,r-1) puras vecinas
   const A = s.run.board[14], D = s.run.board[15], E = s.run.board[8];
   A.stack = [2, 2];
@@ -66,7 +73,6 @@ test('T22a [R12.4c] multi colocada: el vecino monocolor puro es el destino', () 
 test('T22b [R12.4c] empate de puras: gana la más alta (no la más baja)', () => {
   need('placeStack'); need('resolveCascade');
   const s = mkGame(1);
-  s.skills.serveManual.autoServe = false;
   // v2.14-shape: A=14=[2,2] (pura alta), B=16=[2] (pura baja), D=15 vacía adj a ambas
   const A = s.run.board[14], B = s.run.board[16], D = s.run.board[15];
   A.stack = [2, 2];
@@ -88,7 +94,6 @@ test('T22b [R12.4c] empate de puras: gana la más alta (no la más baja)', () =>
 test('T22c [R12.4c] grupo sin celda pura: árbitro T1/R2 normal', () => {
   need('placeStack'); need('resolveCascade');
   const s = mkGame(1);
-  s.skills.serveManual.autoServe = false;
   // v2.14-shape: A=14, D=15 adyacentes
   const A = s.run.board[14], D = s.run.board[15];
   A.stack = [3, 2];                                     // tope 2, NO pura
