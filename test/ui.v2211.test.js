@@ -17,13 +17,13 @@ function sliceFn(name, next) {
   return html.slice(start, end);
 }
 
-test('version footer stays and reads v2.22.0', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.22\.0'/);
+test('version footer stays and reads v2.22.1', () => {
+  assert.match(html, /GAME_VERSION = 'v2\.22\.1'/);
   assert.match(html, /☕ Cozy Cat Café \$\{GAME_VERSION\}/);
   assert.match(html, /Hold 3s to restart/);
 });
 
-test('money, calamity, and guests share one header row', () => {
+test('status and rotate/restart share one chrome strip', () => {
   const run = sliceFn('renderRun', 'renderCalamity');
   const top = run.indexOf('class="topbar"');
   const orders = run.indexOf('id="orders"');
@@ -32,14 +32,21 @@ test('money, calamity, and guests share one header row', () => {
   assert.ok(header.includes('id="calStrip"'));
   assert.ok(header.includes('id="queueCount"'));
   assert.ok(header.includes('id="btnSave"'));
+  assert.ok(header.includes('id="btnRotate"'));
+  assert.ok(header.includes('id="btnClose"'));
   assert.ok(header.includes('muteBtnMarkup()'));
   assert.equal(header.includes('id="btnShop"'), false);
   assert.equal(header.includes('class="queuebar"'), false);
+  assert.equal(run.includes('class="run-actions"'), false);
   const strip = header.indexOf('id="calStrip"');
   const count = header.indexOf('id="queueCount"');
-  assert.ok(strip >= 0 && count > strip);
+  const rotate = header.indexOf('id="btnRotate"');
+  const restart = header.indexOf('id="btnClose"');
+  assert.ok(strip >= 0 && count > strip && rotate > count && restart > rotate);
   assert.match(css, /\.topbar\{[^}]*flex-wrap:\s*nowrap/);
   assert.match(css, /\.cal-strip\{[^}]*flex:\s*1\s+1\s+auto/);
+  assert.match(css, /\.chrome-hold\{[^}]*min-height:\s*40px/);
+  assert.match(css, /\.hdr-tools \.iconbtn\{[^}]*min-height:\s*40px/);
 });
 
 test('shop panel is gone and former café buys sit in the skill grid', () => {
@@ -48,8 +55,8 @@ test('shop panel is gone and former café buys sit in the skill grid', () => {
   assert.equal(html.includes('function showShop'), false);
   assert.equal(html.includes('This café only'), false);
   const powers = sliceFn('renderPowers', 'refreshFlow');
-  for (const label of ['Destroy', 'Swap', 'Refresh', 'Tables', 'Unlock', 'Queue', 'Waiter', 'Board', 'Color', 'Tips']) {
-    assert.match(powers, new RegExp(`label:'${label}'`));
+  for (const id of ['destroyPile', 'swapPiles', 'refreshPool', 'tables', 'unlockLocks', 'queueSkip', 'serveManual', 'previewPool', 'color', 'tips']) {
+    assert.match(powers, new RegExp(`skill:'${id}'`));
   }
   assert.match(powers, /mode:'waiter'/);
   assert.match(powers, /mode:'preview'/);
@@ -57,7 +64,24 @@ test('shop panel is gone and former café buys sit in the skill grid', () => {
   assert.match(powers, /mode:'tips'/);
   assert.doesNotMatch(powers, /queueSkip\.owned\)\s*\n\s*arr\.push/);
   assert.match(powers, /class="pow-cost"/);
+  assert.doesNotMatch(powers, /class="pow-label"/);
   assert.doesNotMatch(powers, /class="uses"/);
+});
+
+test('a skill hold opens one sentence and a short tap still uses it', () => {
+  assert.equal(html.includes('SKILL_HELP_MS = 500'), true);
+  assert.match(html, /id="skillPop"/);
+  assert.match(html, /id="skillPopClose"/);
+  assert.match(html, /Clear every tile off one table\./);
+  assert.match(html, /Trade the stacks on two tables\./);
+  assert.match(html, /Open one more table beside the ones already open\./);
+  assert.match(html, /if\(e\.target === skillPop\) closeSkillHelp/);
+  assert.match(html, /openSkillHelp\(p\.dataset\.skill\)/);
+  const powers = sliceFn('renderPowers', 'refreshFlow');
+  assert.match(powers, /tookHold\(\)/);
+  assert.match(powers, /bindSkillHold/);
+  assert.match(powers, /mode==='activate'/);
+  assert.doesNotMatch(powers, /activateAroundUnlocked/);
 });
 
 test('skills are two rows, prices stay inside the button', () => {

@@ -55,10 +55,10 @@ export const CONFIG = {
                                     // saliendo ~7%): P = peso/42 ⇒ 21/19/17/14/12/10/7%
   // v2.10 — R18 Bolsita de pool (rachas y transiciones suaves)
   BAG_INITIAL_COLORS: 4,            // R18.2 cantidad de colores iniciales en la bolsa
-  BAG_INITIAL_MIN: 6,               // R18.2 puñado inicial mín por color
-  BAG_INITIAL_MAX: 14,              // R18.2 puñado inicial máx por color
-  BAG_RELOAD_MIN: 6,                // R18.4 recarga mín al agotarse un color
-  BAG_RELOAD_MAX: 14,               // R18.4 recarga máx al agotarse un color
+  BAG_INITIAL_MIN: 7,               // R18.2 puñado inicial mín por color
+  BAG_INITIAL_MAX: 18,              // R18.2 puñado inicial máx por color
+  BAG_RELOAD_MIN: 7,                // R18.4 recarga mín al agotarse un color
+  BAG_RELOAD_MAX: 18,               // R18.4 recarga máx al agotarse un color
   // v2.21 — la partida es SIEMPRE 100 clientes. El dial v2.5 (20 + capacidad, tope 60)
   // queda retirado: capacidad no suma N (el objetivo de diseño es 100 y nada persiste).
   TOTAL_CLIENTS: 100,               // R16.1 v2.21
@@ -518,7 +518,7 @@ function poolMaxColor(rosterIndex, colorsOwned) {
 // cuota máx de un color pasa de 100% (colapso v2.10.0) a ~25%.
 // ---------------------------------------------------------------------------
 
-// R18.2: inicializar bolsa con 4 colores (o cu si cu < 4) y puñados 6..14
+// R18.2: inicializar bolsa con 4 colores (o cu si cu < 4) y puñados 7..18
 export function initBag(rng, cu) {
   const bag = {};
   const maxC = Math.max(1, cu || 1);
