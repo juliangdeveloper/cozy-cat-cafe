@@ -19,11 +19,8 @@ const unwind = (ret, s) => (ret && ret.state) ? ret.state : (ret || s);
 
 // run fresca con recursos para activar muchas baldosas
 const mkGame = (seed = 1) => {
-  const s = G.createGame({ progress: { coins: 1000000, permTiles: 30 } });
-  const run = unwind(G.openRun(s, rng(seed)), s);
-  // v2.2 R14.3: activateTile es modelo USOS de skills.tables — inyectar usos
-  run.skills.tables = { owned: true, uses: 99, usesBought: 0 };
-  return run;
+  const s = G.createGame({ progress: { coins: 1000000 } });
+  return unwind(G.openRun(s, rng(seed)), s);
 };
 const playableIdx = (s) => s.run.board
   .map((c, i) => ({ c, i })).filter((x) => !x.c.dormant && !x.c.blocked).map((x) => x.i);

@@ -15,7 +15,7 @@
 // v2.1-clients: reemplaza el playthrough v2 (roster crecía cada 3 pilas y
 // victoria = orders.length servidas) por el flujo v2.1 con cola de clientes.
 import { createGame, openRun, placeStack, resolveCascade, closeRun, buyColor, buySkill,
-         useQueueSkip, useRefreshPool, activateTile, buyTablesUp, buyUsesUp, topGroup,
+         useQueueSkip, useRefreshPool, activateTile, buyUsesUp, topGroup,
          totalClients, runVictory, serializeState, deserializeState, mulberry32, CONFIG, HEX_ADJ } from '../js/game.js';
 import assert from 'node:assert/strict';
 
@@ -132,12 +132,13 @@ function step(seed, n, growth = false) {
     ?? empty.find((i) => !pinned.has(i) && poolColors.some((c) => adjTop(i, c)))
     ?? (o && topRunOf(state.run.pool[slot]).color === o.color ? empty.find((i) => !pinned.has(i)) : undefined));
   if (t === undefined) {
-    // (c) sin jugada útil: activar espacio (growth primero) → refresh → nada
-    const dt = state.run.board.findIndex(c => c.dormant && !c.blocked);
-    const skt = state.skills.tables;
-    if (dt >= 0 && skt && skt.owned && skt.uses > 0) {
-      const ra = activateTile(state, dt, rng(seed * 7 + n));
+    // (c) sin jugada útil: activar una mesa elegible (paga 40×1.6^n de esta run) → refresh → nada
+    for (let i = 0; i < state.run.board.length; i++) {
+      const c = state.run.board[i];
+      if (!c || !c.dormant || c.blocked) continue;
+      const ra = activateTile(state, i, rng(seed * 7 + n));
       if (!ra.error) { state = ra; return true; }
+      if (ra.error === 'noFunds') break;
     }
     const sk = state.skills.refreshPool;
     if (sk && sk.owned && sk.uses > 0) {
@@ -160,15 +161,10 @@ function step(seed, n, growth = false) {
 }
 
 function play(seed) {
-  // v2.2 R14.4/R17.2: el jugador hábil invierte ANTES de abrir (openRun repone
-  // uses = base + usesBought): skills nivel 1 + capacidad permanente de válvulas
-  // (+4 mesas/partida, +3 refresh, +3 skips) para no quedarse hard-stuck.
+  // v2.20: las mesas se activan dentro de la run (40×1.6^n) y se resetean al
+  // cerrar. Skills de usos (refresh / queue skip) siguen comprándose antes.
   // RETORNA 'victory' | 'full' — el final 'full' (tablero lleno sin jugadas) es
-  // un cierre LEGÍTIMO con la regla v2.2 (pool de 3 vs 7 celdas: puede no haber
-  // jugada útil y no quedar válvulas; R2.3 lo contempla).
-  if (!state.skills.tables.owned) {
-    const rt = buyTablesUp(state); if (!rt.error) state = rt;
-  }
+  // un cierre LEGÍTIMO (pool de 3 vs núcleo: puede no haber jugada útil).
   if (!state.skills.refreshPool.owned) {
     const r1 = buySkill(state, 'refreshPool'); if (!r1.error) state = r1;
   }
@@ -176,7 +172,6 @@ function play(seed) {
     const r2 = buySkill(state, 'queueSkip'); if (!r2.error) state = r2;
   }
   if (state.progress.totalGames === 0) {
-    for (let k = 0; k < 8; k++) { const r = buyTablesUp(state); if (r.error) break; state = r; }
     for (let k = 0; k < 5; k++) { const r = buyUsesUp(state, 'refreshPool'); if (r.error) break; state = r; }
     for (let k = 0; k < 5; k++) { const r = buyUsesUp(state, 'queueSkip'); if (r.error) break; state = r; }
   }
@@ -232,7 +227,7 @@ function play(seed) {
         served: state.run.clientsServed, drawn: state.run.clientsDrawn,
         emptyPlayable: state.run.board.filter(c => !c.dormant && !c.blocked && !(c.stack && c.stack.length)).length,
         dormantFree: state.run.board.filter(c => c.dormant && !c.blocked).length,
-        tables: state.skills.tables,
+        runTilesActivated: state.run.runTilesActivated,
         refresh: state.skills.refreshPool,
         queue: state.skills.queueSkip,
         queueBack: (state.run.queueBack || []).length,

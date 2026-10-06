@@ -1,5 +1,5 @@
 // ============================================================================
-// Block T19 — v2.4: tope de usos (MAX_USES_PER_SKILL=5; tables = tablero−7),
+// Block T19 — v2.4: tope de usos (MAX_USES_PER_SKILL=5). v2.20: tables ya no es skill de usos.
 // refresh multicolor (v2Pile + poolMaxColor), badge run del tope (topRunCount).
 // Run: node --test test/v2.t19.test.js
 // ============================================================================
@@ -24,7 +24,7 @@ test('T19a [v2.4] CONFIG: MAX_USES_PER_SKILL=5 y USES_SKILLS completo', () => {
   needCfg('MAX_USES_PER_SKILL'); needCfg('USES_SKILLS');
   assert.equal(G.CONFIG.MAX_USES_PER_SKILL, 5, 'RED: tope de usos = 5 por partida');
   assert.deepEqual(G.CONFIG.USES_SKILLS,
-    ['destroyPile', 'swapPiles', 'refreshPool', 'queueSkip', 'tables', 'unlockLocks']); // v2.8 += unlockLocks
+    ['destroyPile', 'swapPiles', 'refreshPool', 'queueSkip', 'unlockLocks']);
 });
 
 test('T19b [v2.4] buySkill respeta tope 5: 5 compras OK, la 6ª => maxUses', () => {
@@ -42,14 +42,17 @@ test('T19b [v2.4] buySkill respeta tope 5: 5 compras OK, la 6ª => maxUses', () 
     'RED: maxUses no debe cobrar');
 });
 
-test('T19c [v2.4] buyTablesUp: capa = tablero−núcleo (25 con 32 celdas), NO el tope 5', () => {
-  need('buyTablesUp');
-  let s = G.createGame({ progress: { coins: 1e9 } });
-  for (let i = 0; i < 6; i++) {
-    s = unwind(G.buyTablesUp(s), s);
-    assert.ok(!s.error, `RED: compra de mesa ${i + 1} debe permitir >5 (usaBought=${i + 1})`);
-  }
-  assert.equal(s.skills.tables.usesBought, 6, 'RED: tables NO está limitada a 5');
+test('T19c [v2.20] tables no es una skill de usos ni una compra permanente', () => {
+  assert.equal(G.CONFIG.USES_SKILLS.includes('tables'), false);
+  assert.equal(typeof G.buyTablesUp, 'undefined');
+  const s = G.createGame({ progress: { coins: 1e9 } });
+  assert.equal(G.buySkill(s, 'tables').error, 'noSkill');
+  assert.equal(G.buyUsesUp(s, 'tables').error, 'noSkill');
+  s.skills.tables = { owned: true, uses: 1, usesBought: 1, price: 0 };
+  assert.equal(G.buySkill(s, 'tables').error, 'noSkill');
+  assert.equal(G.buyUsesUp(s, 'tables').error, 'noUsesModel');
+  assert.equal(s.skills.tables.usesBought, 1, 'rechazar la compra no suma usos');
+  assert.equal(s.progress.coins, 1e9);
 });
 
 test('T19d [v2.4] useRefreshPool genera multicolor igual que openRun (bug monocolor)', () => {

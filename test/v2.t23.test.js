@@ -15,9 +15,8 @@ const rng = n => mulberry32(n);
 const unwind = (ret, s) => (ret && ret.state) ? ret.state : (ret || s);
 
 const mkGame = (seed = 1) => {
-  const s = G.createGame({ progress: { coins: 1000000, permTiles: 30 } });
+  const s = G.createGame({ progress: { coins: 1000000 } });
   const run = unwind(G.openRun(s, rng(seed)), s);
-  run.skills.tables = { owned: true, uses: 10, usesBought: 10 };
   run.skills.serveManual = run.skills.serveManual || { owned: false, autoServe: true };
   run.skills.serveManual.autoServe = false; // isolate debris / unlock tests
   return run;
@@ -144,19 +143,19 @@ test('T23b2 [R14.6] activateTile with ≥2 unlocked neighbors => ok; core alread
   const good = eligibleDormant(s);
   assert.ok(good, 'mid-edge ring cells have 2 core contacts');
   assert.ok(G.unlockedNeighborCount(s, good) >= 2);
+  const coins0 = s.progress.coins;
   const st = unwind(G.activateTile(s, good.id, rng(1)), s);
   assert.equal(st.run.board.find(c => c.id === good.id).dormant, false);
-  assert.equal(st.skills.tables.uses, 9);
+  assert.equal(st.run.runTilesActivated, 1);
+  assert.ok(Math.abs((coins0 - st.progress.coins) - G.CONFIG.RUN_TILE_BASE) < 1e-6);
 });
 
 // ---------------------------------------------------------------------------
 // T23c — hold-batch activateAroundUnlocked [R14.3b]
 // ---------------------------------------------------------------------------
-test('T23c [R14.3b] activateAroundUnlocked: board-index order, respects 2-neighbor + uses', () => {
+test('T23c [R14.3b v2.20] activateAroundUnlocked: board-index order, snapshot only, each ×1.6', () => {
   need('activateAroundUnlocked');
   const s = mkGame(6);
-  s.skills.tables.uses = 3;
-  // Snapshot expected candidates: eligible + around unlocked, sorted by index
   const unlocked = s.run.board.filter(c => !c.dormant);
   const expected = [];
   s.run.board.forEach((c, i) => {
@@ -168,23 +167,26 @@ test('T23c [R14.3b] activateAroundUnlocked: board-index order, respects 2-neighb
   expected.sort((a, b) => a - b);
   assert.ok(expected.length >= 3, `need ≥3 eligible at open, got ${expected.length}`);
 
+  const coins0 = s.progress.coins;
   const st = unwind(G.activateAroundUnlocked(s, rng(1)), s);
-  assert.equal(st.skills.tables.uses, 0, 'uses 3 → activate 3 then stop');
-  for (let k = 0; k < 3; k++) {
+  assert.equal(st.run.runTilesActivated, expected.length);
+  let spent = 0;
+  for (let k = 0; k < expected.length; k++) {
     assert.equal(st.run.board[expected[k]].dormant, false,
-      `RED: must activate board-index order; expected idx ${expected[k]}`);
+      `must activate board-index order; expected idx ${expected[k]}`);
+    spent += G.CONFIG.RUN_TILE_BASE * G.CONFIG.RUN_TILE_RATIO ** k;
   }
-  // next eligible in snapshot (if any) stays dormant (uses gone; snapshot doesn't grow)
-  if (expected[3] != null) {
-    assert.equal(st.run.board[expected[3]].dormant, true,
-      'RED: must not activate beyond uses / must not grow mid-batch');
-  }
+  assert.ok(Math.abs((coins0 - st.progress.coins) - spent) < 1e-4);
+  s.run.board.forEach((c, i) => {
+    if (c.dormant && !expected.includes(i)) {
+      assert.equal(st.run.board[i].dormant, true, `idx ${i} outside the snapshot stays dormant`);
+    }
+  });
 });
 
 test('T23c2 [R14.3b] activateAroundUnlocked skips cells not adjacent to unlocked set', () => {
   need('activateAroundUnlocked');
   const s = mkGame(7);
-  s.skills.tables.uses = 99;
   // Far dormant with 0 neighbors to unlocked must stay dormant
   const far = s.run.board.find(c => c.dormant && G.unlockedNeighborCount(s, c) === 0);
   assert.ok(far);
@@ -193,10 +195,16 @@ test('T23c2 [R14.3b] activateAroundUnlocked skips cells not adjacent to unlocked
     'RED: non-adjacent / 0-contact cells must not activate');
 });
 
-test('T23c3 [R14.3b] activateAroundUnlocked noUses / noneEligible', () => {
+test('T23c3 [R14.3b v2.20] noFunds stops a batch; noneEligible when the snapshot is empty', () => {
   need('activateAroundUnlocked');
-  const s = mkGame(8);
-  s.skills.tables.uses = 0;
-  const ret = G.activateAroundUnlocked(s, rng(1));
-  assert.equal(ret.error, 'noUses');
+  const broke = mkGame(8);
+  broke.progress.coins = 40 + 64; // exactly two activations (40 × 1.6^0 + 40 × 1.6^1)
+  const partial = unwind(G.activateAroundUnlocked(broke, rng(1)), broke);
+  assert.equal(partial.run.runTilesActivated, 2, 'stops when the next ×1.6 price is unaffordable');
+  assert.ok(partial.progress.coins < 1);
+
+  const empty = mkGame(9);
+  for (const c of empty.run.board) if (c.dormant) c.blocked = true;
+  const ret = G.activateAroundUnlocked(empty, rng(1));
+  assert.equal(ret.error, 'noneEligible');
 });
