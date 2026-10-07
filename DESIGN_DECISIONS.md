@@ -1,5 +1,15 @@
 # Cozy Cat Café × HexaSort — Shared Understanding (post-grill)
 
+## v2.24.2 — la propina muestra el número que se cobra (2026-10-07)
+
+**Paso.** `EXP_STEP` baja de 0.50 a **0.25**. Un pedido de tamaño 8 paga 67, 113, 190 y 320 monedas en los niveles 0, 1, 2 y 3.
+
+**Un solo nivel.** Lo que cobra un pedido es `progress.econ.multLevel`, leído con `tipLevel`. `economy.multLevel` queda de espejo: `buyMultiplier` lo escribe siempre (y crea el objeto si falta). Al cargar (`deserializeState` e `importSave`) gana progress; si ese campo no es un número, se copia economy y se escriben los dos iguales. Servir a mano, el auto-serve de la cascada y el espejo de la UI llaman `pay(order, tipLevel)`. Un save con los dos campos distintos ya no cobra un nivel y muestra otro. Reiniciar sigue en 0 porque abre un `createGame`.
+
+**Modal.** El hold de Tips se titula "Tips — level n" y lista los tamaños 3..10: lo que paga ahora y lo que pagaría el nivel siguiente, ambos con `pay()`. Debajo dice que solo sube un pedido servido; un claro y el bonus de calamidad se quedan igual. El botón no lleva la tabla: "Served orders pay more." El resto de skills sigue en una frase.
+
+**Flotante.** El `+N 🪙` de servir a mano es la diferencia de monedas de esa acción. El de la cascada es el mismo `pay(order, tipLevel)` que se suma. El de escombros es lo que sumó el barrido. El chip de arriba repite ese número.
+
 ## v2.24.1 — el cliente pide lo comprado y el siguiente (2026-10-07)
 
 **Color del cliente.** `drawClientInto` sortea uniforme en `1..min(colorsOwned+1, palette.length)`. Los índices lógicos de la run son `1..k`. Lo que el jugador posee es `1..colorsOwned`. El siguiente que compraría Color (`buyColor`) es `colorsOwned+1`: esa función solo suma 1 a `colorsOwned`. La cara es `palette[k-1]` (`runFaceColor`). El techo es el largo de la paleta de la run (7). Con `colorsOwned >= 7` el sorteo queda en `1..7`. No depende de `rosterIndex` (ese sigue subiendo cada 3 pilas y no cambia aquí). La bandeja sigue en `poolMaxColor` = `min(rosterIndex, colorsOwned)`: el color de más se puede pedir y no sale en el pool.
