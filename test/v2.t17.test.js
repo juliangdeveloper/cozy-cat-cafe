@@ -302,5 +302,5 @@ test('T17h [R16.2] roster: arranca 5, tope colorsOwned+1 dentro del palette de 7
   assert.equal(s10r.run.palette.length, G.CONFIG.RUN_COLORS);
   const s10b = place(s10r, 3 * 6, 43);            // 18 pilas: sobra para llegar al tope
   assert.equal(s10b.run.rosterIndex, G.CONFIG.RUN_COLORS,
-    'RED: con palette de 7 el roster se estanca en 7, no en 10 ni en 11');
+    'RED: con palette de la run el roster se estanca en RUN_COLORS, no en 10 ni en 11');
 });
