@@ -43,8 +43,8 @@ test('the UI hooks the loop and the effects only on success', () => {
   }
   assert.match(amb, /sfx-destroy\.wav/);
   // place, cascade destroy, cascade merge, cascade serve, manual serve,
-  // plus the restart tick and the victory close.
-  assert.equal((html.match(/playCafeSfx\(/g) || []).length, 7);
+  // the victory close, the mid-run defeat close, and the victory-restart tick.
+  assert.equal((html.match(/playCafeSfx\(/g) || []).length, 8);
   assert.match(html, /playCafeSfx\('reset'\)/);
   assert.match(html, /playCafeSfx\('close'\)/);
   assert.match(amb, /reset:/);

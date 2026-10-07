@@ -18,7 +18,7 @@ function sliceFn(name, next) {
 }
 
 test('version footer stays and reads v2.22.4', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.22\.4'/);
+  assert.match(html, /GAME_VERSION = 'v2\.23\.0'/);
   assert.match(html, /☕ Cozy Cat Café \$\{GAME_VERSION\}/);
   assert.match(html, /Hold 3s to restart/);
 });
@@ -104,9 +104,10 @@ test('using the chalkboard opens a modal of the next tray piles', () => {
 test('buying a color names the creature and shows its swatch', () => {
   const powers = sliceFn('renderPowers', 'refreshFlow');
   assert.match(powers, /Unlocked: '/);
-  assert.match(powers, /ROSTER\[n-1\]/);
+  assert.match(powers, /creatureName\(n\)/);
   assert.match(powers, /\(color '/);
-  assert.match(powers, /toast\('Unlocked: '\+who\+' \(color '\+n\+'\)', n\)/);
+  assert.match(powers, /toast\('Unlocked: '\+who\+' \(color '\+n\+'\)', faceColor\(n\)\)/);
+  assert.match(powers, /Every color in this café is already in\./);
   assert.doesNotMatch(powers, /New roster color/);
   assert.match(html, /\.toast-swatch/);
   assert.match(html, /function toast\(msg, colorId\)/);

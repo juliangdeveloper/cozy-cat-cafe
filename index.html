@@ -33,7 +33,7 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
 .topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;flex-wrap:nowrap;gap:4px;
   padding:4px 0;background:rgba(247,209,225,.94);backdrop-filter:blur(5px);
   border-bottom:2px solid var(--wood)}
-.chip{display:flex;align-items:center;gap:4px;background:var(--panel);border:2px solid var(--ink);
+.chip{position:relative;display:flex;align-items:center;gap:4px;background:var(--panel);border:2px solid var(--ink);
   border-radius:999px;padding:3px 10px;font-weight:800;font-family:var(--font-display);
   font-variant-numeric:tabular-nums;font-size:16px;box-shadow:0 3px 0 var(--wood-dark)}
 .chip.sm{font-size:13px;padding:3px 8px}
@@ -103,6 +103,11 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
   box-shadow:0 5px 0 var(--wood-dark);text-align:center;cursor:pointer}
 .victory-veil .host-line{margin:0;font-family:var(--font-display);font-weight:800;font-size:22px;line-height:1.2}
 .victory-veil .host-hint{margin:0;font-size:13px;font-weight:800;color:var(--ink-soft)}
+.victory-veil.defeat-veil{cursor:default}
+.run-history{margin:0 0 12px;padding:10px;background:var(--wood);border:2px solid var(--ink);border-radius:12px}
+.run-history h4{margin:0 0 6px;font-family:var(--font-display);font-size:16px;text-align:center}
+.run-history p{margin:0 0 6px;font-size:13px;font-weight:700;text-align:center}
+.run-history .rh-note{font-size:11px;color:var(--ink-soft);font-weight:700;line-height:1.35}
 .foot{text-align:center;font-size:11px;color:var(--ink-soft);font-weight:700;margin:4px 0 2px;flex-shrink:0}
 .order-card.legendary{box-shadow:0 0 0 3px var(--highlight),0 3px 0 var(--shadow)}
 
@@ -346,6 +351,9 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .pow-cost{position:static;display:block;max-width:100%;margin-top:1px;padding:0 3px;border-radius:999px;
   background:var(--highlight);border:1.5px solid var(--ink);font-size:10px;font-weight:800;line-height:1.25;
   font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pow-lvl{position:absolute;top:2px;right:2px;min-width:14px;height:14px;padding:0 3px;border-radius:999px;
+  background:var(--panel);border:1.5px solid var(--ink);font-size:9px;font-weight:800;line-height:12px;
+  text-align:center;font-variant-numeric:tabular-nums;pointer-events:none;z-index:2}
 .pow.broke{opacity:.5}
 .pow .uses{position:absolute;top:2px;right:2px;background:var(--highlight);border:2px solid var(--ink);
   border-radius:999px;font-size:11px;padding:0 5px;font-weight:800;line-height:1.2;pointer-events:none}
@@ -388,8 +396,13 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
   box-shadow:0 0 0 2px var(--ink)}
 @keyframes floatUp{0%{opacity:0;transform:translateY(8px) scale(.6)}20%{opacity:1}100%{opacity:0;transform:translateY(-40px) scale(1)}}
+@keyframes coinPop{0%{opacity:0;transform:translateY(10px) scale(.45) rotate(-12deg)}16%{opacity:1;transform:translateY(-6px) scale(1.18) rotate(7deg)}42%{transform:translateY(-16px) scale(1) rotate(-3deg)}100%{opacity:0;transform:translateY(-54px) scale(.95) rotate(0)}}
+@keyframes coinBump{0%{transform:scale(1)}35%{transform:scale(1.14)}100%{transform:scale(1)}}
 .floater{position:absolute;z-index:6;font-weight:900;font-family:var(--font-display);color:var(--highlight);
   text-shadow:0 1px 0 var(--ink);pointer-events:none;font-size:18px;animation:floatUp 1s ease-out forwards}
+.floater.coin-gain{z-index:8;font-size:20px;white-space:nowrap;color:#c4840a;
+  text-shadow:0 2px 0 var(--ink);animation:coinPop 1.05s cubic-bezier(.18,.8,.2,1) forwards}
+.chip.coin-bump{animation:coinBump .45s ease}
 .confetti{position:fixed;left:50%;top:35%;z-index:65;pointer-events:none}
 .cf{position:absolute;width:9px;height:9px;border-radius:2px;opacity:0;animation:conf .85s ease-out forwards}
 @keyframes conf{0%{opacity:1;transform:translate(0,0) rotate(0)}60%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(720deg)}}
@@ -580,6 +593,7 @@ body.tut-on .powerbar.tut-spot{z-index:90}
 <div id="saveModal" class="overlay"><div class="modal">
   <span class="x" data-close="saveModal">✕</span>
   <h3>💾 Backup / Restore</h3>
+  <div id="runHistory" class="run-history"></div>
   <p style="font-size:13px;text-align:center">Export or import your café save as JSON. It stays on this device.</p>
   <div style="display:flex;flex-direction:column;gap:10px">
     <button class="btn btn-primary" id="exportBtn">Export save (.json)</button>
@@ -628,6 +642,7 @@ import {
   totalClients, runVictory, useQueueSkip,
   // v2.21 — meta efímera, pedidos, oleada 2, victoria
   restartRun, beginVictory, clearTables, calamityForecast,
+  tipSkillLine, runFaceColor, bestWorstRuns,
 } from './js/game.js';
 import {
   bindCafeAudio, unlockCafeAudio, noteCafeOpen, noteCafeClosed,
@@ -643,7 +658,12 @@ const $$ = s => Array.from(document.querySelectorAll(s));
 const fmt = n => Math.max(0, Math.floor(n||0)).toLocaleString('en-US');
 const TILE_CSS = {1:'--tile-mint',2:'--tile-blue',3:'--tile-pink',4:'--tile-blush',5:'--tile-lavender',6:'--tile-cream',
   7:'--tile-denim',8:'--tile-teal',9:'--tile-pine',10:'--tile-orchid'}; // v2.6.1: 7..10 existian en game.js pero caian al fallback mint
-const tileVar = c => TILE_CSS[c]||'--tile-mint';
+function faceColor(logical){ return runFaceColor(state, logical); }
+const tileVar = c => TILE_CSS[faceColor(c)]||'--tile-mint';
+function creatureName(logical){
+  const face = faceColor(logical);
+  return ROSTER[(face||1)-1] || 'Creature';
+}
 
 // ---------------- sprite registry + placeholder fallback --------------------
 const SPR = { byId:{}, img:null, w:0, h:0 };
@@ -698,8 +718,21 @@ function toast(msg, colorId){
   clearTimeout(t._h);
   t._h=setTimeout(()=>t.classList.remove('show'), colorId?2400:1500);
 }
-function floatOn(el, txt){ if(!el) return; const e=document.createElement('div'); e.className='floater';
-  e.textContent=txt; el.appendChild(e); setTimeout(()=>e.remove(),1000); }
+function floatOn(el, txt, extra){ if(!el) return; const e=document.createElement('div'); e.className='floater'+(extra?(' '+extra):'');
+  e.textContent=txt; el.appendChild(e); setTimeout(()=>e.remove(),1100); }
+function showCoinGain(amount, anchor){
+  const n=Math.round(Number(amount)||0);
+  if(!(n>0)) return;
+  const label='+'+fmt(n)+' 🪙';
+  const chip=document.querySelector('.topbar .chip');
+  if(anchor) floatOn(anchor, label, 'coin-gain');
+  if(chip && chip!==anchor) floatOn(chip, label, 'coin-gain');
+  if(chip){
+    chip.classList.remove('coin-bump');
+    void chip.offsetWidth;
+    chip.classList.add('coin-bump');
+  }
+}
 function confetti(){ if(state.settings.reducedMotion) return;
   const c=document.createElement('div'); c.className='confetti';
   const cols=['var(--tile-mint)','var(--tile-pink)','var(--highlight)','var(--tile-blue)','var(--accent)'];
@@ -875,7 +908,7 @@ function renderOrders(){
   box.innerHTML = vis.map((o,i)=>{
     const cat = 'cat_client_'+( (i%3)+1 );
     // v2 R13.2: nombre del ROSTER — el pedido de una criatura usa SOLO su color
-    const name = ROSTER[(o.color||1)-1] || 'Creature';
+    const name = creatureName(o.color||1);
     const ready = !o.served && orderIsReady(o);
     const sel = ui.servingOrder===o.id;
     return `<div class="order-card ${o.served?'served':''} ${ready?'ready':''} ${sel?'selected':''} ${o.legendary?'legendary':''}" data-oid="${o.id}"
@@ -1095,13 +1128,13 @@ const SKILL_BLURB = {
   queueSkip: 'Send the visible guests to the back of the line.',
   previewPool: 'Peek at the next trays before they arrive.',
   color: 'Add the next creature color to the roster.',
-  tips: 'Raise the coins paid for bigger orders.',
 };
 function openSkillHelp(skill){
   closePeekModal();
   const pop = $('#skillPop'); const tx = $('#skillPopText');
   if(!pop || !tx) return;
-  tx.textContent = SKILL_BLURB[skill] || 'This skill spends coins.';
+  const line = skill==='tips' ? tipSkillLine(state) : (SKILL_BLURB[skill] || 'This skill spends coins.');
+  tx.textContent = line;
   pop.classList.add('show');
   pop.setAttribute('aria-hidden','false');
 }
@@ -1147,14 +1180,16 @@ function renderPowers(){
   ];
   box.innerHTML = arr.map(d=>{
     const priceN = skillNextPrice(d.skill);
+    const n = skillUseCount(state, d.skill);
     const broke = state.progress.coins < priceN;
-    const help = SKILL_BLURB[d.skill];
-    const tip = help+' Next '+fmt(priceN)+' coins.';
+    const help = d.skill==='tips' ? tipSkillLine(state) : SKILL_BLURB[d.skill];
+    const tip = 'Level '+n+'. '+help+' Next '+fmt(priceN)+' coins.';
     const cost = `<span class="pow-cost">🪙${fmt(priceN)}</span>`;
     const icon = /^[a-z0-9_]+$/.test(d.icon)
       ? spr(d.icon, 26)
       : `<span class="pow-emoji" aria-hidden="true">${d.icon}</span>`;
-    return `<div class="pow ${broke?'broke':''} ${ui.mode===d.mode?'selected':''}" data-mode="${d.mode}" data-skill="${d.skill}" role="button" title="${tip}" aria-label="${tip}">
+    return `<div class="pow ${broke?'broke':''} ${ui.mode===d.mode?'selected':''}" data-mode="${d.mode}" data-skill="${d.skill}" data-level="${n}" role="button" title="${tip}" aria-label="${tip}">
+      <span class="pow-lvl">${n}</span>
       <span class="pow-face"><span class="pow-ico">${icon}</span></span>${cost}</div>`;
   }).join('');
   $$('#powerbar .pow').forEach(p=>{
@@ -1188,8 +1223,13 @@ function renderPowers(){
       if(r.error){ err(r); return; }
       state=r;
       const n=state.progress.colorsOwned;
-      const who=ROSTER[n-1]||'Creature';
-      toast('Unlocked: '+who+' (color '+n+')', n);
+      const cap=(state.run&&state.run.palette&&state.run.palette.length)||CONFIG.MAX_COLORS;
+      if(n<=cap){
+        const who=creatureName(n);
+        toast('Unlocked: '+who+' (color '+n+')', faceColor(n));
+      } else {
+        toast('Every color in this café is already in.');
+      }
       renderAll(); return;
     }
     if(mode==='tips'){
@@ -1319,9 +1359,11 @@ function cascadeLinks(state){
   }
   // (iii) v2.17 R12.3 — barrido de escombros SOLO tras estabilizar la cadena
   if(s.run&&Array.isArray(s.run.board)){
+    const before=s.progress.coins;
     const hit=sweepDebrisRuns(s.run.board, s.progress);
+    const gained=s.progress.coins-before;
     if(hit.length){
-      links.push({snap:structuredClone(s),served:[],debris:hit,merged:[]});
+      links.push({snap:structuredClone(s),served:[],debris:hit,debrisCoins:gained,merged:[]});
     }
   }
   return links;
@@ -1330,7 +1372,7 @@ function cascadeLinks(state){
 function floatOrders(servedList){
   (servedList||[]).forEach(({cell,amount})=>{
     const el=$(`#board .cell[data-id="${cell}"]`);
-    if(el) floatOn(el,'+'+fmt(amount)+' 🪙');
+    showCoinGain(amount, el);
   });
 }
 // v2.4 — vuelo de fichas ENTRE celdas del board (helper centralizado):
@@ -1426,6 +1468,7 @@ async function playCascade(base,authoritative){
       (L.served||[]).forEach(x=>{ if(x.order) flyToClient(x.order,x.cell); });
       if(L.debris.length){                       // destrucción por umbral: shake + confetti
         L.debris.forEach(i=>{ const el=$(`#board .cell[data-id="${i}"]`); if(el) floatOn(el,'💥'); });
+        if((L.debrisCoins||0)>0) showCoinGain(L.debrisCoins, $(`#board .cell[data-id="${L.debris[0]}"]`));
         if(bEl){ bEl.classList.add('shake'); setTimeout(()=>{ if(bEl) bEl.classList.remove('shake'); },480); }
         confetti();
       }
@@ -1594,7 +1637,7 @@ function placeTileFlow(pos){
 function serveOrderFlow(o,cellId){ const res=serveOrder(state,o,cellId);
   if(res && res.error){ err(res); renderAll(); return; }
   playCafeSfx('serve');
-  const got=res.progress.coins-state.progress.coins; const el=$(`[data-id="${cellId}"]`);
+  const got=res.progress.coins-state.progress.coins;
   // v2.4: ANIMACIÓN ENFOCADA — las fichas del pedido vuelan de la pila al
   // cliente (misma animación que el merge); el estado se adopta tras el vuelo
   // para que el jugador vea que no se le desaparecieron fichas.
@@ -1602,12 +1645,14 @@ function serveOrderFlow(o,cellId){ const res=serveOrder(state,o,cellId);
   flyToClient(o,cellId);
   setTimeout(()=>{
     state=res; ui.servingOrder=null; ui.anim=false;
-    if(el) floatOn(el,'+'+fmt(got)); confetti(); renderAll();
+    renderAll();
+    showCoinGain(got, $(`#board .cell[data-id="${cellId}"]`));
+    confetti();
     checkServedAll();
   }, Math.min(o.qty,6)*140+500);
 }
-// v2.21 — a full floor is an informal loss. No "you lose" screen; the player
-// keeps the café and can hold restart.
+// A full floor is still not a lose screen. Hold 3s mid-run plays the short
+// defeat (playDefeat) and then restarts. Victory keeps its own veil.
 function checkFull(){ return; }
 // Victoria = los N clientes servidos. No hay pantalla pesada: cascada, luces,
 // gato anfitrión. Tap en el velo, o el hold, abren otra run.
@@ -1676,17 +1721,53 @@ function bindCloseHold(){
   p.addEventListener('click', ev=>{ ev.preventDefault(); ev.stopPropagation(); });
   p.addEventListener('contextmenu', ev=>ev.preventDefault());
 }
-async function restartCafe(){
-  if(ui.restarting) return;
-  ui.restarting = true;
-  ui.anim = true;
-  playCafeSfx('reset');
+async function playDefeat(){
+  playCafeSfx('close');
   const scene = document.querySelector('.scene');
-  if(scene) scene.classList.add('resetting');
+  if(scene) scene.classList.add('dim');
   const cn = $('#coinNum');
   if(cn){ cn.textContent = '0'; cn.classList.add('dropping'); }
+  const boardWrap = document.querySelector('.board-wrap');
+  if(boardWrap && !$('#defeatVeil')){
+    const veil = document.createElement('div');
+    veil.id = 'defeatVeil';
+    veil.className = 'victory-veil defeat-veil';
+    veil.innerHTML = `${spr('cat_client_1', 96)}
+      <p class="host-line">The lights go down. This sitting is over.</p>
+      <p class="host-hint">A fresh café opens next.</p>`;
+    boardWrap.before(veil);
+  }
+  const cells = $$('#board .cell');
   const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  await sleepMs(reduce ? 0 : 420);
+  if(!reduce){
+    cells.forEach((el,i)=>{
+      el.style.transition = 'opacity .4s cubic-bezier(.4,0,.2,1)';
+      el.style.transitionDelay = (i * 18) + 'ms';
+      el.style.opacity = '0.12';
+    });
+    await sleepMs(Math.min(980, cells.length * 18 + 420));
+    await sleepMs(640);
+  } else {
+    cells.forEach((el)=>{ el.style.opacity = '0.12'; });
+    await sleepMs(480);
+  }
+}
+async function restartCafe(){
+  if(ui.restarting) return;
+  const victorious = !!(state.run && state.run.phase==='victory');
+  ui.restarting = true;
+  ui.anim = true;
+  if(!victorious){
+    await playDefeat();
+  } else {
+    playCafeSfx('reset');
+    const scene = document.querySelector('.scene');
+    if(scene) scene.classList.add('resetting');
+    const cn = $('#coinNum');
+    if(cn){ cn.textContent = '0'; cn.classList.add('dropping'); }
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    await sleepMs(reduce ? 0 : 420);
+  }
   state = restartRun(state, Math.random);
   ui.slot=false; ui.mode=null; ui.swapFirst=null; ui.servingOrder=null; ui.placeTile=false;
   ui.previewSeed=Math.floor(Math.random()*2147483647);
@@ -1701,7 +1782,9 @@ async function playVictory(){
   if(ui.restarting || !state.run || state.run.phase==='victory') return;
   if(!runVictory(state)) return;
   ui.anim = true;
+  const beforeCoins = state.progress.coins;
   state = beginVictory(state);
+  const calamityGain = state.progress.coins - beforeCoins;
   persist();
   playCafeSfx('close');
   const scene = document.querySelector('.scene');
@@ -1719,12 +1802,28 @@ async function playVictory(){
   state = clearTables(state);
   ui.anim = false;
   renderAll();
+  if(calamityGain>0) showCoinGain(calamityGain, $('#victoryVeil') || document.querySelector('.topbar .chip'));
 }
 
 // ============================================================================
 // MODALS
 // ============================================================================
-function showSave(){ $('#saveModal').classList.add('show'); }
+function renderRunHistory(){
+  const box=$('#runHistory'); if(!box) return;
+  const hist=Array.isArray(state.runHistory)?state.runHistory:[];
+  const ranked=bestWorstRuns(hist);
+  const line=(rec)=>{
+    if(!rec) return '—';
+    return (rec.clientsServed|0)+' guests · '+(rec.moneyStacks|0)+' paid stacks · '+(rec.pilesDealt|0)+' trays';
+  };
+  const note='Ranked by guests served. Ties break on paid stacks, then trays dealt. The later tie is best; the earlier tie is worst. Last '+(CONFIG.RUN_HISTORY_MAX||20)+' runs.';
+  if(!hist.length){
+    box.innerHTML='<h4>Run history</h4><p>No finished runs yet.</p><p class="rh-note">'+note+'</p>';
+    return;
+  }
+  box.innerHTML='<h4>Run history</h4><p><b>Best</b> — '+line(ranked.best)+'</p><p><b>Worst</b> — '+line(ranked.worst)+'</p><p class="rh-note">'+note+'</p>';
+}
+function showSave(){ renderRunHistory(); $('#saveModal').classList.add('show'); }
 
 
 // ============================================================================
@@ -1919,7 +2018,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.22.4';
+const GAME_VERSION = 'v2.23.0';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };

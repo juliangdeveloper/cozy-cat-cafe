@@ -254,11 +254,12 @@ test('T17g [R16.4] victoria: clientsServed===TOTAL → closeRun(allServed); refi
 });
 
 // ---------------------------------------------------------------------------
-// T17h — [R16.2 v2.1-corregido] tope de roster = colorsOwned<10 ? colorsOwned+1
-// : 10. Con colorsOwned=4 el roster ARRANCA en 5 (= tope) y NO avanza; tras
-// comprar colores (owned 6 → tope 7) avanza cada 3 pilas y se estanca en 7.
+// T17h — [R16.2 v2.1-corregido / v2.23] tope = min(colorsOwned+1, palette).
+// Con colorsOwned=4 el roster ARRANCA en 5 y NO avanza; tras comprar
+// (owned 6 → tope 7) avanza cada 3 pilas y se estanca en 7. Con
+// colorsOwned=10 el techo es el subconjunto de la run (7), no 10 ni 11.
 // ---------------------------------------------------------------------------
-test('T17h [R16.2] roster: arranca 5, tope colorsOwned+1 (10 si owned=10); avanza cada 3 pilas', () => {
+test('T17h [R16.2] roster: arranca 5, tope colorsOwned+1 dentro del palette de 7', () => {
   need('createGame'); need('openRun'); need('placeStack'); need('buyColor');
   needCfg('UNLOCK_PLACED_PILES'); needCfg('MAX_COLORS');
   // GIVEN colorsOwned=4 → rosterMax = 5 = arranque: colocar pilas NO avanza
@@ -294,10 +295,12 @@ test('T17h [R16.2] roster: arranca 5, tope colorsOwned+1 (10 si owned=10); avanz
   assert.equal(s2.run.rosterIndex, 7, 'RED: otras 3 pilas → rosterIndex 7 (tope colorsOwned+1)');
   s2 = place(s2, 3, 42);
   assert.equal(s2.run.rosterIndex, 7, 'RED: el roster se ESTANCA en rosterMax=colorsOwned+1=7 [R16.2]');
-  // frontera: colorsOwned=10 → tope 10 (no 11)
+  // v2.23: colorsOwned=10 ya no abre las 10. El techo es el subconjunto
+  // de la run (7). Sigue sin haber un 11º.
   const s10 = G.createGame({ progress: { coins: 1e9, colorsOwned: 10 } });
   const s10r = unwind(G.openRun(s10, rng(9)), s10);
+  assert.equal(s10r.run.palette.length, G.CONFIG.RUN_COLORS);
   const s10b = place(s10r, 3 * 6, 43);            // 18 pilas: sobra para llegar al tope
-  assert.equal(s10b.run.rosterIndex, 10,
-    'RED: con colorsOwned=10 el tope de roster es 10 (NO 11) [R16.2 corregido]');
+  assert.equal(s10b.run.rosterIndex, G.CONFIG.RUN_COLORS,
+    'RED: con palette de 7 el roster se estanca en 7, no en 10 ni en 11');
 });
