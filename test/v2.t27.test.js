@@ -121,7 +121,7 @@ test('a current save drops a leftover Waiter skill on load', () => {
   assert.equal(back.skills.previewPool.level, 0);
 });
 
-test('color, tips, chalkboard, and tables share 40×1.6^n with no cap', () => {
+test('tips, chalkboard, and tables stay uncapped; color stops at the palette', () => {
   let s = open();
   assert.equal(G.colorPrice(s), priceAt(0));
   s = G.buyColor(s);
@@ -150,10 +150,13 @@ test('color, tips, chalkboard, and tables share 40×1.6^n with no cap', () => {
   assert.equal(G.tipPrice(s), expect);
   assert.equal(G.previewPrice(s), expect);
 
-  s.progress.colorsOwned = G.CONFIG.MAX_COLORS;
+  const purse = s.progress.coins;
+  s.progress.colorsOwned = s.run.palette.length;
   const moreColor = G.buyColor(s);
-  assert.equal(moreColor.error, undefined);
-  assert.equal(moreColor.progress.colorsOwned, G.CONFIG.MAX_COLORS + 1);
+  assert.equal(moreColor.error, 'maxed');
+  assert.equal(moreColor.state.progress.colorsOwned, s.run.palette.length);
+  assert.equal(moreColor.state.progress.coins, purse);
+  assert.equal(s.progress.coins, purse);
   s.progress.econ.multLevel = G.CONFIG.MULT_MAX;
   s.economy.multLevel = G.CONFIG.MULT_MAX;
   const moreTips = G.buyMultiplier(s);
