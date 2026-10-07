@@ -26,24 +26,37 @@ const open = (coins = 1e9, seed = 1) => {
 
 const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'index.html'), 'utf8');
 
-test('tip hold line uses pay() and the exponent step', () => {
+test('tip hold lists pay() now and next, and the step is 0.25', () => {
   let s = open();
   assert.equal(G.skillUseCount(s, 'tips'), 0);
-  const extra0 = G.pay({ qty: 8 }, 1) - G.pay({ qty: 8 }, 0);
-  const line0 = G.tipSkillLine(s);
-  assert.equal(G.CONFIG.EXP_STEP, 0.5);
-  assert.match(line0, /Each level adds 0\.50 to the pay exponent/);
-  assert.match(line0, new RegExp(`A size-8 order pays ${extra0} more coins`));
-  assert.equal(extra0, G.pay({ qty: 8 }, 1) - G.pay({ qty: 8 }, 0));
-  assert.equal(extra0, 123);
+  assert.equal(G.CONFIG.EXP_STEP, 0.25);
+  assert.equal(G.tipSkillLine(), 'Served orders pay more.');
+  const table = G.tipPayTable(s);
+  assert.equal(table.level, 0);
+  assert.equal(table.rows.length, 8);
+  for (const row of table.rows) {
+    assert.equal(row.now, G.pay({ qty: row.qty }, 0));
+    assert.equal(row.next, G.pay({ qty: row.qty }, 1));
+  }
+  assert.deepEqual([0, 1, 2, 3].map((n) => G.pay({ qty: 8 }, n)), [67, 113, 190, 320]);
   s = G.buyMultiplier(s);
   const n = G.skillUseCount(s, 'tips');
-  const extra = G.pay({ qty: 8 }, n + 1) - G.pay({ qty: 8 }, n);
-  const line = G.tipSkillLine(s);
-  assert.match(line, new RegExp(`pays ${extra} more coins`));
-  assert.equal(G.CONFIG.EXP_BASE + G.CONFIG.EXP_STEP * n, 1.25 + 0.5 * n);
-  assert.match(html, /tipSkillLine\(state\)/);
+  const next = G.tipPayTable(s);
+  assert.equal(next.level, n);
+  assert.equal(G.CONFIG.EXP_BASE + G.CONFIG.EXP_STEP * n, 1.25 + 0.25 * n);
+  for (const row of next.rows) {
+    assert.equal(row.now, G.pay({ qty: row.qty }, n));
+    assert.equal(row.next, G.pay({ qty: row.qty }, n + 1));
+  }
+  assert.match(html, /tipPayTable\(state\)/);
+  assert.match(html, /Tips — level/);
+  assert.match(html, /Served orders pay more\./);
+  assert.match(html, /Only a served order pays more/);
+  assert.match(html, /pay\(order, tipLevel\(s\)\)/);
+  assert.match(html, /const got=res\.progress\.coins-state\.progress\.coins/);
+  assert.match(html, /showCoinGain\(got/);
   assert.match(html, /SKILL_HELP_MS = 500/);
+  assert.doesNotMatch(html, /pay exponent/);
 });
 
 test('each run keeps 7 of 10 creatures and unlocks them gradually', () => {
@@ -95,7 +108,7 @@ test('serving and a 10-stack count as paid stacks; trays are counted when dealt'
   order.served = false;
   for (const o of s.run.activeClients) if (o !== order) o.served = true;
   const before = s.progress.coins;
-  const paid = G.pay(order, s.economy.multLevel);
+  const paid = G.pay(order, G.tipLevel(s));
   const served = G.resolveCascade(s);
   assert.equal(served.state.run.moneyStacks, 1);
   assert.equal(served.state.progress.coins, before + paid);
@@ -167,7 +180,7 @@ test('finished runs keep best and worst, capped, across a restart', () => {
 });
 
 test('save modal, skill level, coin float, and defeat are in the page', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.1'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.2'/);
   assert.match(html, /id="runHistory"/);
   assert.match(html, /function renderRunHistory/);
   assert.match(html, /bestWorstRuns/);

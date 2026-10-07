@@ -11,7 +11,7 @@
 export const CONFIG = {
   BASE_COIN: 5,                     // R5.1
   EXP_BASE: 1.25,                   // R5.2 superlinear exponent
-  EXP_STEP: 0.50,                   // R5.2 v2.24.1: five times the v2.24 step of 0.10
+  EXP_STEP: 0.25,                   // R5.2 v2.24.2: half the v2.24.1 step of 0.50
   MULT_PRICE_BASE: 100,             // R5.2 historical list price; live tips use 40×1.6^n
   MULT_MAX: 6,                      // retired as a purchase cap in v2.22.4 (tips are unlimited)
   CALAMITY_BONUS_PER: 15,           // R5.3 / R8.5 bonus per calamity cell
@@ -162,6 +162,43 @@ export function colorsUnlocked(productsBought) {
 export function pay(order, multLevel = 0) {
   const exp = CONFIG.EXP_BASE + CONFIG.EXP_STEP * (multLevel || 0);
   return Math.round(CONFIG.BASE_COIN * Math.pow(order.qty, exp));
+}
+
+// The live tip level is progress.econ.multLevel. economy.multLevel is only
+// a mirror, written on buy and on load. A missing or non-positive value pays
+// as level 0 (the same as pay()'s default).
+export function tipLevel(state) {
+  const n = state && state.progress && state.progress.econ && state.progress.econ.multLevel;
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return n;
+}
+
+// Sizes a café can actually serve (3..10). now/next come from pay() at the
+// live level and the level a Tips purchase would reach.
+export function tipPayTable(state) {
+  const lvl = tipLevel(state);
+  const rows = [];
+  for (let qty = 3; qty <= 10; qty++) {
+    rows.push({ qty, now: pay({ qty }, lvl), next: pay({ qty }, lvl + 1) });
+  }
+  return { level: lvl, rows };
+}
+
+// Progress wins. If it has no number, copy economy, then write both so a
+// later read cannot pay one level and display another.
+function syncTipLevel(state) {
+  if (!state || !state.progress) return state;
+  if (!state.progress.econ || typeof state.progress.econ !== 'object') state.progress.econ = {};
+  const prog = state.progress.econ.multLevel;
+  if (!Number.isFinite(prog)) {
+    const econ = state.economy && state.economy.multLevel;
+    state.progress.econ.multLevel = Number.isFinite(econ) ? econ : 0;
+  }
+  const lvl = tipLevel(state);
+  state.progress.econ.multLevel = lvl;
+  if (!state.economy || typeof state.economy !== 'object') state.economy = {};
+  state.economy.multLevel = lvl;
+  return state;
 }
 
 export function bonusCalamity(run) {
@@ -1143,9 +1180,7 @@ export function skillUseCount(state, power) {
     const owned = (state && state.progress && state.progress.colorsOwned) || 4;
     return Math.max(0, owned - 4);
   }
-  if (power === 'tips') {
-    return (state && state.progress && state.progress.econ && state.progress.econ.multLevel) || 0;
-  }
+  if (power === 'tips') return tipLevel(state);
   if (power === 'previewPool') {
     return (state && state.skills && state.skills.previewPool && state.skills.previewPool.level) || 0;
   }
@@ -1207,15 +1242,9 @@ export function tipPrice(state) {
   return skillUsePrice(state, 'tips');
 }
 
-// v2.23 — una frase para el hold de Tips. Usa pay() real: cada nivel suma
-// EXP_STEP al exponente. El ejemplo es un pedido de tamaño 8 (sale desde
-// el inicio). No inventa otra curva.
-export function tipSkillLine(state, qty = 8) {
-  const n = skillUseCount(state, 'tips');
-  const order = { qty };
-  const extra = pay(order, n + 1) - pay(order, n);
-  const step = CONFIG.EXP_STEP.toFixed(2);
-  return `Each level adds ${step} to the pay exponent. A size-${qty} order pays ${extra} more coins.`;
+// v2.24.2 — the button stays one sentence. The hold modal is tipPayTable().
+export function tipSkillLine() {
+  return 'Served orders pay more.';
 }
 
 export function previewPrice(state) {
@@ -1342,7 +1371,7 @@ export function serveOrder(state, orderId, cellId) {
   // consume exactly order.qty pieces from the top (they are all order.color)
   cell.stack.splice(cell.stack.length - order.qty, order.qty);            // R4.3 v2
   order.served = true;
-  const amount = pay(order, s.economy.multLevel);                          // R5.1
+  const amount = pay(order, tipLevel(s));                                  // R5.1
   s.progress.coins += amount;
   if (amount > 0) s.run.moneyStacks = (s.run.moneyStacks || 0) + 1;
   // v2.1 R16.3/R16.4: al servir un VISIBLE → clientsServed+1 y entra el
@@ -1476,7 +1505,7 @@ export function resolveCascade(state) {
         const cell = s.run.board[idx];
         cell.stack.splice(cell.stack.length - order.qty, order.qty);   // exacto
         order.served = true;
-        const servedPay = pay(order, s.economy.multLevel);            // R5.1
+        const servedPay = pay(order, tipLevel(s));                    // R5.1
         s.progress.coins += servedPay;
         if (servedPay > 0) s.run.moneyStacks = (s.run.moneyStacks || 0) + 1;
         if (s.run.clientsServed != null) s.run.clientsServed += 1;      // v2.1 R16.3
@@ -1831,13 +1860,15 @@ export function buyExpansion(state, kind) {
 
 export function buyMultiplier(state) {
   const s = clone(state);
-  const lvl = s.progress.econ.multLevel;
+  if (!s.progress.econ || typeof s.progress.econ !== 'object') s.progress.econ = { multLevel: 0 };
+  const lvl = tipLevel(s);
   // v2.22.4: sin MULT_MAX. Misma curva 40×1.6^n que el resto de skills.
   const price = tipPrice(s);
   if (s.progress.coins < price) return { error: 'noFunds' };
   s.progress.coins -= price;
   s.progress.econ.multLevel = lvl + 1;
-  if (s.economy) s.economy.multLevel = s.progress.econ.multLevel;
+  if (!s.economy || typeof s.economy !== 'object') s.economy = {};
+  s.economy.multLevel = s.progress.econ.multLevel;
   return s;
 }
 
@@ -2068,6 +2099,7 @@ export function deserializeState(json) {
       if (s.settings.boardRot == null) s.settings.boardRot = 0;
       if (!Array.isArray(s.runHistory)) s.runHistory = [];
       dropPermanentTableFields(s);
+      syncTipLevel(s);
       return s;
     }
     return createGame();
@@ -2102,6 +2134,7 @@ export function importSave(json) {
     if (!s || s.version !== 1 || !s.progress || !s.meta) return { error: 'invalid' };
     if (!s.settings || s.settings.epoch !== 21) return freshGameKeepingTutorial(s);
     dropPermanentTableFields(s);
+    syncTipLevel(s);
     return s;
   } catch (e) {
     return { error: 'invalid' };

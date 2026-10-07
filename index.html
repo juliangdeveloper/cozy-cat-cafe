@@ -86,8 +86,13 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
   background:conic-gradient(var(--danger) calc(var(--hold-p,0)*1%), transparent 0);opacity:.55}
 .cal-pop p{margin:0 0 8px;font-size:14px;font-weight:700;line-height:1.35}
 #skillPop.overlay,#peekPop.overlay{z-index:110}
-.skill-pop{max-width:300px;padding:16px 16px 14px}
+.skill-pop{max-width:min(340px,calc(100vw - 24px));padding:14px 12px 12px}
+.skill-pop h3{margin:0 0 8px;font-family:var(--font-display);font-size:18px;text-align:center}
 .skill-pop p{margin:0 0 12px;text-align:center;font-weight:800;font-size:15px;line-height:1.35}
+.skill-pop p.tip-note{margin:0 0 10px;font-size:13px;font-weight:700;line-height:1.3}
+.tip-table{width:100%;border-collapse:collapse;margin:0 0 10px;font-size:13px;font-variant-numeric:tabular-nums}
+.tip-table th,.tip-table td{padding:3px 6px;text-align:right;font-weight:800;border-bottom:1px solid color-mix(in srgb, var(--ink) 18%, transparent)}
+.tip-table th:first-child,.tip-table td:first-child{text-align:left}
 .peek-pop{max-width:440px}
 .peek-pop h3{margin-bottom:4px}
 .peek-note{margin:0 0 12px;text-align:center;font-weight:700;font-size:13px;color:var(--ink-soft)}
@@ -566,6 +571,8 @@ body.tut-on .powerbar.tut-spot{z-index:90}
 
 <div id="skillPop" class="overlay" aria-hidden="true">
   <div class="modal skill-pop" role="dialog" aria-modal="true" aria-labelledby="skillPopText">
+    <h3 id="skillPopTitle" hidden></h3>
+    <table id="skillPopTable" class="tip-table" hidden></table>
     <p id="skillPopText"></p>
     <button type="button" class="btn btn-sec" id="skillPopClose" data-close="skillPop" style="width:100%">Close</button>
   </div>
@@ -652,7 +659,7 @@ import {
   totalClients, runVictory, useQueueSkip,
   // v2.21 — meta efímera, pedidos, oleada 2, victoria
   restartRun, beginVictory, clearTables, calamityForecast,
-  tipSkillLine, runFaceColor, bestWorstRuns,
+  tipLevel, tipPayTable, runFaceColor, bestWorstRuns,
 } from './js/game.js';
 import {
   bindCafeAudio, unlockCafeAudio, noteCafeOpen, noteCafeClosed,
@@ -1188,10 +1195,28 @@ function colorLockedLine(){
 function openSkillHelp(skill){
   closePeekModal();
   const pop = $('#skillPop'); const tx = $('#skillPopText');
+  const title = $('#skillPopTitle'); const table = $('#skillPopTable');
+  const dialog = pop && pop.querySelector('[role="dialog"]');
   if(!pop || !tx) return;
-  const line = skill==='tips' ? tipSkillLine(state)
-    : (skill==='color' && colorLocked() ? colorLockedLine() : (SKILL_BLURB[skill] || 'This skill spends coins.'));
-  tx.textContent = line;
+  if(skill==='tips'){
+    const info = tipPayTable(state);
+    if(title){ title.hidden = false; title.textContent = 'Tips — level '+info.level; }
+    if(table){
+      table.hidden = false;
+      const head = '<thead><tr><th>Size</th><th>Now</th><th>Next</th></tr></thead>';
+      const body = '<tbody>'+info.rows.map(r=>'<tr><td>'+r.qty+'</td><td>'+fmt(r.now)+'</td><td>'+fmt(r.next)+'</td></tr>').join('')+'</tbody>';
+      table.innerHTML = head+body;
+    }
+    tx.textContent = 'Only a served order pays more. A clear and a calamity bonus stay the same.';
+    tx.classList.add('tip-note');
+    if(dialog) dialog.setAttribute('aria-labelledby','skillPopTitle');
+  } else {
+    if(title){ title.hidden = true; title.textContent = ''; }
+    if(table){ table.hidden = true; table.innerHTML = ''; }
+    tx.classList.remove('tip-note');
+    tx.textContent = skill==='color' && colorLocked() ? colorLockedLine() : (SKILL_BLURB[skill] || 'This skill spends coins.');
+    if(dialog) dialog.setAttribute('aria-labelledby','skillPopText');
+  }
   pop.classList.add('show');
   pop.setAttribute('aria-hidden','false');
 }
@@ -1243,7 +1268,7 @@ function renderPowers(){
     const broke = skillUnaffordable(d.skill, priceN);
     const depleted = (d.skill==='undoMove' && !(state.run && state.run.undoSnap))
       || (d.skill==='color' && colorLocked());
-    const help = d.skill==='tips' ? tipSkillLine(state)
+    const help = d.skill==='tips' ? 'Served orders pay more.'
       : (d.skill==='color' && colorLocked() ? colorLockedLine() : SKILL_BLURB[d.skill]);
     const tip = 'Level '+n+'. '+help+' Next '+fmt(priceN)+' coins.';
     const cost = `<span class="pow-cost">🪙${fmt(priceN)}</span>`;
@@ -1425,7 +1450,7 @@ function cascadeLinks(state){
         const cell=s.run.board[idx];
         cell.stack.splice(cell.stack.length-order.qty,order.qty);   // exacto
         order.served=true;
-        const amount=pay(order,s.economy.multLevel);                // R5.1
+        const amount=pay(order, tipLevel(s));                       // R5.1
         s.progress.coins+=amount; served.push({cell:idx,amount,order});  // v2.4: order para flyToClient
         acted=true;
       }
@@ -2096,7 +2121,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.1';
+const GAME_VERSION = 'v2.24.2';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };
