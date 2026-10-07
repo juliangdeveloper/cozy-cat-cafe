@@ -5,7 +5,7 @@
   "description": "Cozy Cat Café × HexaSort — Warm Vintage Café idle × hex-sort",
   "main": "index.html",
   "scripts": {
-    "test": "node --test test/rules.test.js test/audio.test.js test/ui.v2211.test.js test/v2.t27.test.js test/v2.t28.test.js",
+    "test": "node --test test/rules.test.js test/audio.test.js test/ui.v2211.test.js test/v2.t27.test.js test/v2.t28.test.js test/v2.t29.test.js",
     "test:e2e": "node test/e2e.playthrough.js",
     "build": "node build.js"
   },

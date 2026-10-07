@@ -1,5 +1,17 @@
 # Cozy Cat Café × HexaSort — Shared Understanding (post-grill)
 
+## v2.24.0 — Clear board y Undo (2026-10-07)
+
+**Clear board** (`clearBoard`). Un toque vacía las pilas de todo el tablero. No pide celda. La regla por celda es la de Destroy (`useDestroyPile`): si la celda está `blocked`, no se toca (el candado, su `hiddenStack` y cualquier pila visible sobre el candado se quedan); si no, `stack` pasa a `[]` sea cual sea la altura. No cambia `dormant`, `blocked`, `hiddenStack` ni las marcas de calamidad. Una pila oculta en una mesa apagada no es una pila ocupada: Destroy tampoco la borra. Si no queda ninguna pila que Destroy pudiera borrar, no cobra (`{error:'empty'}`). Precio propio: `CLEAR_BOARD_BASE × SKILL_USE_RATIO^n` = **10000 × 1.6^n** (producto exacto). No usa `SKILL_USE_BASE` (40). `n` es `run.skillUses.clearBoard`. Sin techo. El hold dice "Clear every pile off the whole board."
+
+**Undo** (`undoMove`). Un solo nivel. Antes de cada acción que muta tablero, pool o pedidos se guarda una foto del café entero, sin anidar la foto anterior. Esas acciones son: colocar una pila, swap, destroy, refresh, queue skip, unlock, clear board, activar una mesa y servir a mano. La cascada que dispara esa acción queda dentro del mismo paso: la foto es de antes del gesto, así que deshacer revierte también el merge y el cobro. Undo no se fotografía a sí mismo.
+
+Regla de monedas: el precio es el de las demás skills, `skillUsePrice` / `chargeSkill` = **40 × 1.6^n**, con `n` = usos de Undo en la run. Al usarlo se restaura la foto (las monedas vuelven a las de antes de esa acción, y el cobro de esa acción se deshace) y **después** se resta la tarifa de Undo y se suma 1 a `skillUses.undoMove`. Si las monedas de la foto no alcanzan para la tarifa, no se restaura nada y no se cobra. La foto se tira. Un segundo toque no tiene nada que deshacer y no devuelve la tarifa. Si no hay foto, el botón queda apagado y el toque dice "Nothing to undo." El hold dice "Undo your last move."
+
+La foto se vacía al abrir la run, al reiniciar (Hold 3s, o el toque del velo tras la victoria: los dos pasan por `restartRun`) y al ganar (`beginVictory` suelta la foto, así que el gesto que sirvió al cliente 100 no se rebobina).
+
+**Barra.** Once skills, solo icono, precio y numeral de nivel (`skillUseCount`). Rejilla de 6 columnas (6+5) para que quepan en ~390px sin soltar la barra pegada abajo. Clear es 🧹 y Undo es ↩️. Waiter sigue fuera.
+
 ## v2.23.0 — propinas, 7 colores por run, monedas, nivel, historial, derrota
 
 **Tips.** El hold de ~500ms de Tips dice el efecto con la fórmula que ya existe. Cada nivel suma `EXP_STEP` (0.05) al exponente de `pay()`: `BASE_COIN × qty^(EXP_BASE + EXP_STEP × multLevel)`. La frase da las monedas extra de un pedido de tamaño 8 (`pay` del nivel siguiente menos `pay` del nivel actual). No hay otra economía.

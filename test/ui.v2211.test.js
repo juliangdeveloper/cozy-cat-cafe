@@ -18,7 +18,7 @@ function sliceFn(name, next) {
 }
 
 test('version footer stays and reads v2.22.4', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.23\.0'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.0'/);
   assert.match(html, /☕ Cozy Cat Café \$\{GAME_VERSION\}/);
   assert.match(html, /Hold 3s to restart/);
 });
@@ -62,7 +62,7 @@ test('shop panel is gone and former café buys sit in the skill grid', () => {
   assert.equal(html.includes('function showShop'), false);
   assert.equal(html.includes('This café only'), false);
   const powers = sliceFn('renderPowers', 'refreshFlow');
-  for (const id of ['destroyPile', 'swapPiles', 'refreshPool', 'tables', 'unlockLocks', 'queueSkip', 'previewPool', 'color', 'tips']) {
+  for (const id of ['destroyPile', 'swapPiles', 'refreshPool', 'tables', 'unlockLocks', 'queueSkip', 'previewPool', 'color', 'tips', 'clearBoard', 'undoMove']) {
     assert.match(powers, new RegExp(`skill:'${id}'`));
   }
   assert.doesNotMatch(powers, /serveManual/);
@@ -118,6 +118,8 @@ test('a skill hold opens one sentence and a short tap still uses it', () => {
   assert.match(html, /id="skillPop"/);
   assert.match(html, /id="skillPopClose"/);
   assert.match(html, /Clear every tile off one table\./);
+  assert.match(html, /Clear every pile off the whole board\./);
+  assert.match(html, /Undo your last move\./);
   assert.match(html, /Trade the stacks on two tables\./);
   assert.match(html, /Open one more table beside the ones already open\./);
   assert.match(html, /if\(e\.target === skillPop\) closeSkillHelp/);
@@ -131,7 +133,7 @@ test('a skill hold opens one sentence and a short tap still uses it', () => {
 
 test('skills are two rows, prices stay inside the button', () => {
   assert.match(css, /\.powerbar\{[^}]*display:grid/);
-  assert.match(css, /\.powerbar\{[^}]*grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
+  assert.match(css, /\.powerbar\{[^}]*grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/);
   assert.doesNotMatch(css, /grid-template-columns:repeat\(3/);
   assert.doesNotMatch(css, /\.powerbar\{[^}]*overflow-x:\s*auto/);
   assert.doesNotMatch(css, /\.powerbar\{[^}]*flex-wrap:\s*nowrap/);
