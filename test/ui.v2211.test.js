@@ -17,8 +17,8 @@ function sliceFn(name, next) {
   return html.slice(start, end);
 }
 
-test('version footer stays and reads v2.22.3', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.22\.3'/);
+test('version footer stays and reads v2.22.4', () => {
+  assert.match(html, /GAME_VERSION = 'v2\.22\.4'/);
   assert.match(html, /☕ Cozy Cat Café \$\{GAME_VERSION\}/);
   assert.match(html, /Hold 3s to restart/);
 });
@@ -30,6 +30,9 @@ test('status and rotate/restart share one chrome strip', () => {
   const header = run.slice(top, orders);
   assert.ok(header.includes('id="coinNum"'));
   assert.ok(header.includes('id="calStrip"'));
+  assert.ok(header.includes('class="cal-ico-btn"'));
+  assert.equal(header.includes('cal-bar'), false);
+  assert.equal(header.includes('id="calFill"'), false);
   assert.ok(header.includes('id="queueCount"'));
   assert.ok(header.includes('id="btnSave"'));
   assert.ok(header.includes('id="btnRotate"'));
@@ -44,7 +47,11 @@ test('status and rotate/restart share one chrome strip', () => {
   const restart = header.indexOf('id="btnClose"');
   assert.ok(strip >= 0 && count > strip && rotate > count && restart > rotate);
   assert.match(css, /\.topbar\{[^}]*flex-wrap:\s*nowrap/);
-  assert.match(css, /\.cal-strip\{[^}]*flex:\s*1\s+1\s+auto/);
+  assert.match(css, /\.cal-ico-btn\{[^}]*min-height:\s*40px/);
+  assert.match(css, /\.cal-ico-btn\{[^}]*--cal-p/);
+  assert.match(css, /color-mix\(in srgb, var\(--danger\)/);
+  assert.doesNotMatch(css, /\.cal-strip\{/);
+  assert.doesNotMatch(header, /class="cal-bar"/);
   assert.match(css, /\.chrome-hold\{[^}]*min-height:\s*40px/);
   assert.match(css, /\.hdr-tools \.iconbtn\{[^}]*min-height:\s*40px/);
 });
@@ -85,7 +92,10 @@ test('using the chalkboard opens a modal of the next tray piles', () => {
   const powers = sliceFn('renderPowers', 'refreshFlow');
   assert.match(powers, /mode==='preview'/);
   assert.match(powers, /openPeekModal\(\)/);
-  assert.match(powers, /dataset\.maxed==='1'/);
+  assert.match(powers, /peekLvl>0 && p\.classList\.contains\('broke'\)/);
+  assert.doesNotMatch(powers, /maxed/);
+  assert.doesNotMatch(powers, /Maxed/);
+  assert.doesNotMatch(powers, /pow-cost">Max/);
   assert.match(html, /if\(e\.target === peekPop\) closePeekModal/);
   const help = sliceFn('openSkillHelp', 'closeSkillHelp');
   assert.match(help, /closePeekModal\(\)/);
@@ -164,6 +174,15 @@ test('first-run spotlight matches auto-serve, restart, and skill tips', () => {
   assert.doesNotMatch(steps, /Waiter|serveManual/);
   assert.match(html, /if\(step\.sel==='#btnClose'\) el\.classList\.add\('tut-spot-block'\)/);
   assert.match(html, /maybeStartTutorial\(\)/);
+  const boardZ = Number((css.match(/body\.tut-on \.board-wrap,body\.tut-on \.pool\{[^}]*z-index:(\d+)/) || [])[1]);
+  const holeZ = Number((css.match(/\.tut-hole\{[^}]*z-index:(\d+)/) || [])[1]);
+  const cardZ = Number((css.match(/\.tut-card\{[^}]*z-index:(\d+)/) || [])[1]);
+  assert.ok(boardZ > 0 && holeZ > boardZ && cardZ > boardZ, `layer board ${boardZ} hole ${holeZ} card ${cardZ}`);
+  const overlayAt = html.indexOf('<div id="tutOverlay"');
+  const cardAt = html.indexOf('<div class="tut-card"');
+  const holeAt = html.indexOf('<div class="tut-hole"');
+  assert.ok(overlayAt >= 0 && cardAt > overlayAt && holeAt > overlayAt);
+  assert.equal(html.slice(overlayAt, overlayAt + 40).includes('tut-card'), false);
 });
 
 test('a selected order glows only cells the rules already accept', () => {

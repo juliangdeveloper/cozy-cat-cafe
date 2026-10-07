@@ -22,7 +22,7 @@ const open = (coins = 1e9, seed = 1) => {
   return G.openRun(s, rng(seed));
 };
 
-const priceAt = (n) => Math.round(G.CONFIG.SKILL_USE_BASE * G.CONFIG.SKILL_USE_RATIO ** n);
+const priceAt = (n) => G.CONFIG.SKILL_USE_BASE * G.CONFIG.SKILL_USE_RATIO ** n;
 
 test('CONFIG documents the shared 40 × 1.6 curve', () => {
   assert.equal(G.CONFIG.SKILL_USE_BASE, 40);
@@ -121,7 +121,7 @@ test('a current save drops a leftover Waiter skill on load', () => {
   assert.equal(back.skills.previewPool.level, 0);
 });
 
-test('color, tips, and chalkboard follow the same exponential and then cap', () => {
+test('color, tips, chalkboard, and tables share 40×1.6^n with no cap', () => {
   let s = open();
   assert.equal(G.colorPrice(s), priceAt(0));
   s = G.buyColor(s);
@@ -133,11 +133,34 @@ test('color, tips, and chalkboard follow the same exponential and then cap', () 
   s = G.buySkill(s, 'previewPool');
   assert.equal(G.previewPrice(s), priceAt(1));
 
+  s.run.runTilesActivated = 4;
+  s.run.skillUses = {
+    destroyPile: 4, swapPiles: 4, refreshPool: 4, unlockLocks: 4, queueSkip: 4,
+  };
+  s.progress.colorsOwned = 8;
+  s.progress.econ.multLevel = 4;
+  s.economy.multLevel = 4;
+  s.skills.previewPool.level = 4;
+  const expect = priceAt(4);
+  for (const id of ['destroyPile', 'swapPiles', 'refreshPool', 'unlockLocks', 'queueSkip', 'tables', 'color', 'tips', 'previewPool']) {
+    assert.equal(G.skillUsePrice(s, id), expect, id);
+  }
+  assert.equal(G.runTilePrice(s), expect);
+  assert.equal(G.colorPrice(s), expect);
+  assert.equal(G.tipPrice(s), expect);
+  assert.equal(G.previewPrice(s), expect);
+
   s.progress.colorsOwned = G.CONFIG.MAX_COLORS;
-  const maxed = G.buyColor(s);
-  assert.equal(maxed.error, 'maxed');
+  const moreColor = G.buyColor(s);
+  assert.equal(moreColor.error, undefined);
+  assert.equal(moreColor.progress.colorsOwned, G.CONFIG.MAX_COLORS + 1);
   s.progress.econ.multLevel = G.CONFIG.MULT_MAX;
-  assert.equal(G.buyMultiplier(s).error, 'maxed');
+  s.economy.multLevel = G.CONFIG.MULT_MAX;
+  const moreTips = G.buyMultiplier(s);
+  assert.equal(moreTips.error, undefined);
+  assert.equal(moreTips.progress.econ.multLevel, G.CONFIG.MULT_MAX + 1);
   s.skills.previewPool.level = 3;
-  assert.equal(G.buySkill(s, 'previewPool').error, 'max');
+  const moreBoard = G.buySkill(s, 'previewPool');
+  assert.equal(moreBoard.error, undefined);
+  assert.equal(moreBoard.skills.previewPool.level, 4);
 });
