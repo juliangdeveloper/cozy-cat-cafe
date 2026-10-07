@@ -40,6 +40,8 @@ window.setInterval = global.setInterval.bind(global);
 window.setTimeout  = global.setTimeout.bind(global);
 window.clearInterval = global.clearInterval.bind(global);
 window.clearTimeout  = global.clearTimeout.bind(global);
+window.requestAnimationFrame = (cb) => setTimeout(() => cb(Date.now()), 16);
+window.cancelAnimationFrame = (id) => clearTimeout(id);
 
 // expose jsdom as Node globals so the app module's bare refs resolve
 globalThis.window = window;
@@ -53,6 +55,8 @@ globalThis.setInterval = global.setInterval.bind(global);
 globalThis.setTimeout  = global.setTimeout.bind(global);
 globalThis.clearInterval = global.clearInterval.bind(global);
 globalThis.clearTimeout  = global.clearTimeout.bind(global);
+globalThis.requestAnimationFrame = window.requestAnimationFrame;
+globalThis.cancelAnimationFrame = window.cancelAnimationFrame;
 
 // Build bridge module: real imports + app body + exposed boot.
 // Take the game import from the page so new skills stay in the smoke boot.
