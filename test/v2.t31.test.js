@@ -48,7 +48,7 @@ test('serve and cascade pay progress.econ.multLevel and ignore a stale economy f
   assert.ok(!served.error);
   const got = served.progress.coins - before;
   assert.equal(got, G.pay({ qty: 8 }, 2));
-  assert.equal(got, 190);
+  assert.equal(got, 155);
   assert.notEqual(got, G.pay({ qty: 8 }, 0));
 
   const cascaded = open(1e9, 2);
@@ -58,7 +58,7 @@ test('serve and cascade pay progress.econ.multLevel and ignore a stale economy f
   const coins = cascaded.progress.coins;
   const resolved = G.resolveCascade(cascaded);
   assert.equal(resolved.state.progress.coins - coins, G.pay(pile.order, G.tipLevel(cascaded)));
-  assert.equal(resolved.state.progress.coins - coins, 190);
+  assert.equal(resolved.state.progress.coins - coins, 155);
 });
 
 test('buying tips writes both fields, even if economy was missing', () => {
@@ -114,8 +114,8 @@ test('the tip table is pay() at this level and the next, and a clear is not scal
     assert.equal(row.next, G.pay({ qty: row.qty }, 2));
   }
   const size8 = table.rows.find((r) => r.qty === 8);
-  assert.equal(size8.now, 113);
-  assert.equal(size8.next, 190);
+  assert.equal(size8.now, 102);
+  assert.equal(size8.next, 155);
 
   const debris = open(1e9, 6);
   debris.progress.econ.multLevel = 3;
@@ -132,7 +132,7 @@ test('the tip table is pay() at this level and the next, and a clear is not scal
 
 test('the page floats the purse delta and builds the tip modal from pay()', () => {
   const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'index.html'), 'utf8');
-  assert.match(html, /GAME_VERSION = 'v2\.24\.2'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.3'/);
   assert.match(html, /const got=res\.progress\.coins-state\.progress\.coins/);
   assert.match(html, /showCoinGain\(got/);
   assert.match(html, /pay\(order, tipLevel\(s\)\)/);

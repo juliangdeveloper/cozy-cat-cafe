@@ -1,5 +1,13 @@
 # Cozy Cat Café × HexaSort — Shared Understanding (post-grill)
 
+## v2.24.3 — propina un poco más baja, 8 colores por run (2026-10-07)
+
+**Tips.** `EXP_STEP` baja de 0.25 a **0.20**. Un pedido de tamaño 8 paga 67, 102, 155 y 234 monedas en los niveles 0, 1, 2 y 3. La tabla del hold sigue saliendo de `pay()`.
+
+**Ocho de diez.** `RUN_COLORS` pasa de 7 a **8**. `openRun` sortea 8 criaturas en `run.palette`. El techo de roster, de `buyColor` y del sorteo de clientes sigue siendo el largo de esa paleta: `min(colorsOwned+1, palette.length)`. Con 8 poseídos, Color se apaga y el texto dice "All 8 colors unlocked" (`colorRunCap`, no un 8 escrito a mano). Comprar el 9º no entra. El tutorial y el hold de las otras skills no nombran un número de colores.
+
+**Run vieja.** Cargar una sitting que ya trae `palette` de 7 no la alarga: `rosterCeiling` es `palette.length`, así que esa partida sigue trabando Color en 7 y los clientes no piden el 8. La siguiente `openRun` (reinicio incluido) sortea 8 nuevas. Una run sin `palette` sigue en `MAX_COLORS` (10).
+
 ## v2.24.2 — la propina muestra el número que se cobra (2026-10-07)
 
 **Paso.** `EXP_STEP` baja de 0.50 a **0.25**. Un pedido de tamaño 8 paga 67, 113, 190 y 320 monedas en los niveles 0, 1, 2 y 3.

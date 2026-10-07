@@ -11,7 +11,7 @@
 export const CONFIG = {
   BASE_COIN: 5,                     // R5.1
   EXP_BASE: 1.25,                   // R5.2 superlinear exponent
-  EXP_STEP: 0.25,                   // R5.2 v2.24.2: half the v2.24.1 step of 0.50
+  EXP_STEP: 0.20,                   // R5.2 v2.24.3: down from the v2.24.2 step of 0.25
   MULT_PRICE_BASE: 100,             // R5.2 historical list price; live tips use 40×1.6^n
   MULT_MAX: 6,                      // retired as a purchase cap in v2.22.4 (tips are unlimited)
   CALAMITY_BONUS_PER: 15,           // R5.3 / R8.5 bonus per calamity cell
@@ -48,9 +48,10 @@ export const CONFIG = {
   CLEAR_BOARD_BASE: 10000,
   MAX_COLORS: 10,                   // R13.7 10 colores / criaturas en el ROSTER (R13.2)
   // v2.23 — cada run sortea este subconjunto del roster. El desbloqueo
-  // gradual (bolsa, rosterIndex, colorsOwned) vive DENTRO de esos 7.
-  // MAX_COLORS sigue siendo el roster completo; no es el techo de la run.
-  RUN_COLORS: 7,
+  // gradual (bolsa, rosterIndex, colorsOwned) vive DENTRO de esos colores.
+  // v2.24.3: 8 de 10. MAX_COLORS sigue siendo el roster completo.
+  // Una run ya guardada conserva el largo de su palette (7 no se reescribe).
+  RUN_COLORS: 8,
   RUN_HISTORY_MAX: 20,              // últimas runs terminadas en el save
   DEBRIS_THRESHOLD: 10,             // v2 escombros: umbral para entrar en tablero
   DEBRIS_BONUS_PER: 25,             // v2 escombros: bonus por escombro limpiado
@@ -543,8 +544,9 @@ export function runVictory(state) {
   return (state.run.clientsServed || 0) >= totalClients(state);
 }
 
-// v2.23 — techo de criaturas de ESTA run. Con palette, es su largo (7).
-// Una run vieja sin palette conserva MAX_COLORS (10) para no reescribir fichas.
+// v2.23 — techo de criaturas de ESTA run. Con palette, es su largo
+// (8 en una run nueva). Una run vieja sin palette conserva MAX_COLORS (10).
+// Una run guardada con 7 criaturas se queda en 7 hasta la próxima openRun.
 function rosterCeiling(run) {
   const p = run && run.palette;
   if (Array.isArray(p) && p.length) return p.length;
@@ -552,9 +554,9 @@ function rosterCeiling(run) {
 }
 
 // v2.1 helper (R16.2) + v2.23: tope = min(colorsOwned+1, techo de la run).
-// Con colorsOwned=4 y palette de 7 el roster arranca (y se estanca) en 5.
+// Con colorsOwned=4 y palette de 8 el roster arranca (y se estanca) en 5.
 // Comprar colores sube el tope hasta el subconjunto, no hasta 11 ni hasta 10
-// si la run solo trajo 7. buyColor se detiene en ese techo (v2.24.1);
+// si la run trajo 8. buyColor se detiene en ese techo (v2.24.1);
 // el roster no pasa de él.
 function rosterMax(colorsOwned, ceiling) {
   const cap = ceiling == null ? CONFIG.MAX_COLORS : ceiling;
@@ -695,7 +697,7 @@ function v2Pile(rng, cu) {
 // (base 3, rampa hacia 10, 5 y 8 desde el inicio, legendario 10 con cupo).
 // Se DIBUJA al servir (llegada perezosa). v2.24.1: color uniforme entre los
 // que el jugador posee y el siguiente que buyColor desbloquearía,
-// 1..min(colorsOwned+1, palette.length). Con la paleta de 7 llena, solo 1..7.
+// 1..min(colorsOwned+1, palette.length). Con la paleta de 8 llena, solo 1..8.
 // NO se pre-generan los 100: contadores run.clientsDrawn / run.clientsServed.
 // v2.21 — tamaño de pedido. Puro: no muta legendaries (el caller anota el cupo).
 // Al inicio el centro es ORDER_QTY_BASE y el sorteo incluye ORDER_QTY_EARLY
@@ -742,7 +744,7 @@ function drawClientInto(s, r) {
   if ((s.run.clientsDrawn || 0) >= total) return false;    // cola agotada
   // Owned logical colors are 1..colorsOwned. The next purchase is
   // colorsOwned+1 (buyColor only increments that counter). The run's
-  // palette length is the cap, so buying past 7 never asks for creature 8.
+  // palette length is the cap, so a full palette never asks past its last color.
   const owned = s.progress.colorsOwned || 1;
   const cap = Math.max(1, Math.min(owned + 1, rosterCeiling(s.run)));
   const color = rngInt(r, 1, cap);
@@ -790,8 +792,8 @@ export function openRun(state, rng) {
   let s = clone(state);
   const r = rng || Math.random;
   const board = generateBoard(36, r);                            // R14.1 board dual 36 (rectángulo 6×6 pointy, v2.14)
-  // v2.23: 7 de las 10 criaturas, fijas para esta run. El arranque sigue
-  // en 5 activos / pool de colorsOwned (no se vuelcan las 7 de golpe).
+  // v2.24.3: 8 de las 10 criaturas, fijas para esta run. El arranque sigue
+  // en 5 activos / pool de colorsOwned (no se vuelcan las 8 de golpe).
   const palette = pickRunPalette(r);
   const rosterIdx = Math.min(5, rosterMax(s.progress.colorsOwned, palette.length)); // R13.3 v2.1: 5 tipos activos
   const cu = poolMaxColor(rosterIdx, s.progress.colorsOwned);
@@ -807,7 +809,7 @@ export function openRun(state, rng) {
     calamityWave2Applied: false,                                   // v2.21 oleada 2, una vez por partida
     legendaries: {},                                               // v2.21 cupo de pedidos de 10 por color
     rosterIndex: rosterIdx,
-    palette,                                                       // v2.23: 7 criaturas de esta run, orden de desbloqueo
+    palette,                                                       // v2.24.3: 8 criaturas de esta run, orden de desbloqueo
     moneyStacks: 0,                                                // servir + escombros que pagaron
     pilesDealt: piles.length,                                      // pilas repartidas para colocar
     placedCounter: 0,                                              // R13.4
@@ -1127,8 +1129,9 @@ function buildPick(rng, n, cu) {
 // siguiente color del roster. Precio vivo = 40×1.6^(colorsOwned-4).
 // v2.24.1: se detiene en colorRunCap (paleta de la run).
 // ---------------------------------------------------------------------------
-// v2.24.1 — techo de Color para esta run: largo de la paleta (7), o
-// MAX_COLORS si la run no tiene paleta. Es el mismo techo que rosterCeiling.
+// v2.24.1 — techo de Color para esta run: largo de la paleta (8 en una
+// run nueva; el largo guardado si la sitting es vieja), o MAX_COLORS si
+// no hay paleta. Es el mismo techo que rosterCeiling.
 export function colorRunCap(state) {
   return rosterCeiling(state && state.run);
 }
