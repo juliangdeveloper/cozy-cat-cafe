@@ -1,5 +1,6 @@
-// v2.24.1 — clients ask for owned colors plus the next buyColor unlock,
-// capped at this run's palette (7). Buying past 7 does not add a creature.
+// v2.24.3 — clients ask for owned colors plus the next buyColor unlock,
+// capped at this run's palette (8). Buying past 8 does not add a creature.
+// A saved sitting with a 7-color palette keeps that cap until the next run.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -53,7 +54,7 @@ function assertCap(colors, cap, label) {
 test('the next client color is the next buyColor unlock, not the roster', () => {
   const s = open(3);
   assert.equal(s.run.palette.length, G.CONFIG.RUN_COLORS);
-  assert.equal(s.run.palette.length, 7);
+  assert.equal(s.run.palette.length, 8);
   assert.equal(s.progress.colorsOwned, 4);
   // Logical colors are 1..k. buyColor only increments colorsOwned.
   // The face of logical k is palette[k-1].
@@ -62,7 +63,7 @@ test('the next client color is the next buyColor unlock, not the roster', () => 
   const bought = G.buyColor(s);
   assert.equal(bought.progress.colorsOwned, 5);
   assert.equal(bought.run.rosterIndex, rosterBefore);
-  assert.equal(bought.run.palette.length, 7);
+  assert.equal(bought.run.palette.length, 8);
 
   // Roster is stuck behind the purchase. The draw still includes the new next.
   const lag = structuredClone(s);
@@ -84,43 +85,78 @@ test('the next client color is the next buyColor unlock, not the roster', () => 
   assert.equal(G.runFaceColor(after, 6), after.run.palette[5]);
 });
 
-test('color locks at the palette and size-8 tips step by 0.25', () => {
+test('color locks at the palette and size-8 tips step by 0.20', () => {
   const s = open(8);
-  assert.equal(s.run.palette.length, 7);
+  assert.equal(s.run.palette.length, 8);
   s.progress.colorsOwned = 7;
   s.progress.coins = 12345;
-  const locked = G.buyColor(s);
+  const eighth = G.buyColor(s);
+  assert.ok(!eighth.error);
+  assert.equal(eighth.progress.colorsOwned, 8);
+  assert.ok(eighth.progress.coins < 12345);
+  const locked = G.buyColor(eighth);
   assert.equal(locked.error, 'maxed');
-  assert.equal(locked.state.progress.colorsOwned, 7);
-  assert.equal(locked.state.progress.coins, 12345);
-  assert.equal(s.progress.colorsOwned, 7);
-  assert.equal(s.progress.coins, 12345);
-  s.progress.colorsOwned = 9;
-  const still = G.buyColor(s);
+  assert.equal(locked.state.progress.colorsOwned, 8);
+  assert.equal(locked.state.progress.coins, eighth.progress.coins);
+  eighth.progress.colorsOwned = 9;
+  const still = G.buyColor(eighth);
   assert.equal(still.error, 'maxed');
   assert.equal(still.state.progress.colorsOwned, 9);
-  assert.equal(still.state.progress.coins, 12345);
-  assert.equal(G.CONFIG.EXP_STEP, 0.25);
+  assert.equal(still.state.progress.coins, eighth.progress.coins);
+  assert.equal(G.CONFIG.EXP_STEP, 0.20);
   assert.equal(G.pay({ qty: 8 }, 0), 67);
-  assert.equal(G.pay({ qty: 8 }, 1), 113);
-  assert.equal(G.pay({ qty: 8 }, 2), 190);
-  assert.equal(G.pay({ qty: 8 }, 3), 320);
+  assert.equal(G.pay({ qty: 8 }, 1), 102);
+  assert.equal(G.pay({ qty: 8 }, 2), 155);
+  assert.equal(G.pay({ qty: 8 }, 3), 234);
 });
 
-test('colorsOwned 7 and 9 stay inside the 7-color palette', () => {
+test('colorsOwned 8 and 9 stay inside the 8-color palette', () => {
   const htmlCap = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'js', 'game.js'), 'utf8');
   assert.match(htmlCap, /Math\.min\(owned \+ 1, rosterCeiling\(s\.run\)\)/);
-  assert.match(html, /GAME_VERSION = 'v2\.24\.2'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.3'/);
+  assert.match(html, /All '\+colorRunCap\(state\)\+' colors unlocked/);
 
-  for (const owned of [7, 9]) {
+  const almost = open(27);
+  assert.equal(almost.run.palette.length, 8);
+  almost.progress.colorsOwned = 7;
+  almost.run.rosterIndex = 2;
+  const at7 = drawnColors(almost, 107);
+  assertCap(at7, 8, 'owned 7');
+  assert.ok(at7.includes(8), 'owned 7 still asks for the next color');
+  assert.equal(at7.some((c) => c > 8), false);
+
+  for (const owned of [8, 9]) {
     const s = open(20 + owned);
-    assert.equal(s.run.palette.length, 7);
+    assert.equal(s.run.palette.length, 8);
     s.progress.colorsOwned = owned;
     s.run.rosterIndex = 2;
     const colors = drawnColors(s, 100 + owned);
-    assertCap(colors, 7, `owned ${owned}`);
-    assert.equal(colors.some((c) => c > 7), false, `owned ${owned} asked for a creature past the palette`);
-    assert.ok(colors.includes(7), `owned ${owned} still draws within the seven`);
-    assert.equal(new Set(colors.filter((c) => c > 7)).size, 0);
+    assertCap(colors, 8, `owned ${owned}`);
+    assert.equal(colors.some((c) => c > 8), false, `owned ${owned} asked for a creature past the palette`);
+    assert.ok(colors.includes(8), `owned ${owned} still draws within the eight`);
+    assert.equal(new Set(colors.filter((c) => c > 8)).size, 0);
   }
+});
+
+test('a saved 7-color sitting keeps its cap until the next run', () => {
+  const s = open(4);
+  assert.equal(s.run.palette.length, 8);
+  const kept = s.run.palette.slice(0, 7);
+  s.run.palette = kept;
+  const back = G.deserializeState(G.serializeState(s));
+  assert.deepEqual(back.run.palette, kept);
+  assert.equal(G.colorRunCap(back), 7);
+  back.progress.colorsOwned = 7;
+  back.progress.coins = 99999;
+  const locked = G.buyColor(back);
+  assert.equal(locked.error, 'maxed');
+  assert.equal(locked.state.progress.coins, 99999);
+  const colors = drawnColors(back, 77, 40);
+  assertCap(colors, 7, 'old palette');
+  assert.equal(colors.some((c) => c > 7), false);
+  const next = G.restartRun(back, rng(3));
+  assert.equal(next.run.palette.length, 8);
+  assert.equal(new Set(next.run.palette).size, 8);
+  assert.equal(G.colorRunCap(next), 8);
+  assert.equal(next.progress.colorsOwned, 4);
 });

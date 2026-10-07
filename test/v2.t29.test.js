@@ -45,7 +45,7 @@ test('clear board uses a 10000 base, not the shared 40', () => {
 test('clear board wipes every free pile and leaves locks, dormant piles, and flags', () => {
   let s = open();
   assert.equal(s.run.undoSnap, undefined);
-  assert.equal(s.run.palette.length, 7);
+  assert.equal(s.run.palette.length, 8);
   const free = [];
   let locked = -1;
   let dormant = -1;
@@ -210,7 +210,7 @@ test('undo of clear board, refresh, and queue skip; restart and victory drop the
   assert.deepEqual(s.run.board[cell].stack, [7, 7, 7]);
   assert.equal(s.run.skillUses.clearBoard || 0, 0);
   assert.equal(s.progress.coins, coins - 40);
-  assert.equal(s.run.palette.length, 7);
+  assert.equal(s.run.palette.length, 8);
 
   const pool = s.run.pool.map((p) => [...p]);
   const refreshed = G.useRefreshPool(s, rng(9));
@@ -244,7 +244,7 @@ test('undo of clear board, refresh, and queue skip; restart and victory drop the
 });
 
 test('the power bar ships both skills in English at v2.24.0', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.2'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.3'/);
   assert.match(html, /useClearBoard/);
   assert.match(html, /useUndoMove/);
   assert.match(html, /skill:'clearBoard'/);

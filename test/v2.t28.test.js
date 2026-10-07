@@ -26,10 +26,10 @@ const open = (coins = 1e9, seed = 1) => {
 
 const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'index.html'), 'utf8');
 
-test('tip hold lists pay() now and next, and the step is 0.25', () => {
+test('tip hold lists pay() now and next, and the step is 0.20', () => {
   let s = open();
   assert.equal(G.skillUseCount(s, 'tips'), 0);
-  assert.equal(G.CONFIG.EXP_STEP, 0.25);
+  assert.equal(G.CONFIG.EXP_STEP, 0.20);
   assert.equal(G.tipSkillLine(), 'Served orders pay more.');
   const table = G.tipPayTable(s);
   assert.equal(table.level, 0);
@@ -38,12 +38,12 @@ test('tip hold lists pay() now and next, and the step is 0.25', () => {
     assert.equal(row.now, G.pay({ qty: row.qty }, 0));
     assert.equal(row.next, G.pay({ qty: row.qty }, 1));
   }
-  assert.deepEqual([0, 1, 2, 3].map((n) => G.pay({ qty: 8 }, n)), [67, 113, 190, 320]);
+  assert.deepEqual([0, 1, 2, 3].map((n) => G.pay({ qty: 8 }, n)), [67, 102, 155, 234]);
   s = G.buyMultiplier(s);
   const n = G.skillUseCount(s, 'tips');
   const next = G.tipPayTable(s);
   assert.equal(next.level, n);
-  assert.equal(G.CONFIG.EXP_BASE + G.CONFIG.EXP_STEP * n, 1.25 + 0.25 * n);
+  assert.equal(G.CONFIG.EXP_BASE + G.CONFIG.EXP_STEP * n, 1.25 + 0.20 * n);
   for (const row of next.rows) {
     assert.equal(row.now, G.pay({ qty: row.qty }, n));
     assert.equal(row.next, G.pay({ qty: row.qty }, n + 1));
@@ -59,13 +59,13 @@ test('tip hold lists pay() now and next, and the step is 0.25', () => {
   assert.doesNotMatch(html, /pay exponent/);
 });
 
-test('each run keeps 7 of 10 creatures and unlocks them gradually', () => {
+test('each run keeps 8 of 10 creatures and unlocks them gradually', () => {
   const a = open(1e9, 4);
   const b = open(1e9, 4);
-  assert.equal(G.CONFIG.RUN_COLORS, 7);
+  assert.equal(G.CONFIG.RUN_COLORS, 8);
   assert.equal(G.ROSTER.length, 10);
-  assert.equal(a.run.palette.length, 7);
-  assert.equal(new Set(a.run.palette).size, 7);
+  assert.equal(a.run.palette.length, 8);
+  assert.equal(new Set(a.run.palette).size, 8);
   for (const id of a.run.palette) assert.ok(id >= 1 && id <= 10);
   assert.deepEqual(a.run.palette, b.run.palette);
   const other = open(1e9, 9);
@@ -81,17 +81,21 @@ test('each run keeps 7 of 10 creatures and unlocks them gradually', () => {
   }
   assert.equal(G.runFaceColor(a, 1), a.run.palette[0]);
   assert.equal(G.runFaceColor(a, 5), a.run.palette[4]);
-  assert.equal(G.runFaceColor(a, 8), 8);
+  assert.equal(G.runFaceColor(a, 8), a.run.palette[7]);
+  assert.equal(G.runFaceColor(a, 9), 9);
 
   let s = a;
   const coins = 50000;
   s.progress.coins = coins;
   s.progress.colorsOwned = 7;
-  const locked = G.buyColor(s);
+  const eighth = G.buyColor(s);
+  assert.ok(!eighth.error);
+  assert.equal(eighth.progress.colorsOwned, 8);
+  assert.ok(eighth.progress.coins < coins);
+  const locked = G.buyColor(eighth);
   assert.equal(locked.error, 'maxed');
-  assert.equal(locked.state.progress.colorsOwned, 7);
-  assert.equal(locked.state.progress.coins, coins);
-  assert.equal(s.progress.coins, coins);
+  assert.equal(locked.state.progress.colorsOwned, 8);
+  assert.equal(locked.state.progress.coins, eighth.progress.coins);
   assert.equal(s.run.rosterIndex, 5);
 });
 
@@ -180,7 +184,7 @@ test('finished runs keep best and worst, capped, across a restart', () => {
 });
 
 test('save modal, skill level, coin float, and defeat are in the page', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.2'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.3'/);
   assert.match(html, /id="runHistory"/);
   assert.match(html, /function renderRunHistory/);
   assert.match(html, /bestWorstRuns/);

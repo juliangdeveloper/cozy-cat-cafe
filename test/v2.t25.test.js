@@ -74,7 +74,7 @@ test('T25b no permanent table purchase is available', () => {
   assert.equal(html.includes('buyTablesUp'), false);
   assert.equal(html.includes('permTilePrice'), false);
   assert.equal(html.includes('data-tables'), false);
-  assert.match(html, /GAME_VERSION = 'v2\.24\.2'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.3'/);
 });
 
 test('T25c old save loads without throwing; v2.21 drops persistent meta, keeps the per-run price', () => {
