@@ -43,8 +43,9 @@ test('the UI hooks the loop and the effects only on success', () => {
   }
   assert.match(amb, /sfx-destroy\.wav/);
   // place, cascade destroy, cascade merge, cascade serve, manual serve,
-  // the victory close, the mid-run defeat close, and the victory-restart tick.
-  assert.equal((html.match(/playCafeSfx\(/g) || []).length, 8);
+  // the victory close, the mid-run defeat close, the victory-restart tick,
+  // and a successful Clear board (same destroy payoff, only after it lands).
+  assert.equal((html.match(/playCafeSfx\(/g) || []).length, 9);
   assert.match(html, /playCafeSfx\('reset'\)/);
   assert.match(html, /playCafeSfx\('close'\)/);
   assert.match(amb, /reset:/);
@@ -62,6 +63,10 @@ test('the UI hooks the loop and the effects only on success', () => {
   assert.match(casc, /if\(\(L\.served\|\|\[\]\)\.length\) playCafeSfx\('serve'\)/);
   const power = html.slice(html.indexOf('function destroyFlow'), html.indexOf('async function swapFlow'));
   assert.equal(power.includes('playCafeSfx'), false);
+  const clear = html.slice(html.indexOf('function clearBoardFlow'), html.indexOf('function undoFlow'));
+  assert.ok(clear.indexOf('if(r.error)') < clear.indexOf("playCafeSfx('destroy')"));
+  const undo = html.slice(html.indexOf('function undoFlow'), html.indexOf('function cascadeLinks'));
+  assert.equal(undo.includes('playCafeSfx'), false);
   assert.match(amb, /Howler\.ctx\.resume\(\)/);
   assert.match(html, /Mute music/);
   assert.match(amb, /cozy-cat-cafe\.audio\.mute/);

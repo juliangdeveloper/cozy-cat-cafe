@@ -165,12 +165,12 @@ export { createGame, CONFIG,
 
 ### R5. Economía
 ```js
-// CONFIG: BASE_COIN=5, EXP_BASE=1.25, EXP_STEP=0.05, CALAMITY_BONUS_PER=15
+// CONFIG: BASE_COIN=5, EXP_BASE=1.25, EXP_STEP=0.10, CALAMITY_BONUS_PER=15
 // pay(order) = round(BASE_COIN * order.qty ** (EXP_BASE + EXP_STEP*multLevel))
 // bonusCalamity(state) = state.run.calamities * CALAMITY_BONUS_PER
 ```
 - `R5.1` — **Pago base:** cada pedido servido añade `pay(order)` a `state.progress.coins`. (Ej. qty=3, multLevel=0 → `round(5*3^1.25)=round(5*3.948)=20`). → US-11.
-- `R5.2` — **Multiplicador superlineal mejorable:** el exponente crece con `economy.multLevel` (`price` sube con `buyMultiplier`). **Superlinealidad garantizada:** `pay(qty=4)` > `2*pay(qty=2)` con mismo multLevel (4^1.25≈5.66 ≥ 2·2.38≈4.76) → "apilar 4 de una vez > 2 pedidos de 2". `buyMultiplier` sube `multLevel` (costo `100*(multLevel+1)`, tope 6). **[v2.22.4]** Sin tope de compra. El precio vivo es `40 × 1.6^multLevel` (`tipPrice` → `skillUsePrice`). `MULT_MAX` ya no devuelve `maxed`. → US-12.
+- `R5.2` — **Multiplicador superlineal mejorable:** el exponente crece con `economy.multLevel` (`price` sube con `buyMultiplier`). **Superlinealidad garantizada:** `pay(qty=4)` > `2*pay(qty=2)` con mismo multLevel (4^1.25≈5.66 ≥ 2·2.38≈4.76) → "apilar 4 de una vez > 2 pedidos de 2". `buyMultiplier` sube `multLevel` (costo `100*(multLevel+1)`, tope 6). **[v2.22.4]** Sin tope de compra. El precio vivo es `40 × 1.6^multLevel` (`tipPrice` → `skillUsePrice`). `MULT_MAX` ya no devuelve `maxed`. **[v2.24]** `EXP_STEP` pasa de 0.05 a **0.10**: cada nivel de Tips dobla el salto de exponente anterior. Un pedido de 8 paga 16 monedas más en el primer nivel (`pay(8,1)−pay(8,0)`). → US-12.
 - `R5.3` — **Bonus calamidades al cerrar:** al `closeRun` (cualquier motivo) se añade `bonusCalamity(state)` a `coins` y se expone `bonus` en el resultado para el badge `--danger` "Bonus +N". → US-13, US-29, G1; §4.8 STYLE.
 
 ### R6. Expansiones (gasto de dinero)
@@ -194,6 +194,8 @@ export { createGame, CONFIG,
 
 > R7.8 — **Cualquier uso sin `owned` o con `uses===0` → `{error}`**, no muta. → US-24.
 - `R7.9` — **UNLOCK LOCKS [v2.8]** (`price=250`, `unlockLevel=5`, modelo usos R7.4 con tope MAX_USES=5): `useUnlockLocks(state, cellId)` — **desbloquea UNA celda `blocked` de calamidad** y REVELA su pila oculta (`hiddenStack` → `stack`; R8.4 v2.8). Marca `uses -= 1`. Errores: celda inexistente `{error:'noCell'}`, celda no bloqueada `{error:'notBlocked'}`, sin owned/uses → guard R7.8 (convención: el guard de compra corre ANTES que la validación de celda). La cascada tras revelar la dispara el APP (R12.2). → US-17b.
+- `R7.10` — **CLEAR BOARD [v2.24]** (`clearBoard`): `useClearBoard(state)` aplica la regla de Destroy a cada celda, de una vez y sin objetivo. Celda `blocked`: no se toca (`blocked`, `hiddenStack`, pila visible y `dormant` quedan). Cualquier otra celda con `stack` no vacío: `stack = []`, da igual la altura. No revela ni borra `hiddenStack`. No cambia `dormant` ni las marcas de calamidad. Si no hay ninguna pila borrable, `{error:'empty'}` y no cobra. Precio `CLEAR_BOARD_BASE * SKILL_USE_RATIO^n` = `10000 * 1.6^n` (`n` = `run.skillUses.clearBoard`). No usa `SKILL_USE_BASE`. Sin tope. Sin saldo: `{error:'noFunds'}` y no muta.
+- `R7.11` — **UNDO [v2.24]** (`undoMove`): `useUndoMove(state)` restaura `run.undoSnap`, la foto del café tomada antes de la última acción que mutó tablero, pool o pedidos (colocar, swap, destroy, refresh, queue skip, unlock, clear board, activar mesa, servir). Un nivel: la foto no se anida y Undo no se fotografía. Sin foto: `{error:'nothingToUndo'}`, sin cobro. Con foto: las monedas vuelven a las de la foto y después se resta `skillUsePrice('undoMove')` = `40 * 1.6^n`; `skillUses.undoMove` queda en `n+1` contado antes de restaurar. Si las monedas de la foto no alcanzan, `{error:'noFunds'}` y no restaura. La foto se descarta al abrir la run, en `restartRun` y en `beginVictory`.
 
 ### R8. Calamidades (tablero > 15 hex)
 ```js
@@ -307,7 +309,7 @@ import { createGame, CONFIG, placeStack, serveOrder, closeRun, openRun,
          buyIdleUpgrade, tickIdle, applyOffline, colorsUnlocked, orderReadyOn,
          generateBoard } from '../js/game.js';
 const seed = n => mulberry32(n);
-const pay = (q, m=0) => Math.round(5 * q ** (1.25 + 0.05*m));
+const pay = (q, m=0) => Math.round(5 * q ** (1.25 + 0.10*m));
 ```
 
 ### T1. Ciclo de partida / colocación

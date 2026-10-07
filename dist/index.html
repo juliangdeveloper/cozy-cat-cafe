@@ -338,8 +338,8 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .ttile .tface,.ttile .tface::before{transform:translateY(calc(var(--hx)*-0.015));clip-path:var(--hex-pointy)}
 .poolempty{font-size:10px;color:var(--wood-dark);font-weight:700;text-align:center;width:100%;align-self:flex-end;padding-bottom:6px}
 
-/* powers — v2.22: two rows (5×2), not one row and not a carousel. Price sits in the button. */
-.powerbar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;margin:6px 0 4px}
+/* powers — v2.24: 11 skills, 6+5, not a carousel. Price sits in the button. */
+.powerbar{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;margin:6px 0 4px}
 .pow{min-width:0;min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:1px;background:var(--panel);border:2px solid var(--ink);border-radius:12px;cursor:pointer;font-weight:800;
   font-size:11px;box-shadow:0 3px 0 var(--wood-dark);position:relative;padding:3px 2px 2px;overflow:hidden;
@@ -396,12 +396,19 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
   box-shadow:0 0 0 2px var(--ink)}
 @keyframes floatUp{0%{opacity:0;transform:translateY(8px) scale(.6)}20%{opacity:1}100%{opacity:0;transform:translateY(-40px) scale(1)}}
-@keyframes coinPop{0%{opacity:0;transform:translateY(10px) scale(.45) rotate(-12deg)}16%{opacity:1;transform:translateY(-6px) scale(1.18) rotate(7deg)}42%{transform:translateY(-16px) scale(1) rotate(-3deg)}100%{opacity:0;transform:translateY(-54px) scale(.95) rotate(0)}}
+/* v2.24 — coin gains stay big and readable (~+70 on a 390px phone): pop, hold, then a slow rise and fade. */
+@keyframes coinPop{
+  0%{opacity:0;transform:translateY(16px) scale(.55) rotate(-8deg)}
+  12%{opacity:1;transform:translateY(-2px) scale(1.22) rotate(4deg)}
+  28%{transform:translateY(-12px) scale(1.08) rotate(-1deg)}
+  68%{opacity:1;transform:translateY(-22px) scale(1.06) rotate(0)}
+  100%{opacity:0;transform:translateY(-58px) scale(1) rotate(0)}
+}
 @keyframes coinBump{0%{transform:scale(1)}35%{transform:scale(1.14)}100%{transform:scale(1)}}
 .floater{position:absolute;z-index:6;font-weight:900;font-family:var(--font-display);color:var(--highlight);
   text-shadow:0 1px 0 var(--ink);pointer-events:none;font-size:18px;animation:floatUp 1s ease-out forwards}
-.floater.coin-gain{z-index:8;font-size:20px;white-space:nowrap;color:#c4840a;
-  text-shadow:0 2px 0 var(--ink);animation:coinPop 1.05s cubic-bezier(.18,.8,.2,1) forwards}
+.floater.coin-gain{z-index:8;font-size:36px;line-height:1;white-space:nowrap;color:#c4840a;
+  text-shadow:0 3px 0 var(--ink);animation:coinPop 2.4s cubic-bezier(.22,.7,.2,1) forwards}
 .chip.coin-bump{animation:coinBump .45s ease}
 .confetti{position:fixed;left:50%;top:35%;z-index:65;pointer-events:none}
 .cf{position:absolute;width:9px;height:9px;border-radius:2px;opacity:0;animation:conf .85s ease-out forwards}
@@ -494,11 +501,13 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   .poolslot{height:46px}
   .tray{width:40px} .ttile{width:40px;height:34px}
   .preview{gap:8px;padding:6px 8px;margin-top:4px}
-  /* POWERBAR STICKY inferior: 5×2, sin carrusel. Precio dentro del botón. */
+  /* POWERBAR STICKY inferior: 6+5, sin carrusel. Precio dentro del botón. */
   .powerbar{position:sticky;bottom:0;z-index:15;margin:4px -6px 0;
     padding:4px 6px calc(4px + env(safe-area-inset-bottom));
     background:var(--bg-primary);border-top:2px solid var(--wood);overflow:visible}
   .pow{min-height:44px;min-width:0}
+  .pow-emoji{font-size:20px}
+  .pow-cost{font-size:9px;padding:0 1px}
   /* colapsables compactos (idle/decor) */
   .collap{margin:4px 0}
   .collap summary{cursor:pointer;font-size:12px;font-weight:800;color:var(--ink-soft);
@@ -1110,7 +1119,7 @@ function bindCafeAudio() {
 const CONFIG = {
   BASE_COIN: 5,                     // R5.1
   EXP_BASE: 1.25,                   // R5.2 superlinear exponent
-  EXP_STEP: 0.05,                   // R5.2 multLevel exponent growth
+  EXP_STEP: 0.10,                   // R5.2 v2.24: each Tips level doubles the old 0.05 jump
   MULT_PRICE_BASE: 100,             // R5.2 historical list price; live tips use 40×1.6^n
   MULT_MAX: 6,                      // retired as a purchase cap in v2.22.4 (tips are unlimited)
   CALAMITY_BONUS_PER: 15,           // R5.3 / R8.5 bonus per calamity cell
@@ -1137,11 +1146,14 @@ const CONFIG = {
   // v2.22 / v2.22.4 — cada skill se paga al usarla. Siguiente precio =
   //   SKILL_USE_BASE * SKILL_USE_RATIO^n = 40 × 1.6^n (producto exacto)
   // n = usos de ESA skill en esta run (se pone a 0 al abrir/reiniciar).
-  // Misma base y misma razón para todas: Destroy/Swap/Refresh/Unlock/Queue
-  // (skillUses), Tables (runTilesActivated), Color (colorsOwned−4),
-  // Tips (multLevel), Board/Peek (previewPool.level). Sin techo.
+  // Misma base y misma razón para todas salvo Clear board: Destroy/Swap/
+  // Refresh/Unlock/Queue/Undo (skillUses), Tables (runTilesActivated),
+  // Color (colorsOwned−4), Tips (multLevel), Board/Peek (previewPool.level).
+  // Sin techo.
   SKILL_USE_BASE: 40,
   SKILL_USE_RATIO: 1.6,
+  // v2.24 — Clear board no usa SKILL_USE_BASE. Precio = 10000 × 1.6^n.
+  CLEAR_BOARD_BASE: 10000,
   MAX_COLORS: 10,                   // R13.7 10 colores / criaturas en el ROSTER (R13.2)
   // v2.23 — cada run sortea este subconjunto del roster. El desbloqueo
   // gradual (bolsa, rosterIndex, colorsOwned) vive DENTRO de esos 7.
@@ -2109,6 +2121,7 @@ function placeStack(state, cellId, slot, rngOrStack) {
     // celda vacía sin fusión se conserva el contrato T11b ('noMerge').
     return { error: (cell.stack && cell.stack.length) ? 'occupied' : 'noMerge', state: s };
   }
+  rememberUndo(s);
   cell.stack = cell.stack.concat(pileArr);          // R3.4 apila al tope
   // v2.11 R12.4: pila MONOCOLOR marca el ANCLA del jugador — durante la
   // cascada que dispara esta colocación, todo grupo que contenga esta celda
@@ -2128,6 +2141,7 @@ function placeStack(state, cellId, slot, rngOrStack) {
   let idx = slot;
   if (idx === undefined) idx = s.run.pool.findIndex((x) => x.length > 0);
   if (idx < 0 || s.run.pool[idx].length === 0) return { error: 'emptySlot' }; // R3.5
+  rememberUndo(s);
   const pile = s.run.pool[idx];
   cell.stack = cell.stack.concat(pile);      // R3.4 / R4.2 stack on top
   s.run.pool[idx] = [];
@@ -2239,10 +2253,29 @@ function skillUseCount(state, power) {
 
 function skillUsePrice(state, power) {
   const n = skillUseCount(state, power);
-  // Exact 40 × 1.6^n for every skill, including tables. Rounding the
-  // product changes the ratio (102 instead of 102.4) and can skip a table
-  // the player could still afford.
-  return CONFIG.SKILL_USE_BASE * CONFIG.SKILL_USE_RATIO ** n;
+  // Exact base × 1.6^n. Rounding the product changes the ratio (102
+  // instead of 102.4) and can skip a table the player could still afford.
+  // Clear board is the one skill with its own base (10000, not 40).
+  const base = power === 'clearBoard' ? CONFIG.CLEAR_BOARD_BASE : CONFIG.SKILL_USE_BASE;
+  return base * CONFIG.SKILL_USE_RATIO ** n;
+}
+
+// One level of undo. The snapshot is the whole café immediately before the
+// last undoable action, with no nested snapshot. Undo restores that café
+// (the action's coins come back) and only then subtracts the Undo fee.
+function rememberUndo(s) {
+  if (!s || !s.run) return;
+  delete s.run.undoSnap;
+  s.run.undoSnap = clone(s);
+}
+
+// Funds check, then snapshot, then charge. The snapshot must precede the
+// charge so Undo refunds this action before taking its own fee.
+function chargeUndoable(s, power) {
+  const price = skillUsePrice(s, power);
+  if ((s.progress.coins || 0) < price) return { error: 'noFunds' };
+  rememberUndo(s);
+  return chargeSkill(s, power);
 }
 
 // Cobra el precio actual y anota el uso. No muta si no alcanza.
@@ -2276,7 +2309,7 @@ function tipSkillLine(state, qty = 8) {
   const n = skillUseCount(state, 'tips');
   const order = { qty };
   const extra = pay(order, n + 1) - pay(order, n);
-  const step = CONFIG.EXP_STEP;
+  const step = CONFIG.EXP_STEP.toFixed(2);
   return `Each level adds ${step} to the pay exponent. A size-${qty} order pays ${extra} more coins.`;
 }
 
@@ -2303,6 +2336,7 @@ function activateTile(state, cellId, rng) {
   // R14.3 v2.20: cobra la curva temporal. Sin usos ni techo permanente.
   const price = runTilePrice(s);
   if (s.progress.coins < price) return { error: 'noFunds', state: s };
+  rememberUndo(s);
   cell.dormant = false;                                // activa ESTA partida
   // v2.8 R8.1: revelar pila de calamidad oculta en baldosas (si la hay)
   if (cell.hiddenStack && cell.hiddenStack.length) {
@@ -2399,6 +2433,7 @@ function serveOrder(state, orderId, cellId) {
   if (tg.color !== order.color || tg.count < order.qty) {                 // R4.4
     return { error: 'notEnough' };
   }
+  rememberUndo(s);
   // consume exactly order.qty pieces from the top (they are all order.color)
   cell.stack.splice(cell.stack.length - order.qty, order.qty);            // R4.3 v2
   order.served = true;
@@ -2698,7 +2733,7 @@ function buySkill(state, power) {
 function useQueueSkip(state) {
   const s = clone(state);
   if (!s.run || !Array.isArray(s.run.activeClients)) return { error: 'noRun' };
-  const bill = chargeSkill(s, 'queueSkip');
+  const bill = chargeUndoable(s, 'queueSkip');
   if (bill) return bill;
   const old = s.run.activeClients.splice(0, s.run.activeClients.length);
   s.run.queueBack.push(...old);                 // R17.1: al fondo, orden FIFO
@@ -2774,7 +2809,7 @@ function useDestroyPile(state, cellId) {
   const cell = s.run.board[cellId];
   if (!cell) return { error: 'noCell' };
   if (cell.blocked) return { error: 'blocked' };                        // R7.5 block
-  const bill = chargeSkill(s, 'destroyPile');
+  const bill = chargeUndoable(s, 'destroyPile');
   if (bill) return bill;
   cell.stack = [];                                                       // R7.5 empty
   return s;
@@ -2787,7 +2822,7 @@ function useSwapPiles(state, a, b) {
   if (a === b) return { error: 'same' };
   if (!board[a] || !board[b]) return { error: 'noCell' };
   if (board[a].blocked || board[b].blocked) return { error: 'blocked' }; // R7.6
-  const bill = chargeSkill(s, 'swapPiles');
+  const bill = chargeUndoable(s, 'swapPiles');
   if (bill) return bill;
   const tmp = board[a].stack;
   board[a].stack = board[b].stack;                                        // R7.6 swap
@@ -2801,7 +2836,7 @@ function useUnlockLocks(state, cellId) {
   const cell = s.run.board[cellId];
   if (!cell) return { error: 'noCell' };
   if (!cell.blocked) return { error: 'notBlocked' };                    // R7.8 v2.8
-  const bill = chargeSkill(s, 'unlockLocks');
+  const bill = chargeUndoable(s, 'unlockLocks');
   if (bill) return bill;
   cell.blocked = false;
   if (cell.hiddenStack && cell.hiddenStack.length) {                    // R8.4 v2: revelar
@@ -2814,7 +2849,7 @@ function useUnlockLocks(state, cellId) {
 function useRefreshPool(state, rng) {
   const s = clone(state);
   if (!s.run) return { error: 'noRun' };
-  const bill = chargeSkill(s, 'refreshPool');
+  const bill = chargeUndoable(s, 'refreshPool');
   if (bill) return bill;
   // v2.10 R18: useRefreshPool consume de s.run.bag
   const r = rng || Math.random;
@@ -2825,6 +2860,49 @@ function useRefreshPool(state, rng) {
   s.run.pilesDealt = (s.run.pilesDealt || 0) + piles.length;
   s.run.poolPlaced = 0;                                                   // R7.7
   return s;
+}
+
+// v2.24 — Clear board. Same per-cell rule as Destroy: a blocked cell is
+// left alone (lock, hidden pile, and any stack sitting on the lock stay).
+// Every other occupied cell loses its stack, whatever the height. Dormant,
+// calamity flags, and hiddenStack are not touched. One charge, no target.
+// An already-clear board does not charge.
+function useClearBoard(state) {
+  const s = clone(state);
+  if (!s.run || !Array.isArray(s.run.board)) return { error: 'noRun' };
+  const targets = [];
+  s.run.board.forEach((cell, i) => {
+    if (!cell || cell.blocked) return;
+    if (cell.stack && cell.stack.length) targets.push(i);
+  });
+  if (!targets.length) return { error: 'empty' };
+  const bill = chargeUndoable(s, 'clearBoard');
+  if (bill) return bill;
+  for (const i of targets) s.run.board[i].stack = [];
+  return s;
+}
+
+// v2.24 — Undo the last action that mutated the board, pool, or orders.
+// Coin rule: restore the snapshot first (coins return to what they were
+// before that action, so its fee comes back), then deduct the Undo fee
+// (40 × 1.6^n) and count this use. Undo does not snapshot itself, and the
+// stack is cleared, so a second tap cannot refund the fee. If the restored
+// purse cannot cover the fee, nothing changes.
+function useUndoMove(state) {
+  const s = clone(state);
+  if (!s.run) return { error: 'noRun' };
+  const snap = s.run.undoSnap;
+  if (!snap || !snap.run || !snap.progress) return { error: 'nothingToUndo' };
+  const n = skillUseCount(s, 'undoMove');
+  const price = skillUsePrice(s, 'undoMove');
+  const restored = snap.progress.coins || 0;
+  if (restored < price) return { error: 'noFunds' };
+  const next = clone(snap);
+  delete next.run.undoSnap;
+  next.progress.coins = restored - price;
+  if (!next.run.skillUses) next.run.skillUses = {};
+  next.run.skillUses.undoMove = n + 1;
+  return next;
 }
 
 // ---------------------------------------------------------------------------
@@ -2985,6 +3063,8 @@ function beginVictory(state) {
   s.progress.coins += bonus;
   s.run.phase = 'victory';
   s.run.victoryBonus = bonus;
+  // The winning move is not rewound. Restart opens a fresh run anyway.
+  delete s.run.undoSnap;
   // The sitting is finished. Archive it once so the save modal can show it
   // before Hold 3s, and so restart does not record it a second time.
   s.run.archived = true;
@@ -3214,8 +3294,36 @@ function toast(msg, colorId){
   clearTimeout(t._h);
   t._h=setTimeout(()=>t.classList.remove('show'), colorId?2400:1500);
 }
+const COIN_GAIN_MS = 2400;
+// coinPop stays opaque while it rises ~22px and scales past 1. Keep that travel
+// inside the viewport: the counter sits on the top edge, and a cell at the
+// board's side would otherwise lose a 36px "+70 🪙" to overflow.
+const COIN_GAIN_RISE = 28;
+function pinCoinGain(el, e){
+  document.body.appendChild(e);
+  const r = el.getBoundingClientRect();
+  const w = e.offsetWidth, h = e.offsetHeight;
+  // coinPop peaks at scale 1.22, which paints past the layout box.
+  const padX = 8 + Math.ceil(w * 0.11);
+  const padY = 8;
+  let left = r.left + r.width / 2 - w / 2;
+  let top = r.top + Math.min(r.height * 0.2, 18);
+  const maxLeft = Math.max(padX, window.innerWidth - w - padX);
+  const minTop = padY + COIN_GAIN_RISE;
+  const maxTop = Math.max(minTop, window.innerHeight - h - padY);
+  left = Math.max(padX, Math.min(left, maxLeft));
+  top = Math.max(minTop, Math.min(top, maxTop));
+  e.style.position = 'fixed';
+  e.style.left = left + 'px';
+  e.style.top = top + 'px';
+  e.style.margin = '0';
+  e.style.zIndex = '40';
+}
 function floatOn(el, txt, extra){ if(!el) return; const e=document.createElement('div'); e.className='floater'+(extra?(' '+extra):'');
-  e.textContent=txt; el.appendChild(e); setTimeout(()=>e.remove(),1100); }
+  e.textContent=txt;
+  if(extra==='coin-gain') pinCoinGain(el, e);
+  else el.appendChild(e);
+  setTimeout(()=>e.remove(), extra==='coin-gain'?COIN_GAIN_MS:1100); }
 function showCoinGain(amount, anchor){
   const n=Math.round(Number(amount)||0);
   if(!(n>0)) return;
@@ -3244,7 +3352,8 @@ const ERRT={ noFunds:'Not enough coins', blocked:'That tile is locked', locked:'
   emptySlot:'Tray slot is empty', noOrder:'No order there', noCell:'No tile there', same:'Pick two different tiles', owned:'Already owned',
   noKind:'Unknown expansion', noSystem:'Unknown system', maxed:'Maxed out',
   maxUses:'Max uses per run reached (5)',   // v2.4 tope de usos por skill
-  needTwoNeighbors:'Need 2 unlocked neighbor tables', noneEligible:'No eligible tables nearby' };
+  needTwoNeighbors:'Need 2 unlocked neighbor tables', noneEligible:'No eligible tables nearby',
+  nothingToUndo:'Nothing to undo.', empty:'The board is already clear.' };
 const err = r => toast(ERRT[(r&&r.error)||''] || (r&&r.error)||'');
 // v2.4.1 — pasadas de estabilización "apenas entre": resuelve cascadas pendientes
 // (clientes recién entrados con tope servible) con animación, hasta estabilizar.
@@ -3612,6 +3721,15 @@ function skillNextPrice(id){
   if(id==='previewPool') return previewPrice(state);
   return skillUsePrice(state, id);
 }
+// Undo spends from the purse the move returns to, not from the coins on screen.
+function skillUnaffordable(id, priceN){
+  if(id==='undoMove'){
+    const snap=state.run && state.run.undoSnap;
+    if(!snap || !snap.progress) return false;
+    return (snap.progress.coins||0) < priceN;
+  }
+  return state.progress.coins < priceN;
+}
 // v2.22.1 — hold a skill ~500ms (inside 400–600) to read one sentence.
 // A shorter tap still spends the skill. The note does not spend coins.
 const SKILL_HELP_MS = 500;
@@ -3624,6 +3742,8 @@ const SKILL_BLURB = {
   queueSkip: 'Send the visible guests to the back of the line.',
   previewPool: 'Peek at the next trays before they arrive.',
   color: 'Add the next creature color to the roster.',
+  clearBoard: 'Clear every pile off the whole board.',
+  undoMove: 'Undo your last move.',
 };
 function openSkillHelp(skill){
   closePeekModal();
@@ -3673,18 +3793,21 @@ function renderPowers(){
     {skill:'previewPool',icon:'📋',mode:'preview'},
     {skill:'color',icon:'🎨',mode:'color'},
     {skill:'tips',icon:'✨',mode:'tips'},
+    {skill:'clearBoard',icon:'🧹',mode:'clear'},
+    {skill:'undoMove',icon:'↩️',mode:'undo'},
   ];
   box.innerHTML = arr.map(d=>{
     const priceN = skillNextPrice(d.skill);
     const n = skillUseCount(state, d.skill);
-    const broke = state.progress.coins < priceN;
+    const broke = skillUnaffordable(d.skill, priceN);
+    const depleted = d.skill==='undoMove' && !(state.run && state.run.undoSnap);
     const help = d.skill==='tips' ? tipSkillLine(state) : SKILL_BLURB[d.skill];
     const tip = 'Level '+n+'. '+help+' Next '+fmt(priceN)+' coins.';
     const cost = `<span class="pow-cost">🪙${fmt(priceN)}</span>`;
     const icon = /^[a-z0-9_]+$/.test(d.icon)
       ? spr(d.icon, 26)
       : `<span class="pow-emoji" aria-hidden="true">${d.icon}</span>`;
-    return `<div class="pow ${broke?'broke':''} ${ui.mode===d.mode?'selected':''}" data-mode="${d.mode}" data-skill="${d.skill}" data-level="${n}" role="button" title="${tip}" aria-label="${tip}">
+    return `<div class="pow ${broke?'broke':''} ${depleted?'depleted':''} ${ui.mode===d.mode?'selected':''}" data-mode="${d.mode}" data-skill="${d.skill}" data-level="${n}" role="button" title="${tip}" aria-label="${tip}">
       <span class="pow-lvl">${n}</span>
       <span class="pow-face"><span class="pow-ico">${icon}</span></span>${cost}</div>`;
   }).join('');
@@ -3743,12 +3866,30 @@ function renderPowers(){
       return;
     }
     if(mode==='refresh'){ refreshFlow(); return; }
+    if(mode==='clear'){ clearBoardFlow(); return; }
+    if(mode==='undo'){ undoFlow(); return; }
     ui.mode = ui.mode===mode?null:mode; ui.swapFirst=null;
     renderPowers(); renderBoard();
   });
   });
 }
 function refreshFlow(){ const r=useRefreshPool(state); if(r.error){ err(r); } else { state=r; toast('New tray drawn ✓'); renderAll(); } }
+function clearBoardFlow(){
+  const r=useClearBoard(state);
+  if(r.error){ err(r); return; }
+  playCafeSfx('destroy');
+  state=r; ui.mode=null;
+  toast('Board cleared!');
+  renderAll();
+}
+function undoFlow(){
+  if(!(state.run && state.run.undoSnap)){ toast(ERRT.nothingToUndo); return; }
+  const r=useUndoMove(state);
+  if(r.error){ err(r); return; }
+  state=r; ui.mode=null; ui.swapFirst=null; ui.slot=false;
+  toast('Undid the last move.');
+  renderAll();
+}
 
 // ============================================================================
 // v2 — MOTOR DE CASCADA (R12.2/R15.2) + PREVIEW (R15.1) + monedas en vivo
@@ -4514,7 +4655,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.23.0';
+const GAME_VERSION = 'v2.24.0';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };

@@ -40,6 +40,8 @@ window.setInterval = global.setInterval.bind(global);
 window.setTimeout  = global.setTimeout.bind(global);
 window.clearInterval = global.clearInterval.bind(global);
 window.clearTimeout  = global.clearTimeout.bind(global);
+window.requestAnimationFrame = (cb) => setTimeout(() => cb(Date.now()), 16);
+window.cancelAnimationFrame = (id) => clearTimeout(id);
 
 // expose jsdom as Node globals so the app module's bare refs resolve
 globalThis.window = window;
@@ -53,23 +55,19 @@ globalThis.setInterval = global.setInterval.bind(global);
 globalThis.setTimeout  = global.setTimeout.bind(global);
 globalThis.clearInterval = global.clearInterval.bind(global);
 globalThis.clearTimeout  = global.clearTimeout.bind(global);
+globalThis.requestAnimationFrame = window.requestAnimationFrame;
+globalThis.cancelAnimationFrame = window.cancelAnimationFrame;
 
-// Build bridge module: real imports + app body + exposed boot
-const importBlock = [
- 'createGame','CONFIG','placeStack','serveOrder','closeRun','openRun',
- 'buySkill','buyMultiplier','useDestroyPile','useSwapPiles','useRefreshPool','buyExpansion',
- 'useUnlockLocks',                                           // v2.8 R7.8
- 'buyIdleUpgrade','tickIdle','applyOffline','colorsUnlocked','serializeState','deserializeState',
- 'importSave','mulberry32','ROSTER','resolveCascade','activateTile','activateAroundUnlocked','runTilePrice',
- 'buyColor','colorPrice','tipPrice','previewPrice','skillUsePrice','skillUseCount',
- 'previewPool','pay',
- 'isActivateEligible','unlockedNeighborCount','sweepDebrisRuns', // v2.17
- 'topRunCount','orderReadyOn','bfsMergeGroups','computeBestChain','r2Target',   // v2.2/v3 + v2.21.1 glow
- 'totalClients','runVictory','useQueueSkip',                 // v2.1 R16/R17
- 'restartRun','beginVictory','clearTables','calamityForecast', // v2.21
- 'HEX_ADJ','topGroup'].join(', ');
-const header = `import {${importBlock}} from '../js/game.js';\n`;
+// Build bridge module: real imports + app body + exposed boot.
+// Take the game import from the page so new skills stay in the smoke boot.
 const appCode = m[1];
+const gameImp = appCode.match(/import\s*\{([\s\S]*?)\}\s*from\s*'\.\/js\/game\.js'/);
+if (!gameImp) throw new Error('no game import');
+const importBlock = gameImp[1]
+  .split('\n')
+  .map((line) => line.replace(/\/\/.*$/, ''))
+  .join('\n');
+const header = `import {${importBlock}} from '../js/game.js';\n`;
 const appBody = appCode
   .replace(/import \{[\s\S]*?from '\.\/js\/game\.js';/, '')
   .replace(/from '\.\/js\/ambience\.js'/g, "from '../js/ambience.js'");
@@ -116,6 +114,6 @@ results.asyncError = global.__asyncErr;
 console.log(JSON.stringify(results, null, 2));
 try{ unlinkSync(tmp); }catch(_){}
 const ok = results.opened && results.menuShows === false && results.hasCalStrip
-  && results.shopGone && results.powerCount === 10
+  && results.shopGone && results.powerCount === 11
   && results.closeOpens === false && !results.runError;
 process.exit(ok ? 0 : 1);
