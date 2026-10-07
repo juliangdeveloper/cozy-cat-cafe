@@ -244,7 +244,7 @@ test('undo of clear board, refresh, and queue skip; restart and victory drop the
 });
 
 test('the power bar ships both skills in English at v2.24.0', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.0'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.1'/);
   assert.match(html, /useClearBoard/);
   assert.match(html, /useUndoMove/);
   assert.match(html, /skill:'clearBoard'/);

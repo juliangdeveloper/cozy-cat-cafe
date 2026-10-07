@@ -74,7 +74,9 @@ test('T1.1 pool 3 pilas al abrir', () => {
     assert.ok(p.length >= 1 && p.length <= 7, 'v2.0: pila de tamaño 1..7');
     for (const c of p) assert.ok(c >= 1 && c <= owned); // colores 1..colorsOwned (multicolor OK)
   }
-  for (const o of s.run.orders) assert.ok(o.color >= 1 && o.color <= s.run.rosterIndex); // clientes piden 1..roster
+  // v2.24.1: 1..min(colorsOwned+1, palette), not 1..rosterIndex
+  const clientCap = Math.min(owned + 1, s.run.palette.length);
+  for (const o of s.run.orders) assert.ok(o.color >= 1 && o.color <= clientCap);
 });
 
 test('T1.2 colocar vacia slot y NO rellena', () => {
@@ -580,14 +582,16 @@ test('T9.1 +1 color cada 3 productos', () => {
   assert.equal(colorsUnlocked(15), 6);
 });
 test('T9.2 solo colores desbloqueados', () => {
-  // v2.1-clients: el pool genera 1..colorsOwned (presión R13.5: por DEBAJO del
-  // roster); los clientes pueden pedir 1..rosterIndex (rosterMax=colorsOwned+1).
+  // v2.1-clients: el pool genera 1..colorsOwned. v2.24.1: el cliente pide
+  // 1..min(colorsOwned+1, palette) — aquí 1..3, el siguiente de buyColor.
   let s = createGame({ progress: { boardCells: 16, productsBought: 0, colorsOwned: 2 } });
   s.progress.colorsUnlocked = 2;
   s = openRun(s, rng(4));
   assert.equal(s.run.rosterIndex, 3);            // rosterMax = colorsOwned+1 = 3
   for (const pile of s.run.pool) for (const c of pile) assert.ok(c >= 1 && c <= 2);
-  for (const o of s.run.activeClients) assert.ok(o.color >= 1 && o.color <= 3);
+  const clientCap = Math.min(s.progress.colorsOwned + 1, s.run.palette.length);
+  assert.equal(clientCap, 3);
+  for (const o of s.run.activeClients) assert.ok(o.color >= 1 && o.color <= clientCap);
 });
 test('T9.3 tope 10 colores (MAX_COLORS v2)', () => {
   // v2-reconcile: R13.7 (MAX_COLORS=10) reemplaza el tope v1 de 6 en
@@ -596,13 +600,16 @@ test('T9.3 tope 10 colores (MAX_COLORS v2)', () => {
   assert.equal(colorsUnlocked(0), 1);
   assert.equal(colorsUnlocked(27), 10);   // 1+floor(27/3)=10
   assert.equal(colorsUnlocked(1000), 10); // clamp a MAX_COLORS=10
-  // v2.22.4: la compra no tiene tope. El 10º color existe; el siguiente también se cobra.
+  // Sin run, el techo de Color es MAX_COLORS. Con paleta, es 7 (v2.24.1).
   let s = createGame({ progress: { coins: 1000000, colorsOwned: 9 } });
   s = buyColor(s);
   assert.equal(s.progress.colorsOwned, 10);
+  const coins = s.progress.coins;
   const res = buyColor(s);
-  assert.equal(res.error, undefined);
-  assert.equal(res.progress.colorsOwned, 11);
+  assert.equal(res.error, 'maxed');
+  assert.equal(res.state.progress.colorsOwned, 10);
+  assert.equal(res.state.progress.coins, coins);
+  assert.equal(s.progress.coins, coins);
 });
 
 // ---------------------------------------------------------------------------
