@@ -47,22 +47,23 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
 .mute-ico{display:block;width:22px;height:22px}
 .chip.dropping{background:var(--highlight);transition:transform .42s cubic-bezier(.2,.8,.2,1)}
 
-/* v2.22.1 — one chrome strip: coins, calamity, guests, mute, save, rotate, hold-restart. */
+/* v2.22.4 — one chrome row. Calamity is a single icon: its fill shifts
+   from calm (success) toward danger as calamityForecast().progress climbs. */
 .topbar .chip{min-height:40px;padding:2px 8px}
-.cal-strip{display:flex;align-items:center;gap:4px;flex:1 1 auto;min-width:0;width:auto;margin:0;
-  padding:2px 4px 2px 2px;position:relative;
-  background:var(--panel);border:2px solid var(--ink);border-radius:999px;min-height:40px;cursor:pointer;
-  font-family:var(--font-ui);font-weight:800;color:var(--ink);box-shadow:0 2px 0 var(--wood-dark);text-align:left}
-.cal-strip:active{transform:translateY(2px);box-shadow:0 1px 0 var(--wood-dark)}
-.cal-ico{width:28px;height:28px;border-radius:50%;background:var(--highlight);border:2px solid var(--ink);
-  display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:13px;flex:0 0 auto}
-.cal-ico.wave2{background:var(--accent-2)}
-.cal-ico.clear{background:var(--success)}
-.cal-bar{flex:1;height:10px;background:var(--wood);border-radius:999px;overflow:hidden;border:2px solid var(--ink)}
-.cal-fill{display:block;height:100%;width:0;background:var(--danger)}
-.cal-meta{font-size:11px;color:var(--ink-soft);white-space:nowrap}
-.cal-strip .cal-meta{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
-  clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.cal-ico-btn{flex:0 0 auto;width:40px;height:40px;min-width:40px;min-height:40px;
+  padding:0;margin:0;position:relative;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  --cal-p:0;
+  background:color-mix(in srgb, var(--danger) calc(var(--cal-p) * 100%), var(--success));
+  border:2px solid var(--ink);border-radius:12px;
+  box-shadow:0 2px 0 var(--wood-dark);
+  font-family:var(--font-display);font-weight:800;font-size:13px;line-height:1;color:var(--ink)}
+.cal-ico-btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--wood-dark)}
+.cal-ico-btn[data-tone="warn"]{background:color-mix(in srgb, var(--danger) calc(var(--cal-p) * 100%), var(--highlight))}
+.cal-ico-btn[data-tone="critical"]{color:#fff8ec}
+.cal-ico-btn[data-tone="clear"]{background:var(--success);color:var(--ink)}
+.cal-mark{pointer-events:none}
+.cal-meta{font-size:12px;font-weight:800;color:var(--ink-soft);text-align:center}
 .topbar .queuecount{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;
   min-height:40px;font-size:11px;line-height:1.1;font-weight:800;
   background:var(--highlight);border:2px solid var(--ink);border-radius:999px;padding:0 6px;
@@ -94,7 +95,6 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
 .peek-tray{display:flex;gap:10px;align-items:flex-end;background:var(--wood);border:2px solid var(--ink);
   border-radius:12px;padding:8px 10px;overflow-x:auto}
 .peek-tray .pv-t{width:28px;height:24px}
-.cal-pop .cal-bar{margin:10px 0 12px}
 
 .scene.resetting .board-wrap{opacity:0;transition:opacity .42s cubic-bezier(.4,0,.2,1)}
 .scene.dim .board-wrap,.scene.dim .pool,.scene.dim .powerbar,.scene.dim .orders,.scene.dim .queuebar{filter:brightness(.55)}
@@ -450,7 +450,7 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   body{font-size:14px}
   /* v2.22.1 — una sola tira: estado + rotar + hold. Controles ≥40px. */
   .topbar{padding:2px 0;flex-wrap:nowrap;gap:2px}
-  .topbar .cal-strip{flex:1 1 auto;min-width:0}
+  .topbar .cal-ico-btn{width:40px;height:40px;min-width:40px;min-height:40px}
   .topbar .chip{font-size:13px;padding:2px 6px;min-width:0;min-height:40px}
   .chip{font-size:13px;padding:2px 7px;min-width:0}
   .chip.sm{font-size:10px;padding:2px 5px}
@@ -498,9 +498,11 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 @media(prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01s!important;transition:none!important}}
 
 /* v2.18 — first-run spotlight tutorial.
-   Overlay blocks non-playable UI. Board + trays stay above the dim so the
-   player can keep placing. Spotlighted controls are raised; the Hold 3s
-   restart control is visual-only on its step. */
+   The dim (#tutOverlay, z-index 80) sits under the playable board and trays
+   (z-index 90) so placing still works. The hole and the step card are
+   siblings of that dim, not children, so their z-index is not trapped:
+   the outline (96) and the card (100) paint above the board. Skip/Next
+   live on the card. Hold 3s is visual-only on its step. */
 #tutOverlay{position:fixed;inset:0;z-index:80;display:none;pointer-events:none;background:transparent}
 #tutOverlay.show{display:block;pointer-events:auto;background:rgba(121,72,53,.55)}
 body.tut-on .board-wrap,body.tut-on .pool{position:relative;z-index:90}
@@ -514,12 +516,13 @@ body.tut-on .topbar #btnRotate,
 body.tut-on .topbar #btnClose{pointer-events:none}
 body.tut-on .topbar #btnMute{pointer-events:auto}
 body.tut-on .powerbar.tut-spot{z-index:90}
-.tut-hole{position:absolute;border-radius:14px;pointer-events:none;outline:3px solid var(--highlight);
+.tut-hole{position:fixed;z-index:96;border-radius:14px;pointer-events:none;outline:3px solid var(--highlight);
   transition:left .2s,top .2s,width .2s,height .2s}
 .tut-card{pointer-events:auto;position:fixed;left:50%;transform:translateX(-50%);
   width:min(420px,calc(100% - 24px));background:var(--panel);border:3px solid var(--ink);
   border-radius:16px;padding:14px 14px 12px;box-shadow:0 5px 0 var(--wood-dark);
-  z-index:101;max-width:92vw}
+  z-index:100;max-width:92vw}
+.tut-card[hidden],.tut-hole[hidden]{display:none !important}
 .tut-card p{margin:0 0 12px;font-weight:800;font-size:15px;text-align:center;line-height:1.35;color:var(--ink)}
 .tut-actions{display:flex;gap:10px;justify-content:center}
 .tut-actions .btn{flex:1;min-height:44px}
@@ -560,8 +563,7 @@ body.tut-on .powerbar.tut-spot{z-index:90}
   <p>A hidden pile sleeps on a dark table until you unlock it.</p>
   <p>A locked table hides a pile — Unlock reveals it.</p>
   <p>A pile is already sitting on a table.</p>
-  <div class="cal-bar" aria-hidden="true"><span class="cal-fill" id="calPopFill"></span></div>
-  <div class="cal-meta" id="calPopMeta" style="text-align:center;margin-bottom:8px"></div>
+  <div class="cal-meta" id="calPopMeta" style="margin-bottom:8px"></div>
   <button type="button" class="btn btn-sec" id="calPopClose" style="width:100%">Close</button>
 </div></div>
 
@@ -589,15 +591,14 @@ body.tut-on .powerbar.tut-spot{z-index:90}
 </div></div>
 
 
-<div id="tutOverlay" aria-live="polite">
-  <div class="tut-hole" id="tutHole" hidden></div>
-  <div class="tut-card" id="tutCard">
-    <span class="tut-step" id="tutStepLabel">1 / 5</span>
-    <p id="tutText"></p>
-    <div class="tut-actions">
-      <button type="button" class="btn btn-sec" id="tutSkip">Skip</button>
-      <button type="button" class="btn btn-primary" id="tutNext" style="min-height:44px;font-size:16px">Next</button>
-    </div>
+<div id="tutOverlay"></div>
+<div class="tut-hole" id="tutHole" hidden></div>
+<div class="tut-card" id="tutCard" hidden aria-live="polite">
+  <span class="tut-step" id="tutStepLabel">1 / 5</span>
+  <p id="tutText"></p>
+  <div class="tut-actions">
+    <button type="button" class="btn btn-sec" id="tutSkip">Skip</button>
+    <button type="button" class="btn btn-primary" id="tutNext" style="min-height:44px;font-size:16px">Next</button>
   </div>
 </div>
 
@@ -750,10 +751,8 @@ function renderRun(){
     <div class="scene active${won?' dim':''}">
       <div class="topbar">
         <div class="chip" title="Coins">🪙<span id="coinNum">${fmt(state.progress.coins)}</span></div>
-        <button type="button" class="cal-strip" id="calStrip" aria-expanded="false" aria-controls="calPop" aria-label="Incoming calamity">
-          <span class="cal-ico" id="calIco" aria-hidden="true">I</span>
-          <span class="cal-bar" aria-hidden="true"><span class="cal-fill" id="calFill"></span></span>
-          <span class="cal-meta" id="calMeta">Next shift</span>
+        <button type="button" class="cal-ico-btn" id="calStrip" data-tone="calm" aria-expanded="false" aria-controls="calPop" aria-label="Incoming calamity">
+          <span class="cal-mark" id="calIco" aria-hidden="true">I</span>
         </button>
         <span id="queueCount" class="queuecount" title="Guests served" aria-label="Guests served">0/100</span>
         <div class="hdr-tools">
@@ -790,27 +789,27 @@ function renderRun(){
 }
 function renderCalamity(){
   const f = calamityForecast(state);
-  const ico = $('#calIco'); const fill = $('#calFill'); const meta = $('#calMeta');
-  if(!ico || !fill || !meta) return;
-  const pct = Math.round(Math.max(0, Math.min(1, f.progress)) * 100);
-  fill.style.width = pct + '%';
-  ico.classList.remove('wave2','clear');
+  const btn = $('#calStrip'); const ico = $('#calIco');
+  if(!btn || !ico) return;
+  const p = Math.max(0, Math.min(1, f.progress || 0));
+  let tone = 'calm';
+  let mark = 'I';
+  let meta = 'Tables';
   if(f.done){
-    ico.textContent = '✓'; ico.classList.add('clear');
-    meta.textContent = 'All clear';
+    tone = 'clear'; mark = '✓'; meta = 'All clear';
   } else if(f.wave === 2){
-    ico.textContent = 'II'; ico.classList.add('wave2');
-    meta.textContent = 'Guests';
+    mark = 'II'; meta = 'Guests';
+    tone = p >= 0.66 ? 'critical' : p >= 0.33 ? 'warn' : 'calm';
   } else {
-    ico.textContent = 'I';
-    meta.textContent = 'Tables';
+    mark = 'I'; meta = 'Tables';
+    tone = p >= 0.66 ? 'critical' : p >= 0.33 ? 'warn' : 'calm';
   }
-  const popFill = $('#calPopFill');
-  if(popFill) popFill.style.width = pct + '%';
+  ico.textContent = mark;
+  btn.dataset.tone = tone;
+  btn.style.setProperty('--cal-p', p.toFixed(3));
+  btn.setAttribute('aria-label', 'Incoming calamity: ' + meta);
   const popMeta = $('#calPopMeta');
-  if(popMeta) popMeta.textContent = meta.textContent;
-  const strip = $('#calStrip');
-  if(strip) strip.setAttribute('aria-label', 'Incoming calamity: ' + meta.textContent);
+  if(popMeta) popMeta.textContent = meta;
 }
 function bindCalamity(){
   const strip = $('#calStrip'); if(!strip) return;
@@ -1077,12 +1076,6 @@ function renderPool(){
   }));
 }
 function renderPoolSel(){ $$('#pool .poolslot').forEach(x=>x.classList.toggle('selected', +x.dataset.slot===ui.slot)); }
-function skillIsMaxed(id){
-  if(id==='color') return (state.progress.colorsOwned||4) >= CONFIG.MAX_COLORS;
-  if(id==='tips') return ((state.progress.econ&&state.progress.econ.multLevel)||0) >= CONFIG.MULT_MAX;
-  if(id==='previewPool') return ((state.skills.previewPool&&state.skills.previewPool.level)||0) >= 3;
-  return false;
-}
 function skillNextPrice(id){
   if(id==='tables') return runTilePrice(state);
   if(id==='color') return colorPrice(state);
@@ -1153,18 +1146,15 @@ function renderPowers(){
     {skill:'tips',icon:'✨',mode:'tips'},
   ];
   box.innerHTML = arr.map(d=>{
-    const maxed = skillIsMaxed(d.skill);
-    const priceN = maxed ? 0 : skillNextPrice(d.skill);
-    const broke = maxed || state.progress.coins < priceN;
+    const priceN = skillNextPrice(d.skill);
+    const broke = state.progress.coins < priceN;
     const help = SKILL_BLURB[d.skill];
-    const tip = maxed ? help+' Maxed.' : help+' Next '+fmt(priceN)+' coins.';
-    const cost = maxed
-      ? `<span class="pow-cost">Max</span>`
-      : `<span class="pow-cost">🪙${fmt(priceN)}</span>`;
+    const tip = help+' Next '+fmt(priceN)+' coins.';
+    const cost = `<span class="pow-cost">🪙${fmt(priceN)}</span>`;
     const icon = /^[a-z0-9_]+$/.test(d.icon)
       ? spr(d.icon, 26)
       : `<span class="pow-emoji" aria-hidden="true">${d.icon}</span>`;
-    return `<div class="pow ${broke?'broke':''} ${ui.mode===d.mode?'selected':''}" data-mode="${d.mode}" data-skill="${d.skill}" data-maxed="${maxed?'1':'0'}" role="button" title="${tip}" aria-label="${tip}">
+    return `<div class="pow ${broke?'broke':''} ${ui.mode===d.mode?'selected':''}" data-mode="${d.mode}" data-skill="${d.skill}" role="button" title="${tip}" aria-label="${tip}">
       <span class="pow-face"><span class="pow-ico">${icon}</span></span>${cost}</div>`;
   }).join('');
   $$('#powerbar .pow').forEach(p=>{
@@ -1175,7 +1165,7 @@ function renderPowers(){
     if(ui.anim) return;
     if(mode==='preview'){
       const peekLvl=(state.skills.previewPool&&state.skills.previewPool.level)||0;
-      if(p.dataset.maxed==='1' || (peekLvl>0 && p.classList.contains('broke'))){
+      if(peekLvl>0 && p.classList.contains('broke')){
         openPeekModal(); return;
       }
       if(p.classList.contains('broke')){ toast(ERRT.noFunds); return; }
@@ -1187,7 +1177,7 @@ function renderPowers(){
       return;
     }
     if(p.classList.contains('broke')){
-      toast(p.dataset.maxed==='1' ? ERRT.maxed : ERRT.noFunds); return;
+      toast(ERRT.noFunds); return;
     }
     if(mode==='activate'){
       ui.mode = ui.mode==='activate'?null:'activate'; ui.slot=false; ui.servingOrder=null;
@@ -1838,8 +1828,8 @@ function maybeStartTutorial(){
 function startTutorial(){
   tutActive = true; tutStep = 0;
   document.body.classList.add('tut-on');
-  const ov = $('#tutOverlay'); if(!ov) return;
-  ov.classList.add('show');
+  const ov = $('#tutOverlay'); if(ov) ov.classList.add('show');
+  const card = $('#tutCard'); if(card) card.hidden = false;
   showTutStep();
   requestAnimationFrame(()=>showTutStep()); // layout after paint
 }
@@ -1856,6 +1846,7 @@ function applyTutLayer(){
 }
 function showTutStep(){
   const step = TUT_STEPS[tutStep]; if(!step) return;
+  const card = $('#tutCard'); if(card) card.hidden = false;
   const lab = $('#tutStepLabel'); if(lab) lab.textContent = (tutStep+1)+' / '+TUT_STEPS.length;
   const tx = $('#tutText'); if(tx) tx.textContent = step.text;
   const next = $('#tutNext'); if(next) next.textContent = tutStep >= TUT_STEPS.length-1 ? 'Done' : 'Next';
@@ -1892,6 +1883,8 @@ function finishTutorial(){
   document.body.classList.remove('tut-on');
   $$('.tut-spot').forEach(el=>{ el.classList.remove('tut-spot','tut-spot-block'); });
   const ov = $('#tutOverlay'); if(ov) ov.classList.remove('show');
+  const card = $('#tutCard'); if(card) card.hidden = true;
+  const hole = $('#tutHole'); if(hole) hole.hidden = true;
   if(!state.settings) state.settings = { reducedMotion: false };
   state.settings.seenTutorial = true;
   persist();
@@ -1926,7 +1919,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.22.3';
+const GAME_VERSION = 'v2.22.4';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };

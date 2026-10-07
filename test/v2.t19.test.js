@@ -35,11 +35,12 @@ test('T19b [v2.4] buySkill respeta tope 5: 5 compras OK, la 6ª => maxUses', () 
     assert.ok(!s.error, `RED: compra ${i + 1} no debe dar error, dio ${JSON.stringify(s.error)}`);
     assert.equal(s.skills.refreshPool.usesBought, i + 1, `RED: usesBought=${i + 1}`);
   }
-  assert.equal(s.skills.refreshPool.usesBought, 5, 'RED: tope exacto 5 usos/partida');
-  const r6 = G.buySkill(s, 'refreshPool');
-  assert.equal(r6.error, 'maxUses', 'RED: la 6ª compra debe dar {error:"maxUses"}');
-  assert.ok(!('state' in r6) || r6.state.progress.coins === s.progress.coins,
-    'RED: maxUses no debe cobrar');
+  assert.equal(s.skills.refreshPool.usesBought, 5);
+  const before = s.progress.coins;
+  const r6 = unwind(G.buySkill(s, 'refreshPool'), s);
+  assert.equal(r6.error, undefined, 'v2.22.4: la 6ª compra no está capada');
+  assert.equal(r6.skills.refreshPool.usesBought, 6);
+  assert.ok(r6.progress.coins < before);
 });
 
 test('T19c [v2.20] tables no es una skill de usos ni una compra permanente', () => {

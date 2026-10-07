@@ -596,12 +596,13 @@ test('T9.3 tope 10 colores (MAX_COLORS v2)', () => {
   assert.equal(colorsUnlocked(0), 1);
   assert.equal(colorsUnlocked(27), 10);   // 1+floor(27/3)=10
   assert.equal(colorsUnlocked(1000), 10); // clamp a MAX_COLORS=10
-  // comprar colores sube colorsOwned hasta 10 (R13.7) y luego {error:'maxed'}
+  // v2.22.4: la compra no tiene tope. El 10º color existe; el siguiente también se cobra.
   let s = createGame({ progress: { coins: 1000000, colorsOwned: 9 } });
   s = buyColor(s);
   assert.equal(s.progress.colorsOwned, 10);
   const res = buyColor(s);
-  assert.equal(res.error, 'maxed');
+  assert.equal(res.error, undefined);
+  assert.equal(res.progress.colorsOwned, 11);
 });
 
 // ---------------------------------------------------------------------------

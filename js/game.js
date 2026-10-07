@@ -12,15 +12,15 @@ export const CONFIG = {
   BASE_COIN: 5,                     // R5.1
   EXP_BASE: 1.25,                   // R5.2 superlinear exponent
   EXP_STEP: 0.05,                   // R5.2 multLevel exponent growth
-  MULT_PRICE_BASE: 100,             // R5.2 cost 100*(multLevel+1)
-  MULT_MAX: 6,                      // R5.2 cap
+  MULT_PRICE_BASE: 100,             // R5.2 historical list price; live tips use 40×1.6^n
+  MULT_MAX: 6,                      // retired as a purchase cap in v2.22.4 (tips are unlimited)
   CALAMITY_BONUS_PER: 15,           // R5.3 / R8.5 bonus per calamity cell
   CALAMITY_MIN_FRAC: 1 / 5,         // R8.2 lo
   CALAMITY_MAX_FRAC: 1 / 3,         // R8.2 hi
   CALAMITY_THRESHOLD: 15,           // R8.1 only if boardCells > 15
   BLOCK_PROB: 0.5,                  // R8.3 ~50% blocked / ~50% prestockated
   USES_SKILLS: ['destroyPile', 'swapPiles', 'refreshPool', 'queueSkip', 'unlockLocks'], // v2.3 R7.2: skills modelo USOS (v2.8 += unlockLocks R7.8). v2.20: tables ya no es skill de usos.
-  MAX_USES_PER_SKILL: 5,            // v2.4: tope de usos por partida en destroy/swap/refresh/queueSkip/unlockLocks
+  MAX_USES_PER_SKILL: 5,            // retired v2.22.4: no per-skill use ceiling is enforced
   PRODUCTS_PER_COLOR: 3,            // R10.1 [OBSOLETO v2 — reemplazado por R13.7]
   IDLE_RATE: { workers: 0.5, fame: 0.3, machines: 0.8 }, // R9.1
   IDLE_CAP:  { workers: 60,  fame: 100,  machines: 40 },  // R9.3 caps
@@ -35,11 +35,12 @@ export const CONFIG = {
   COLOR_PRICE_BASE: 150,            // R13.7 precio color = BASE * (n-3), n = colorsOwned tras comprar
   RUN_TILE_BASE: 40,                // R14.3 runTilePrice = BASE * RATIO^runTilesActivated (se resetea cada run)
   RUN_TILE_RATIO: 1.6,              // R14.3 curva temporal por partida; no hay tienda permanente (2026-10-06)
-  // v2.22 — cada skill se paga al usarla. Siguiente precio =
-  //   SKILL_USE_BASE * SKILL_USE_RATIO^n
-  // n = usos ya pagados en ESTA run (se pone a 0 al abrir/reiniciar).
-  // Misma curva que las mesas (RUN_TILE_BASE × RUN_TILE_RATIO^n = 40 × 1.6^n).
-  // Color: n = colorsOwned − 4. Tips: n = multLevel. Pizarra: n = preview level.
+  // v2.22 / v2.22.4 — cada skill se paga al usarla. Siguiente precio =
+  //   SKILL_USE_BASE * SKILL_USE_RATIO^n = 40 × 1.6^n (producto exacto)
+  // n = usos de ESA skill en esta run (se pone a 0 al abrir/reiniciar).
+  // Misma base y misma razón para todas: Destroy/Swap/Refresh/Unlock/Queue
+  // (skillUses), Tables (runTilesActivated), Color (colorsOwned−4),
+  // Tips (multLevel), Board/Peek (previewPool.level). Sin techo.
   SKILL_USE_BASE: 40,
   SKILL_USE_RATIO: 1.6,
   MAX_COLORS: 10,                   // R13.7 10 colores / criaturas en orden de desbloqueo (R13.2)
@@ -49,7 +50,7 @@ export const CONFIG = {
   TABLES_HOLD_MS: 550,              // v2.17: press-and-hold Tables → batch activateAroundUnlocked
   CLOSE_HOLD_MS: 3000,              // Hold 3s restarts the run; coins do not carry over
   TABLES_ACTIVATE_MIN_NEIGHBORS: 2, // v2.17 R14.6: unlock requires ≥2 already-unlocked neighbors
-  PREVIEW_PRICE: 80,                // v2 R15.1 precio previewPool = PREVIEW_PRICE * level
+  PREVIEW_PRICE: 80,                // historical; v2.22.4 peek price is skillUsePrice (40×1.6^level)
   PILE_SIZE_WEIGHTS: [9, 8, 7, 6, 5, 4, 3], // v2.9 R3.1: peso del tamaño 1..7 —
                                     // menos fichas más común pero SUTIL (7 sigue
                                     // saliendo ~7%): P = peso/42 ⇒ 21/19/17/14/12/10/7%
@@ -184,7 +185,7 @@ export function createGame(init = {}) {
       destroyPile: { owned: false, uses: 0, usesBought: 0, price: 250, unlockLevel: 5 },
       swapPiles:   { owned: false, uses: 0, usesBought: 0, price: 120, unlockLevel: 3 },
       refreshPool: { owned: false, uses: 0, usesBought: 0, price: 40,  unlockLevel: 1 },
-      // previewPool: modelo LEVELS (owned + level 0..3, SIN uses).
+      // previewPool: modelo LEVELS (owned + level, sin tope, SIN uses). v2.22.4
       // v2.22.2: auto-serve is always on. There is no serveManual / Waiter skill.
       previewPool: { owned: false, level: 0, price: 80, unlockLevel: 1 },
       // v2.1 R17.1 — queueSkip: modelo USES (R7.4) — los 3 visibles van al
@@ -1031,8 +1032,8 @@ function buildPick(rng, n, cu) {
 export function buyColor(state) {
   const s = clone(state);
   if (s.progress.colorsOwned == null) s.progress.colorsOwned = 4; // v2 default
-  if (s.progress.colorsOwned >= CONFIG.MAX_COLORS) return { error: 'maxed', state: s };
-  // v2.22: misma curva 40×1.6^n (n = colores ya comprados esta run). Tope 10.
+  // v2.22.4: sin tope de compra. El roster sigue en MAX_COLORS para generar
+  // fichas; colorsOwned puede pasar de 10 y el precio sigue 40×1.6^n.
   const price = colorPrice(s);
   if (s.progress.coins < price) return { error: 'noFunds', state: s }; // sin mutar
   s.progress.colorsOwned += 1;
@@ -1056,8 +1057,7 @@ export function buyColor(state) {
 // se paga con la curva de monedas.
 // ---------------------------------------------------------------------------
 export function runTilePrice(state) {
-  const n = (state && state.run && state.run.runTilesActivated) || 0;
-  return CONFIG.RUN_TILE_BASE * CONFIG.RUN_TILE_RATIO ** n;
+  return skillUsePrice(state, 'tables');
 }
 
 // v2.22 — bolsa de usos pagados. Vive en la run (se tira al reiniciar).
@@ -1068,13 +1068,31 @@ function skillUseBag(state) {
 }
 
 export function skillUseCount(state, power) {
+  // One use-count per skill this run. Domain counters ARE the uses:
+  // color purchases, tip levels, peek levels, tables activated.
+  if (power === 'color') {
+    const owned = (state && state.progress && state.progress.colorsOwned) || 4;
+    return Math.max(0, owned - 4);
+  }
+  if (power === 'tips') {
+    return (state && state.progress && state.progress.econ && state.progress.econ.multLevel) || 0;
+  }
+  if (power === 'previewPool') {
+    return (state && state.skills && state.skills.previewPool && state.skills.previewPool.level) || 0;
+  }
+  if (power === 'tables') {
+    return (state && state.run && state.run.runTilesActivated) || 0;
+  }
   const bag = skillUseBag(state);
   return (bag && bag[power]) || 0;
 }
 
 export function skillUsePrice(state, power) {
   const n = skillUseCount(state, power);
-  return Math.round(CONFIG.SKILL_USE_BASE * CONFIG.SKILL_USE_RATIO ** n);
+  // Exact 40 × 1.6^n for every skill, including tables. Rounding the
+  // product changes the ratio (102 instead of 102.4) and can skip a table
+  // the player could still afford.
+  return CONFIG.SKILL_USE_BASE * CONFIG.SKILL_USE_RATIO ** n;
 }
 
 // Cobra el precio actual y anota el uso. No muta si no alcanza.
@@ -1094,19 +1112,15 @@ function chargeSkill(s, power) {
 }
 
 export function colorPrice(state) {
-  const owned = (state && state.progress && state.progress.colorsOwned) || 4;
-  const n = Math.max(0, owned - 4);
-  return Math.round(CONFIG.SKILL_USE_BASE * CONFIG.SKILL_USE_RATIO ** n);
+  return skillUsePrice(state, 'color');
 }
 
 export function tipPrice(state) {
-  const lvl = (state && state.progress && state.progress.econ && state.progress.econ.multLevel) || 0;
-  return Math.round(CONFIG.SKILL_USE_BASE * CONFIG.SKILL_USE_RATIO ** lvl);
+  return skillUsePrice(state, 'tips');
 }
 
 export function previewPrice(state) {
-  const level = (state && state.skills && state.skills.previewPool && state.skills.previewPool.level) || 0;
-  return Math.round(CONFIG.SKILL_USE_BASE * CONFIG.SKILL_USE_RATIO ** level);
+  return skillUsePrice(state, 'previewPool');
 }
 
 function v2CellOf(s, cellId) {
@@ -1478,11 +1492,10 @@ export function buySkill(state, power) {
   const sk = state.skills && state.skills[power];
   if (!sk) return { error: 'noSkill' };
   const s = clone(state);
-  // v2 R15.1 — previewPool: modelo LEVELS (level 1..3, SIN uses)
+  // v2 R15.1 / v2.22.4 — previewPool: modelo LEVELS, sin tope.
+  // Cada compra sube level y el precio (40×1.6^level) y muestra una tanda más.
   if (power === 'previewPool') {
     const level = sk.level || 0;
-    if (level >= 3) return { error: 'max' };
-    // v2.22: 40×1.6^level. El tope sigue en 3 tandas (no hay más bandeja que mostrar).
     const price = previewPrice(s);
     if (s.progress.coins < price) return { error: 'noFunds' };             // R7.3
     s.progress.coins -= price;
@@ -1499,10 +1512,8 @@ export function buySkill(state, power) {
   // uses = usesBought. Precio = price * 1.35^usesBought. v2.16: sin gate cafeLevel.
   {
     const sk2 = s.skills[power];
-    // v2.4: tope de usos/partida = MAX_USES_PER_SKILL (5).
-    const cap = CONFIG.MAX_USES_PER_SKILL;
+    // v2.22.4: the old MAX_USES_PER_SKILL ceiling is not enforced.
     const cost = Math.round(sk2.price * Math.pow(1.35, sk2.usesBought || 0));
-    if ((sk2.usesBought || 0) >= cap) return { error: 'maxUses' };           // v2.4
     if (s.progress.coins < cost) return { error: 'noFunds' };                // R7.3
     s.progress.coins -= cost;
     sk2.usesBought = (sk2.usesBought || 0) + 1;   // la compra ES un uso
@@ -1551,9 +1562,6 @@ export function buyUsesUp(state, power) {
   const sk = state && state.skills && state.skills[power];
   if (!sk) return { error: 'noSkill' };
   if (power === 'tables' || !CONFIG.USES_SKILLS.includes(power)) return { error: 'noUsesModel' };  // solo modelo 'uses'
-  // v2.4: mismo tope que buySkill (5 por partida)
-  const cap = CONFIG.MAX_USES_PER_SKILL;
-  if ((sk.usesBought || 0) >= cap) return { error: 'maxUses' };
   const s = clone(state);
   const cur = s.skills[power];
   if (!cur.owned) return { error: 'locked' };                        // R7.1: mejora lo comprado
@@ -1567,8 +1575,8 @@ export function buyUsesUp(state, power) {
 
 // ---------------------------------------------------------------------------
 // v2 R15.1 — previewPool(state, rng): vista previa PURA de las próximas tandas
-// del pool. level 0 (sin comprar) => null; level N (1..3) => N tandas de 3
-// pilas monocromas con colores uniformes en 1..min(rosterIndex, colorsOwned).
+// del pool. level 0 (sin comprar) => null; level N (sin tope, v2.22.4) => N
+// tandas de 3 pilas con colores en 1..min(rosterIndex, colorsOwned).
 // Determinista (rng inyectado) y NO muta el estado.
 // ---------------------------------------------------------------------------
 export function previewPool(state, rng) {
@@ -1674,9 +1682,7 @@ export function buyExpansion(state, kind) {
 export function buyMultiplier(state) {
   const s = clone(state);
   const lvl = s.progress.econ.multLevel;
-  if (lvl >= CONFIG.MULT_MAX) return { error: 'maxed' };                 // R5.2 cap
-  // v2.22: 40×1.6^multLevel. El tope MULT_MAX se queda: el exponente de
-  // pay() no tiene otro freno. El botón se apaga al llegar.
+  // v2.22.4: sin MULT_MAX. Misma curva 40×1.6^n que el resto de skills.
   const price = tipPrice(s);
   if (s.progress.coins < price) return { error: 'noFunds' };
   s.progress.coins -= price;

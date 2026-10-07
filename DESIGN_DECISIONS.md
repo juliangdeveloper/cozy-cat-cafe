@@ -1,5 +1,13 @@
 # Cozy Cat Café × HexaSort — Shared Understanding (post-grill)
 
+## v2.22.4 — tutorial por encima del tablero, icono de calamidad, skills sin tope
+
+**Tutorial.** El velo (`#tutOverlay`, z-index 80) sigue debajo del tablero y las bandejas (z-index 90) para que se pueda seguir colocando. La tarjeta del paso y el contorno del foco son hermanos de ese velo, no hijos: su z-index (tarjeta 100, hueco 96) no queda atrapado y pintan por encima del tablero. Skip y Next siguen en la tarjeta. Los 5 pasos en inglés de v2.22.3 no cambian.
+
+**Calamidad.** La barra de progreso de la cabecera sale. En su lugar hay un solo icono de 40px (I / II / ✓) que se tiñe de calma (`--success`) hacia peligro (`--danger`) con `calamityForecast().progress` (franjas calm / warn / critical; al terminar, clear). Tocarlo abre el mismo popup de tipos. No hay tira ni barra como UI principal.
+
+**Skills.** Ningún skill tiene techo de compra ni estado “Maxed”. Color, Tips (`MULT_MAX`), Board (3) y el tope de usos (`MAX_USES_PER_SKILL`) ya no bloquean. Todos cobran `skillUsePrice` = `40 × 1.6^n` (producto exacto, misma base y misma razón). n es los usos de esa skill en la run: color = `colorsOwned−4`, tips = `multLevel`, pizarra = `previewPool.level`, mesas = `runTilesActivated` (`runTilePrice` delega), el resto = `run.skillUses`. El roster sigue teniendo 10 criaturas: `MAX_COLORS` limita la generación de fichas, no la compra. Waiter sigue fuera.
+
 ## v2.22.2 — auto-servir siempre; la pizarra se ve
 
 Waiter / `serveManual` / Modo mesero **no es un skill**. No hay botón, no hay precio, no hay hold que lo explique, no hay toggle de auto-serve. Cuando un tope coincide con la cantidad de un pedido visible, la cascada **siempre** lo sirve.
@@ -22,7 +30,7 @@ Los skills son **solo icono**, con el próximo precio en monedas debajo. Un toqu
 
 La tienda (carrito, modal, sección “This café only”) desaparece. Lo que se compraba ahí vive en la barra de poderes, en **dos filas de cinco**. Cada uso cobra monedas y el siguiente precio es `SKILL_USE_BASE × SKILL_USE_RATIOⁿ` = **40 × 1.6ⁿ**, la misma curva que las mesas (`RUN_TILE_BASE` / `RUN_TILE_RATIO`). `n` son los usos ya pagados en esta run y vuelve a 0 al reiniciar. No hay badge de “usos restantes” ni gate por `unlockLevel`: el botón se apaga solo si no alcanza para el siguiente precio.
 
-- **Fila (v2.22.0, antes de quitar Waiter):** Destroy, Swap, Refresh, Tables, Unlock, Queue, Board (pizarra, tope 3 tandas), Color (tope 10), Tips (tope `MULT_MAX` = 6, porque el exponente de `pay()` no tiene otro freno). Waiter salió en v2.22.2: auto-servir no se compra ni se apaga.
+- **Fila (v2.22.0, antes de quitar Waiter):** Destroy, Swap, Refresh, Tables, Unlock, Queue, Board, Color, Tips. Los topes de v2.22.0 (pizarra 3, color 10, tips `MULT_MAX` 6) los retira v2.22.4: misma curva y sin máximo. Waiter salió en v2.22.2: auto-servir no se compra ni se apaga.
 - **No entran como skills:** idle (Barista / Fame / máquinas) — la UI ya no lo vendía y el offline sigue en 0. Capacidad sigue retirada (N = 100). Expansiones de tablero / menú ya estaban fuera de la tienda.
 - **Cabecera:** una sola fila — monedas, icono+barra de calamidad, invitados (`57/100`), mute y guardar. El pie de versión se queda.
 - **Meta:** igual que v2.21. El reinicio tira monedas, precios y colores. Solo el mute persiste.

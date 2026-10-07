@@ -47,22 +47,23 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
 .mute-ico{display:block;width:22px;height:22px}
 .chip.dropping{background:var(--highlight);transition:transform .42s cubic-bezier(.2,.8,.2,1)}
 
-/* v2.22.1 — one chrome strip: coins, calamity, guests, mute, save, rotate, hold-restart. */
+/* v2.22.4 — one chrome row. Calamity is a single icon: its fill shifts
+   from calm (success) toward danger as calamityForecast().progress climbs. */
 .topbar .chip{min-height:40px;padding:2px 8px}
-.cal-strip{display:flex;align-items:center;gap:4px;flex:1 1 auto;min-width:0;width:auto;margin:0;
-  padding:2px 4px 2px 2px;position:relative;
-  background:var(--panel);border:2px solid var(--ink);border-radius:999px;min-height:40px;cursor:pointer;
-  font-family:var(--font-ui);font-weight:800;color:var(--ink);box-shadow:0 2px 0 var(--wood-dark);text-align:left}
-.cal-strip:active{transform:translateY(2px);box-shadow:0 1px 0 var(--wood-dark)}
-.cal-ico{width:28px;height:28px;border-radius:50%;background:var(--highlight);border:2px solid var(--ink);
-  display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:13px;flex:0 0 auto}
-.cal-ico.wave2{background:var(--accent-2)}
-.cal-ico.clear{background:var(--success)}
-.cal-bar{flex:1;height:10px;background:var(--wood);border-radius:999px;overflow:hidden;border:2px solid var(--ink)}
-.cal-fill{display:block;height:100%;width:0;background:var(--danger)}
-.cal-meta{font-size:11px;color:var(--ink-soft);white-space:nowrap}
-.cal-strip .cal-meta{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
-  clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.cal-ico-btn{flex:0 0 auto;width:40px;height:40px;min-width:40px;min-height:40px;
+  padding:0;margin:0;position:relative;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  --cal-p:0;
+  background:color-mix(in srgb, var(--danger) calc(var(--cal-p) * 100%), var(--success));
+  border:2px solid var(--ink);border-radius:12px;
+  box-shadow:0 2px 0 var(--wood-dark);
+  font-family:var(--font-display);font-weight:800;font-size:13px;line-height:1;color:var(--ink)}
+.cal-ico-btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--wood-dark)}
+.cal-ico-btn[data-tone="warn"]{background:color-mix(in srgb, var(--danger) calc(var(--cal-p) * 100%), var(--highlight))}
+.cal-ico-btn[data-tone="critical"]{color:#fff8ec}
+.cal-ico-btn[data-tone="clear"]{background:var(--success);color:var(--ink)}
+.cal-mark{pointer-events:none}
+.cal-meta{font-size:12px;font-weight:800;color:var(--ink-soft);text-align:center}
 .topbar .queuecount{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;
   min-height:40px;font-size:11px;line-height:1.1;font-weight:800;
   background:var(--highlight);border:2px solid var(--ink);border-radius:999px;padding:0 6px;
@@ -94,7 +95,6 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
 .peek-tray{display:flex;gap:10px;align-items:flex-end;background:var(--wood);border:2px solid var(--ink);
   border-radius:12px;padding:8px 10px;overflow-x:auto}
 .peek-tray .pv-t{width:28px;height:24px}
-.cal-pop .cal-bar{margin:10px 0 12px}
 
 .scene.resetting .board-wrap{opacity:0;transition:opacity .42s cubic-bezier(.4,0,.2,1)}
 .scene.dim .board-wrap,.scene.dim .pool,.scene.dim .powerbar,.scene.dim .orders,.scene.dim .queuebar{filter:brightness(.55)}
@@ -450,7 +450,7 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   body{font-size:14px}
   /* v2.22.1 — una sola tira: estado + rotar + hold. Controles ≥40px. */
   .topbar{padding:2px 0;flex-wrap:nowrap;gap:2px}
-  .topbar .cal-strip{flex:1 1 auto;min-width:0}
+  .topbar .cal-ico-btn{width:40px;height:40px;min-width:40px;min-height:40px}
   .topbar .chip{font-size:13px;padding:2px 6px;min-width:0;min-height:40px}
   .chip{font-size:13px;padding:2px 7px;min-width:0}
   .chip.sm{font-size:10px;padding:2px 5px}
@@ -498,9 +498,11 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 @media(prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01s!important;transition:none!important}}
 
 /* v2.18 — first-run spotlight tutorial.
-   Overlay blocks non-playable UI. Board + trays stay above the dim so the
-   player can keep placing. Spotlighted controls are raised; the Hold 3s
-   restart control is visual-only on its step. */
+   The dim (#tutOverlay, z-index 80) sits under the playable board and trays
+   (z-index 90) so placing still works. The hole and the step card are
+   siblings of that dim, not children, so their z-index is not trapped:
+   the outline (96) and the card (100) paint above the board. Skip/Next
+   live on the card. Hold 3s is visual-only on its step. */
 #tutOverlay{position:fixed;inset:0;z-index:80;display:none;pointer-events:none;background:transparent}
 #tutOverlay.show{display:block;pointer-events:auto;background:rgba(121,72,53,.55)}
 body.tut-on .board-wrap,body.tut-on .pool{position:relative;z-index:90}
@@ -514,12 +516,13 @@ body.tut-on .topbar #btnRotate,
 body.tut-on .topbar #btnClose{pointer-events:none}
 body.tut-on .topbar #btnMute{pointer-events:auto}
 body.tut-on .powerbar.tut-spot{z-index:90}
-.tut-hole{position:absolute;border-radius:14px;pointer-events:none;outline:3px solid var(--highlight);
+.tut-hole{position:fixed;z-index:96;border-radius:14px;pointer-events:none;outline:3px solid var(--highlight);
   transition:left .2s,top .2s,width .2s,height .2s}
 .tut-card{pointer-events:auto;position:fixed;left:50%;transform:translateX(-50%);
   width:min(420px,calc(100% - 24px));background:var(--panel);border:3px solid var(--ink);
   border-radius:16px;padding:14px 14px 12px;box-shadow:0 5px 0 var(--wood-dark);
-  z-index:101;max-width:92vw}
+  z-index:100;max-width:92vw}
+.tut-card[hidden],.tut-hole[hidden]{display:none !important}
 .tut-card p{margin:0 0 12px;font-weight:800;font-size:15px;text-align:center;line-height:1.35;color:var(--ink)}
 .tut-actions{display:flex;gap:10px;justify-content:center}
 .tut-actions .btn{flex:1;min-height:44px}
@@ -560,8 +563,7 @@ body.tut-on .powerbar.tut-spot{z-index:90}
   <p>A hidden pile sleeps on a dark table until you unlock it.</p>
   <p>A locked table hides a pile — Unlock reveals it.</p>
   <p>A pile is already sitting on a table.</p>
-  <div class="cal-bar" aria-hidden="true"><span class="cal-fill" id="calPopFill"></span></div>
-  <div class="cal-meta" id="calPopMeta" style="text-align:center;margin-bottom:8px"></div>
+  <div class="cal-meta" id="calPopMeta" style="margin-bottom:8px"></div>
   <button type="button" class="btn btn-sec" id="calPopClose" style="width:100%">Close</button>
 </div></div>
 
@@ -589,15 +591,14 @@ body.tut-on .powerbar.tut-spot{z-index:90}
 </div></div>
 
 
-<div id="tutOverlay" aria-live="polite">
-  <div class="tut-hole" id="tutHole" hidden></div>
-  <div class="tut-card" id="tutCard">
-    <span class="tut-step" id="tutStepLabel">1 / 5</span>
-    <p id="tutText"></p>
-    <div class="tut-actions">
-      <button type="button" class="btn btn-sec" id="tutSkip">Skip</button>
-      <button type="button" class="btn btn-primary" id="tutNext" style="min-height:44px;font-size:16px">Next</button>
-    </div>
+<div id="tutOverlay"></div>
+<div class="tut-hole" id="tutHole" hidden></div>
+<div class="tut-card" id="tutCard" hidden aria-live="polite">
+  <span class="tut-step" id="tutStepLabel">1 / 5</span>
+  <p id="tutText"></p>
+  <div class="tut-actions">
+    <button type="button" class="btn btn-sec" id="tutSkip">Skip</button>
+    <button type="button" class="btn btn-primary" id="tutNext" style="min-height:44px;font-size:16px">Next</button>
   </div>
 </div>
 
@@ -1096,15 +1097,15 @@ const CONFIG = {
   BASE_COIN: 5,                     // R5.1
   EXP_BASE: 1.25,                   // R5.2 superlinear exponent
   EXP_STEP: 0.05,                   // R5.2 multLevel exponent growth
-  MULT_PRICE_BASE: 100,             // R5.2 cost 100*(multLevel+1)
-  MULT_MAX: 6,                      // R5.2 cap
+  MULT_PRICE_BASE: 100,             // R5.2 historical list price; live tips use 40×1.6^n
+  MULT_MAX: 6,                      // retired as a purchase cap in v2.22.4 (tips are unlimited)
   CALAMITY_BONUS_PER: 15,           // R5.3 / R8.5 bonus per calamity cell
   CALAMITY_MIN_FRAC: 1 / 5,         // R8.2 lo
   CALAMITY_MAX_FRAC: 1 / 3,         // R8.2 hi
   CALAMITY_THRESHOLD: 15,           // R8.1 only if boardCells > 15
   BLOCK_PROB: 0.5,                  // R8.3 ~50% blocked / ~50% prestockated
   USES_SKILLS: ['destroyPile', 'swapPiles', 'refreshPool', 'queueSkip', 'unlockLocks'], // v2.3 R7.2: skills modelo USOS (v2.8 += unlockLocks R7.8). v2.20: tables ya no es skill de usos.
-  MAX_USES_PER_SKILL: 5,            // v2.4: tope de usos por partida en destroy/swap/refresh/queueSkip/unlockLocks
+  MAX_USES_PER_SKILL: 5,            // retired v2.22.4: no per-skill use ceiling is enforced
   PRODUCTS_PER_COLOR: 3,            // R10.1 [OBSOLETO v2 — reemplazado por R13.7]
   IDLE_RATE: { workers: 0.5, fame: 0.3, machines: 0.8 }, // R9.1
   IDLE_CAP:  { workers: 60,  fame: 100,  machines: 40 },  // R9.3 caps
@@ -1119,11 +1120,12 @@ const CONFIG = {
   COLOR_PRICE_BASE: 150,            // R13.7 precio color = BASE * (n-3), n = colorsOwned tras comprar
   RUN_TILE_BASE: 40,                // R14.3 runTilePrice = BASE * RATIO^runTilesActivated (se resetea cada run)
   RUN_TILE_RATIO: 1.6,              // R14.3 curva temporal por partida; no hay tienda permanente (2026-10-06)
-  // v2.22 — cada skill se paga al usarla. Siguiente precio =
-  //   SKILL_USE_BASE * SKILL_USE_RATIO^n
-  // n = usos ya pagados en ESTA run (se pone a 0 al abrir/reiniciar).
-  // Misma curva que las mesas (RUN_TILE_BASE × RUN_TILE_RATIO^n = 40 × 1.6^n).
-  // Color: n = colorsOwned − 4. Tips: n = multLevel. Pizarra: n = preview level.
+  // v2.22 / v2.22.4 — cada skill se paga al usarla. Siguiente precio =
+  //   SKILL_USE_BASE * SKILL_USE_RATIO^n = 40 × 1.6^n (producto exacto)
+  // n = usos de ESA skill en esta run (se pone a 0 al abrir/reiniciar).
+  // Misma base y misma razón para todas: Destroy/Swap/Refresh/Unlock/Queue
+  // (skillUses), Tables (runTilesActivated), Color (colorsOwned−4),
+  // Tips (multLevel), Board/Peek (previewPool.level). Sin techo.
   SKILL_USE_BASE: 40,
   SKILL_USE_RATIO: 1.6,
   MAX_COLORS: 10,                   // R13.7 10 colores / criaturas en orden de desbloqueo (R13.2)
@@ -1133,7 +1135,7 @@ const CONFIG = {
   TABLES_HOLD_MS: 550,              // v2.17: press-and-hold Tables → batch activateAroundUnlocked
   CLOSE_HOLD_MS: 3000,              // Hold 3s restarts the run; coins do not carry over
   TABLES_ACTIVATE_MIN_NEIGHBORS: 2, // v2.17 R14.6: unlock requires ≥2 already-unlocked neighbors
-  PREVIEW_PRICE: 80,                // v2 R15.1 precio previewPool = PREVIEW_PRICE * level
+  PREVIEW_PRICE: 80,                // historical; v2.22.4 peek price is skillUsePrice (40×1.6^level)
   PILE_SIZE_WEIGHTS: [9, 8, 7, 6, 5, 4, 3], // v2.9 R3.1: peso del tamaño 1..7 —
                                     // menos fichas más común pero SUTIL (7 sigue
                                     // saliendo ~7%): P = peso/42 ⇒ 21/19/17/14/12/10/7%
@@ -1268,7 +1270,7 @@ function createGame(init = {}) {
       destroyPile: { owned: false, uses: 0, usesBought: 0, price: 250, unlockLevel: 5 },
       swapPiles:   { owned: false, uses: 0, usesBought: 0, price: 120, unlockLevel: 3 },
       refreshPool: { owned: false, uses: 0, usesBought: 0, price: 40,  unlockLevel: 1 },
-      // previewPool: modelo LEVELS (owned + level 0..3, SIN uses).
+      // previewPool: modelo LEVELS (owned + level, sin tope, SIN uses). v2.22.4
       // v2.22.2: auto-serve is always on. There is no serveManual / Waiter skill.
       previewPool: { owned: false, level: 0, price: 80, unlockLevel: 1 },
       // v2.1 R17.1 — queueSkip: modelo USES (R7.4) — los 3 visibles van al
@@ -2115,8 +2117,8 @@ function buildPick(rng, n, cu) {
 function buyColor(state) {
   const s = clone(state);
   if (s.progress.colorsOwned == null) s.progress.colorsOwned = 4; // v2 default
-  if (s.progress.colorsOwned >= CONFIG.MAX_COLORS) return { error: 'maxed', state: s };
-  // v2.22: misma curva 40×1.6^n (n = colores ya comprados esta run). Tope 10.
+  // v2.22.4: sin tope de compra. El roster sigue en MAX_COLORS para generar
+  // fichas; colorsOwned puede pasar de 10 y el precio sigue 40×1.6^n.
   const price = colorPrice(s);
   if (s.progress.coins < price) return { error: 'noFunds', state: s }; // sin mutar
   s.progress.colorsOwned += 1;
@@ -2140,8 +2142,7 @@ function buyColor(state) {
 // se paga con la curva de monedas.
 // ---------------------------------------------------------------------------
 function runTilePrice(state) {
-  const n = (state && state.run && state.run.runTilesActivated) || 0;
-  return CONFIG.RUN_TILE_BASE * CONFIG.RUN_TILE_RATIO ** n;
+  return skillUsePrice(state, 'tables');
 }
 
 // v2.22 — bolsa de usos pagados. Vive en la run (se tira al reiniciar).
@@ -2152,13 +2153,31 @@ function skillUseBag(state) {
 }
 
 function skillUseCount(state, power) {
+  // One use-count per skill this run. Domain counters ARE the uses:
+  // color purchases, tip levels, peek levels, tables activated.
+  if (power === 'color') {
+    const owned = (state && state.progress && state.progress.colorsOwned) || 4;
+    return Math.max(0, owned - 4);
+  }
+  if (power === 'tips') {
+    return (state && state.progress && state.progress.econ && state.progress.econ.multLevel) || 0;
+  }
+  if (power === 'previewPool') {
+    return (state && state.skills && state.skills.previewPool && state.skills.previewPool.level) || 0;
+  }
+  if (power === 'tables') {
+    return (state && state.run && state.run.runTilesActivated) || 0;
+  }
   const bag = skillUseBag(state);
   return (bag && bag[power]) || 0;
 }
 
 function skillUsePrice(state, power) {
   const n = skillUseCount(state, power);
-  return Math.round(CONFIG.SKILL_USE_BASE * CONFIG.SKILL_USE_RATIO ** n);
+  // Exact 40 × 1.6^n for every skill, including tables. Rounding the
+  // product changes the ratio (102 instead of 102.4) and can skip a table
+  // the player could still afford.
+  return CONFIG.SKILL_USE_BASE * CONFIG.SKILL_USE_RATIO ** n;
 }
 
 // Cobra el precio actual y anota el uso. No muta si no alcanza.
@@ -2178,19 +2197,15 @@ function chargeSkill(s, power) {
 }
 
 function colorPrice(state) {
-  const owned = (state && state.progress && state.progress.colorsOwned) || 4;
-  const n = Math.max(0, owned - 4);
-  return Math.round(CONFIG.SKILL_USE_BASE * CONFIG.SKILL_USE_RATIO ** n);
+  return skillUsePrice(state, 'color');
 }
 
 function tipPrice(state) {
-  const lvl = (state && state.progress && state.progress.econ && state.progress.econ.multLevel) || 0;
-  return Math.round(CONFIG.SKILL_USE_BASE * CONFIG.SKILL_USE_RATIO ** lvl);
+  return skillUsePrice(state, 'tips');
 }
 
 function previewPrice(state) {
-  const level = (state && state.skills && state.skills.previewPool && state.skills.previewPool.level) || 0;
-  return Math.round(CONFIG.SKILL_USE_BASE * CONFIG.SKILL_USE_RATIO ** level);
+  return skillUsePrice(state, 'previewPool');
 }
 
 function v2CellOf(s, cellId) {
@@ -2562,11 +2577,10 @@ function buySkill(state, power) {
   const sk = state.skills && state.skills[power];
   if (!sk) return { error: 'noSkill' };
   const s = clone(state);
-  // v2 R15.1 — previewPool: modelo LEVELS (level 1..3, SIN uses)
+  // v2 R15.1 / v2.22.4 — previewPool: modelo LEVELS, sin tope.
+  // Cada compra sube level y el precio (40×1.6^level) y muestra una tanda más.
   if (power === 'previewPool') {
     const level = sk.level || 0;
-    if (level >= 3) return { error: 'max' };
-    // v2.22: 40×1.6^level. El tope sigue en 3 tandas (no hay más bandeja que mostrar).
     const price = previewPrice(s);
     if (s.progress.coins < price) return { error: 'noFunds' };             // R7.3
     s.progress.coins -= price;
@@ -2583,10 +2597,8 @@ function buySkill(state, power) {
   // uses = usesBought. Precio = price * 1.35^usesBought. v2.16: sin gate cafeLevel.
   {
     const sk2 = s.skills[power];
-    // v2.4: tope de usos/partida = MAX_USES_PER_SKILL (5).
-    const cap = CONFIG.MAX_USES_PER_SKILL;
+    // v2.22.4: the old MAX_USES_PER_SKILL ceiling is not enforced.
     const cost = Math.round(sk2.price * Math.pow(1.35, sk2.usesBought || 0));
-    if ((sk2.usesBought || 0) >= cap) return { error: 'maxUses' };           // v2.4
     if (s.progress.coins < cost) return { error: 'noFunds' };                // R7.3
     s.progress.coins -= cost;
     sk2.usesBought = (sk2.usesBought || 0) + 1;   // la compra ES un uso
@@ -2635,9 +2647,6 @@ function buyUsesUp(state, power) {
   const sk = state && state.skills && state.skills[power];
   if (!sk) return { error: 'noSkill' };
   if (power === 'tables' || !CONFIG.USES_SKILLS.includes(power)) return { error: 'noUsesModel' };  // solo modelo 'uses'
-  // v2.4: mismo tope que buySkill (5 por partida)
-  const cap = CONFIG.MAX_USES_PER_SKILL;
-  if ((sk.usesBought || 0) >= cap) return { error: 'maxUses' };
   const s = clone(state);
   const cur = s.skills[power];
   if (!cur.owned) return { error: 'locked' };                        // R7.1: mejora lo comprado
@@ -2651,8 +2660,8 @@ function buyUsesUp(state, power) {
 
 // ---------------------------------------------------------------------------
 // v2 R15.1 — previewPool(state, rng): vista previa PURA de las próximas tandas
-// del pool. level 0 (sin comprar) => null; level N (1..3) => N tandas de 3
-// pilas monocromas con colores uniformes en 1..min(rosterIndex, colorsOwned).
+// del pool. level 0 (sin comprar) => null; level N (sin tope, v2.22.4) => N
+// tandas de 3 pilas con colores en 1..min(rosterIndex, colorsOwned).
 // Determinista (rng inyectado) y NO muta el estado.
 // ---------------------------------------------------------------------------
 function previewPool(state, rng) {
@@ -2758,9 +2767,7 @@ function buyExpansion(state, kind) {
 function buyMultiplier(state) {
   const s = clone(state);
   const lvl = s.progress.econ.multLevel;
-  if (lvl >= CONFIG.MULT_MAX) return { error: 'maxed' };                 // R5.2 cap
-  // v2.22: 40×1.6^multLevel. El tope MULT_MAX se queda: el exponente de
-  // pay() no tiene otro freno. El botón se apaga al llegar.
+  // v2.22.4: sin MULT_MAX. Misma curva 40×1.6^n que el resto de skills.
   const price = tipPrice(s);
   if (s.progress.coins < price) return { error: 'noFunds' };
   s.progress.coins -= price;
@@ -3108,10 +3115,8 @@ function renderRun(){
     <div class="scene active${won?' dim':''}">
       <div class="topbar">
         <div class="chip" title="Coins">🪙<span id="coinNum">${fmt(state.progress.coins)}</span></div>
-        <button type="button" class="cal-strip" id="calStrip" aria-expanded="false" aria-controls="calPop" aria-label="Incoming calamity">
-          <span class="cal-ico" id="calIco" aria-hidden="true">I</span>
-          <span class="cal-bar" aria-hidden="true"><span class="cal-fill" id="calFill"></span></span>
-          <span class="cal-meta" id="calMeta">Next shift</span>
+        <button type="button" class="cal-ico-btn" id="calStrip" data-tone="calm" aria-expanded="false" aria-controls="calPop" aria-label="Incoming calamity">
+          <span class="cal-mark" id="calIco" aria-hidden="true">I</span>
         </button>
         <span id="queueCount" class="queuecount" title="Guests served" aria-label="Guests served">0/100</span>
         <div class="hdr-tools">
@@ -3148,27 +3153,27 @@ function renderRun(){
 }
 function renderCalamity(){
   const f = calamityForecast(state);
-  const ico = $('#calIco'); const fill = $('#calFill'); const meta = $('#calMeta');
-  if(!ico || !fill || !meta) return;
-  const pct = Math.round(Math.max(0, Math.min(1, f.progress)) * 100);
-  fill.style.width = pct + '%';
-  ico.classList.remove('wave2','clear');
+  const btn = $('#calStrip'); const ico = $('#calIco');
+  if(!btn || !ico) return;
+  const p = Math.max(0, Math.min(1, f.progress || 0));
+  let tone = 'calm';
+  let mark = 'I';
+  let meta = 'Tables';
   if(f.done){
-    ico.textContent = '✓'; ico.classList.add('clear');
-    meta.textContent = 'All clear';
+    tone = 'clear'; mark = '✓'; meta = 'All clear';
   } else if(f.wave === 2){
-    ico.textContent = 'II'; ico.classList.add('wave2');
-    meta.textContent = 'Guests';
+    mark = 'II'; meta = 'Guests';
+    tone = p >= 0.66 ? 'critical' : p >= 0.33 ? 'warn' : 'calm';
   } else {
-    ico.textContent = 'I';
-    meta.textContent = 'Tables';
+    mark = 'I'; meta = 'Tables';
+    tone = p >= 0.66 ? 'critical' : p >= 0.33 ? 'warn' : 'calm';
   }
-  const popFill = $('#calPopFill');
-  if(popFill) popFill.style.width = pct + '%';
+  ico.textContent = mark;
+  btn.dataset.tone = tone;
+  btn.style.setProperty('--cal-p', p.toFixed(3));
+  btn.setAttribute('aria-label', 'Incoming calamity: ' + meta);
   const popMeta = $('#calPopMeta');
-  if(popMeta) popMeta.textContent = meta.textContent;
-  const strip = $('#calStrip');
-  if(strip) strip.setAttribute('aria-label', 'Incoming calamity: ' + meta.textContent);
+  if(popMeta) popMeta.textContent = meta;
 }
 function bindCalamity(){
   const strip = $('#calStrip'); if(!strip) return;
@@ -3435,12 +3440,6 @@ function renderPool(){
   }));
 }
 function renderPoolSel(){ $$('#pool .poolslot').forEach(x=>x.classList.toggle('selected', +x.dataset.slot===ui.slot)); }
-function skillIsMaxed(id){
-  if(id==='color') return (state.progress.colorsOwned||4) >= CONFIG.MAX_COLORS;
-  if(id==='tips') return ((state.progress.econ&&state.progress.econ.multLevel)||0) >= CONFIG.MULT_MAX;
-  if(id==='previewPool') return ((state.skills.previewPool&&state.skills.previewPool.level)||0) >= 3;
-  return false;
-}
 function skillNextPrice(id){
   if(id==='tables') return runTilePrice(state);
   if(id==='color') return colorPrice(state);
@@ -3511,18 +3510,15 @@ function renderPowers(){
     {skill:'tips',icon:'✨',mode:'tips'},
   ];
   box.innerHTML = arr.map(d=>{
-    const maxed = skillIsMaxed(d.skill);
-    const priceN = maxed ? 0 : skillNextPrice(d.skill);
-    const broke = maxed || state.progress.coins < priceN;
+    const priceN = skillNextPrice(d.skill);
+    const broke = state.progress.coins < priceN;
     const help = SKILL_BLURB[d.skill];
-    const tip = maxed ? help+' Maxed.' : help+' Next '+fmt(priceN)+' coins.';
-    const cost = maxed
-      ? `<span class="pow-cost">Max</span>`
-      : `<span class="pow-cost">🪙${fmt(priceN)}</span>`;
+    const tip = help+' Next '+fmt(priceN)+' coins.';
+    const cost = `<span class="pow-cost">🪙${fmt(priceN)}</span>`;
     const icon = /^[a-z0-9_]+$/.test(d.icon)
       ? spr(d.icon, 26)
       : `<span class="pow-emoji" aria-hidden="true">${d.icon}</span>`;
-    return `<div class="pow ${broke?'broke':''} ${ui.mode===d.mode?'selected':''}" data-mode="${d.mode}" data-skill="${d.skill}" data-maxed="${maxed?'1':'0'}" role="button" title="${tip}" aria-label="${tip}">
+    return `<div class="pow ${broke?'broke':''} ${ui.mode===d.mode?'selected':''}" data-mode="${d.mode}" data-skill="${d.skill}" role="button" title="${tip}" aria-label="${tip}">
       <span class="pow-face"><span class="pow-ico">${icon}</span></span>${cost}</div>`;
   }).join('');
   $$('#powerbar .pow').forEach(p=>{
@@ -3533,7 +3529,7 @@ function renderPowers(){
     if(ui.anim) return;
     if(mode==='preview'){
       const peekLvl=(state.skills.previewPool&&state.skills.previewPool.level)||0;
-      if(p.dataset.maxed==='1' || (peekLvl>0 && p.classList.contains('broke'))){
+      if(peekLvl>0 && p.classList.contains('broke')){
         openPeekModal(); return;
       }
       if(p.classList.contains('broke')){ toast(ERRT.noFunds); return; }
@@ -3545,7 +3541,7 @@ function renderPowers(){
       return;
     }
     if(p.classList.contains('broke')){
-      toast(p.dataset.maxed==='1' ? ERRT.maxed : ERRT.noFunds); return;
+      toast(ERRT.noFunds); return;
     }
     if(mode==='activate'){
       ui.mode = ui.mode==='activate'?null:'activate'; ui.slot=false; ui.servingOrder=null;
@@ -4196,8 +4192,8 @@ function maybeStartTutorial(){
 function startTutorial(){
   tutActive = true; tutStep = 0;
   document.body.classList.add('tut-on');
-  const ov = $('#tutOverlay'); if(!ov) return;
-  ov.classList.add('show');
+  const ov = $('#tutOverlay'); if(ov) ov.classList.add('show');
+  const card = $('#tutCard'); if(card) card.hidden = false;
   showTutStep();
   requestAnimationFrame(()=>showTutStep()); // layout after paint
 }
@@ -4214,6 +4210,7 @@ function applyTutLayer(){
 }
 function showTutStep(){
   const step = TUT_STEPS[tutStep]; if(!step) return;
+  const card = $('#tutCard'); if(card) card.hidden = false;
   const lab = $('#tutStepLabel'); if(lab) lab.textContent = (tutStep+1)+' / '+TUT_STEPS.length;
   const tx = $('#tutText'); if(tx) tx.textContent = step.text;
   const next = $('#tutNext'); if(next) next.textContent = tutStep >= TUT_STEPS.length-1 ? 'Done' : 'Next';
@@ -4250,6 +4247,8 @@ function finishTutorial(){
   document.body.classList.remove('tut-on');
   $$('.tut-spot').forEach(el=>{ el.classList.remove('tut-spot','tut-spot-block'); });
   const ov = $('#tutOverlay'); if(ov) ov.classList.remove('show');
+  const card = $('#tutCard'); if(card) card.hidden = true;
+  const hole = $('#tutHole'); if(hole) hole.hidden = true;
   if(!state.settings) state.settings = { reducedMotion: false };
   state.settings.seenTutorial = true;
   persist();
@@ -4284,7 +4283,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.22.3';
+const GAME_VERSION = 'v2.22.4';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll() };

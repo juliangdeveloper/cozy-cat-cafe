@@ -64,8 +64,9 @@ test('T20.c [v2.8] buySkill unlockLocks: 1ª compra ES 1er uso; tope 5; precio 2
     assert.ok(!s.error, `compra ${i + 1} fallo: ${JSON.stringify(s.error)}`);
   }
   assert.equal(s.skills.unlockLocks.usesBought, 5);
-  const r6 = G.buySkill(s, 'unlockLocks');
-  assert.equal(r6.error, 'maxUses');
+  const r6 = unwind(G.buySkill(s, 'unlockLocks'), s);
+  assert.equal(r6.error, undefined, 'v2.22.4: unlockLocks no tiene tope de usos');
+  assert.equal(r6.skills.unlockLocks.usesBought, 6);
 });
 
 // ---------------------------------------------------------------------------
