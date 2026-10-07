@@ -165,12 +165,12 @@ export { createGame, CONFIG,
 
 ### R5. Economía
 ```js
-// CONFIG: BASE_COIN=5, EXP_BASE=1.25, EXP_STEP=0.50, CALAMITY_BONUS_PER=15
-// pay(order) = round(BASE_COIN * order.qty ** (EXP_BASE + EXP_STEP*multLevel))
+// CONFIG: BASE_COIN=5, EXP_BASE=1.25, EXP_STEP=0.25, CALAMITY_BONUS_PER=15
+// pay(order) = round(BASE_COIN * order.qty ** (EXP_BASE + EXP_STEP*tipLevel))
 // bonusCalamity(state) = state.run.calamities * CALAMITY_BONUS_PER
 ```
 - `R5.1` — **Pago base:** cada pedido servido añade `pay(order)` a `state.progress.coins`. (Ej. qty=3, multLevel=0 → `round(5*3^1.25)=round(5*3.948)=20`). → US-11.
-- `R5.2` — **Multiplicador superlineal mejorable:** el exponente crece con `economy.multLevel` (`price` sube con `buyMultiplier`). **Superlinealidad garantizada:** `pay(qty=4)` > `2*pay(qty=2)` con mismo multLevel (4^1.25≈5.66 ≥ 2·2.38≈4.76) → "apilar 4 de una vez > 2 pedidos de 2". `buyMultiplier` sube `multLevel` (costo `100*(multLevel+1)`, tope 6). **[v2.22.4]** Sin tope de compra. El precio vivo es `40 × 1.6^multLevel` (`tipPrice` → `skillUsePrice`). `MULT_MAX` ya no devuelve `maxed`. **[v2.24]** `EXP_STEP` pasa de 0.05 a 0.10. **[v2.24.1]** `EXP_STEP` es **0.50** (cinco veces 0.10). Un pedido de 8 paga 67 / 190 / 538 / 1522 en los niveles 0..3 (`pay(8,1)−pay(8,0)` = 123). → US-12.
+- `R5.2` — **Multiplicador superlineal mejorable:** el exponente crece con `economy.multLevel` (`price` sube con `buyMultiplier`). **Superlinealidad garantizada:** `pay(qty=4)` > `2*pay(qty=2)` con mismo multLevel (4^1.25≈5.66 ≥ 2·2.38≈4.76) → "apilar 4 de una vez > 2 pedidos de 2". `buyMultiplier` sube `multLevel` (costo `100*(multLevel+1)`, tope 6). **[v2.22.4]** Sin tope de compra. El precio vivo es `40 × 1.6^multLevel` (`tipPrice` → `skillUsePrice`). `MULT_MAX` ya no devuelve `maxed`. **[v2.24]** `EXP_STEP` pasa de 0.05 a 0.10. **[v2.24.1]** `EXP_STEP` es **0.50** (cinco veces 0.10). Un pedido de 8 paga 67 / 190 / 538 / 1522 en los niveles 0..3 (`pay(8,1)−pay(8,0)` = 123). **[v2.24.2]** `EXP_STEP` es **0.25**. Un pedido de 8 paga 67 / 113 / 190 / 320 en los niveles 0..3. El nivel que cobra es `progress.econ.multLevel` (`tipLevel`). `economy.multLevel` es el espejo: se copia al comprar y al cargar (si progress no trae número, se toma el de economy y se igualan). Servir, la cascada y la tabla del hold usan ese mismo nivel. → US-12.
 - `R5.3` — **Bonus calamidades al cerrar:** al `closeRun` (cualquier motivo) se añade `bonusCalamity(state)` a `coins` y se expone `bonus` en el resultado para el badge `--danger` "Bonus +N". → US-13, US-29, G1; §4.8 STYLE.
 
 ### R6. Expansiones (gasto de dinero)
@@ -309,7 +309,7 @@ import { createGame, CONFIG, placeStack, serveOrder, closeRun, openRun,
          buyIdleUpgrade, tickIdle, applyOffline, colorsUnlocked, orderReadyOn,
          generateBoard } from '../js/game.js';
 const seed = n => mulberry32(n);
-const pay = (q, m=0) => Math.round(5 * q ** (1.25 + 0.50*m));
+const pay = (q, m=0) => Math.round(5 * q ** (1.25 + 0.25*m));
 ```
 
 ### T1. Ciclo de partida / colocación
