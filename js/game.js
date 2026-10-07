@@ -11,7 +11,7 @@
 export const CONFIG = {
   BASE_COIN: 5,                     // R5.1
   EXP_BASE: 1.25,                   // R5.2 superlinear exponent
-  EXP_STEP: 0.10,                   // R5.2 v2.24: each Tips level doubles the old 0.05 jump
+  EXP_STEP: 0.50,                   // R5.2 v2.24.1: five times the v2.24 step of 0.10
   MULT_PRICE_BASE: 100,             // R5.2 historical list price; live tips use 40×1.6^n
   MULT_MAX: 6,                      // retired as a purchase cap in v2.22.4 (tips are unlimited)
   CALAMITY_BONUS_PER: 15,           // R5.3 / R8.5 bonus per calamity cell
@@ -517,8 +517,8 @@ function rosterCeiling(run) {
 // v2.1 helper (R16.2) + v2.23: tope = min(colorsOwned+1, techo de la run).
 // Con colorsOwned=4 y palette de 7 el roster arranca (y se estanca) en 5.
 // Comprar colores sube el tope hasta el subconjunto, no hasta 11 ni hasta 10
-// si la run solo trajo 7. colorsOwned puede pasar de 7 (precio sin tope);
-// el roster no.
+// si la run solo trajo 7. buyColor se detiene en ese techo (v2.24.1);
+// el roster no pasa de él.
 function rosterMax(colorsOwned, ceiling) {
   const cap = ceiling == null ? CONFIG.MAX_COLORS : ceiling;
   return Math.min((colorsOwned || 0) + 1, cap);
@@ -1087,14 +1087,22 @@ function buildPick(rng, n, cu) {
 
 // ---------------------------------------------------------------------------
 // v2 — Progresión permanente de colores (R13.7): buyColor desbloquea el
-// siguiente color del roster. Precio COLOR_PRICE(n) = COLOR_PRICE_BASE*(n-3)
-// con n = colorsOwned tras comprar. Máx MAX_COLORS (R13.7).
+// siguiente color del roster. Precio vivo = 40×1.6^(colorsOwned-4).
+// v2.24.1: se detiene en colorRunCap (paleta de la run).
 // ---------------------------------------------------------------------------
+// v2.24.1 — techo de Color para esta run: largo de la paleta (7), o
+// MAX_COLORS si la run no tiene paleta. Es el mismo techo que rosterCeiling.
+export function colorRunCap(state) {
+  return rosterCeiling(state && state.run);
+}
+
 export function buyColor(state) {
   const s = clone(state);
   if (s.progress.colorsOwned == null) s.progress.colorsOwned = 4; // v2 default
-  // v2.22.4: sin tope de compra. El roster sigue en MAX_COLORS para generar
-  // fichas; colorsOwned puede pasar de 10 y el precio sigue 40×1.6^n.
+  // v2.24.1: Color se traba al poseer toda la paleta de la run. Las demás
+  // skills siguen sin techo. No cobra.
+  const cap = colorRunCap(s);
+  if (s.progress.colorsOwned >= cap) return { error: 'maxed', state: s };
   const price = colorPrice(s);
   if (s.progress.coins < price) return { error: 'noFunds', state: s }; // sin mutar
   s.progress.colorsOwned += 1;

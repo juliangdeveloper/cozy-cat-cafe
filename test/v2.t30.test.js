@@ -84,6 +84,29 @@ test('the next client color is the next buyColor unlock, not the roster', () => 
   assert.equal(G.runFaceColor(after, 6), after.run.palette[5]);
 });
 
+test('color locks at the palette and size-8 tips step by 0.50', () => {
+  const s = open(8);
+  assert.equal(s.run.palette.length, 7);
+  s.progress.colorsOwned = 7;
+  s.progress.coins = 12345;
+  const locked = G.buyColor(s);
+  assert.equal(locked.error, 'maxed');
+  assert.equal(locked.state.progress.colorsOwned, 7);
+  assert.equal(locked.state.progress.coins, 12345);
+  assert.equal(s.progress.colorsOwned, 7);
+  assert.equal(s.progress.coins, 12345);
+  s.progress.colorsOwned = 9;
+  const still = G.buyColor(s);
+  assert.equal(still.error, 'maxed');
+  assert.equal(still.state.progress.colorsOwned, 9);
+  assert.equal(still.state.progress.coins, 12345);
+  assert.equal(G.CONFIG.EXP_STEP, 0.5);
+  assert.equal(G.pay({ qty: 8 }, 0), 67);
+  assert.equal(G.pay({ qty: 8 }, 1), 190);
+  assert.equal(G.pay({ qty: 8 }, 2), 538);
+  assert.equal(G.pay({ qty: 8 }, 3), 1522);
+});
+
 test('colorsOwned 7 and 9 stay inside the 7-color palette', () => {
   const htmlCap = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'js', 'game.js'), 'utf8');
   assert.match(htmlCap, /Math\.min\(owned \+ 1, rosterCeiling\(s\.run\)\)/);

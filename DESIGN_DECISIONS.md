@@ -2,7 +2,11 @@
 
 ## v2.24.1 — el cliente pide lo comprado y el siguiente (2026-10-07)
 
-**Color del cliente.** `drawClientInto` sortea uniforme en `1..min(colorsOwned+1, palette.length)`. Los índices lógicos de la run son `1..k`. Lo que el jugador posee es `1..colorsOwned`. El siguiente que compraría Color (`buyColor`) es `colorsOwned+1`: esa función solo suma 1 a `colorsOwned`. La cara es `palette[k-1]` (`runFaceColor`). El techo es el largo de la paleta de la run (7). Con `colorsOwned >= 7` el sorteo queda en `1..7`: comprar Color otra vez (`colorsOwned` 8, 9, …) no hace aparecer una criatura nueva. No depende de `rosterIndex` (ese sigue subiendo cada 3 pilas y no cambia aquí). La bandeja sigue en `poolMaxColor` = `min(rosterIndex, colorsOwned)`: el color de más se puede pedir y no sale en el pool.
+**Color del cliente.** `drawClientInto` sortea uniforme en `1..min(colorsOwned+1, palette.length)`. Los índices lógicos de la run son `1..k`. Lo que el jugador posee es `1..colorsOwned`. El siguiente que compraría Color (`buyColor`) es `colorsOwned+1`: esa función solo suma 1 a `colorsOwned`. La cara es `palette[k-1]` (`runFaceColor`). El techo es el largo de la paleta de la run (7). Con `colorsOwned >= 7` el sorteo queda en `1..7`. No depende de `rosterIndex` (ese sigue subiendo cada 3 pilas y no cambia aquí). La bandeja sigue en `poolMaxColor` = `min(rosterIndex, colorsOwned)`: el color de más se puede pedir y no sale en el pool.
+
+**Color trabado.** Cuando `colorsOwned >= rosterCeiling(run)` (7 con paleta), Color se apaga: el botón queda atenuado, el toque no cobra y dice "All 7 colors unlocked", y `buyColor` devuelve `{error:'maxed'}` sin mover monedas ni el contador. El hold dice lo mismo. Esto revierte solo para Color el "sigue cobrando pasado 7" de v2.22.4. Tips, pizarra, mesas y el resto siguen sin techo.
+
+**Tips.** `EXP_STEP` pasa de 0.10 a **0.50** (cinco veces el paso de v2.24.0). Cada nivel suma ese paso al exponente de `pay()`. Un pedido de tamaño 8 paga 67, 190, 538 y 1522 monedas en los niveles 0, 1, 2 y 3. El primer nivel suma 123 monedas. El hold usa esa fórmula.
 
 ## v2.24.0 — Clear board y Undo (2026-10-07)
 

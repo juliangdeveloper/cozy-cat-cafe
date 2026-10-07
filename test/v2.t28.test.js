@@ -31,17 +31,17 @@ test('tip hold line uses pay() and the exponent step', () => {
   assert.equal(G.skillUseCount(s, 'tips'), 0);
   const extra0 = G.pay({ qty: 8 }, 1) - G.pay({ qty: 8 }, 0);
   const line0 = G.tipSkillLine(s);
-  assert.equal(G.CONFIG.EXP_STEP, 0.1);
-  assert.match(line0, /Each level adds 0\.10 to the pay exponent/);
+  assert.equal(G.CONFIG.EXP_STEP, 0.5);
+  assert.match(line0, /Each level adds 0\.50 to the pay exponent/);
   assert.match(line0, new RegExp(`A size-8 order pays ${extra0} more coins`));
   assert.equal(extra0, G.pay({ qty: 8 }, 1) - G.pay({ qty: 8 }, 0));
-  assert.equal(extra0, 16);
+  assert.equal(extra0, 123);
   s = G.buyMultiplier(s);
   const n = G.skillUseCount(s, 'tips');
   const extra = G.pay({ qty: 8 }, n + 1) - G.pay({ qty: 8 }, n);
   const line = G.tipSkillLine(s);
   assert.match(line, new RegExp(`pays ${extra} more coins`));
-  assert.equal(G.CONFIG.EXP_BASE + G.CONFIG.EXP_STEP * n, 1.25 + 0.1 * n);
+  assert.equal(G.CONFIG.EXP_BASE + G.CONFIG.EXP_STEP * n, 1.25 + 0.5 * n);
   assert.match(html, /tipSkillLine\(state\)/);
   assert.match(html, /SKILL_HELP_MS = 500/);
 });
@@ -71,11 +71,15 @@ test('each run keeps 7 of 10 creatures and unlocks them gradually', () => {
   assert.equal(G.runFaceColor(a, 8), 8);
 
   let s = a;
-  s.progress.colorsOwned = 10;
-  s.progress.coins = 1e9;
-  const bought = G.buyColor(s);
-  assert.equal(bought.progress.colorsOwned, 11);
-  assert.equal(bought.run.rosterIndex, 5);
+  const coins = 50000;
+  s.progress.coins = coins;
+  s.progress.colorsOwned = 7;
+  const locked = G.buyColor(s);
+  assert.equal(locked.error, 'maxed');
+  assert.equal(locked.state.progress.colorsOwned, 7);
+  assert.equal(locked.state.progress.coins, coins);
+  assert.equal(s.progress.coins, coins);
+  assert.equal(s.run.rosterIndex, 5);
 });
 
 test('serving and a 10-stack count as paid stacks; trays are counted when dealt', () => {

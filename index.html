@@ -639,7 +639,7 @@ import {
   useUnlockLocks,                    // v2.8 R7.8: Unlock 🔓 (candados de calamidad)
   useClearBoard, useUndoMove,        // v2.24 Clear board + Undo
   buyIdleUpgrade, tickIdle, applyOffline, colorsUnlocked,
-  buyColor, colorPrice, tipPrice, previewPrice, skillUsePrice, skillUseCount, // v2.22 pay-per-use
+  buyColor, colorPrice, colorRunCap, tipPrice, previewPrice, skillUsePrice, skillUseCount, // v2.22 pay-per-use
   serializeState, deserializeState, importSave, mulberry32,
   // v2 — R13/R14/R15: roster, cascada, baldosas, preview
   ROSTER, resolveCascade, activateTile, runTilePrice, previewPool, pay,
@@ -1179,11 +1179,18 @@ const SKILL_BLURB = {
   clearBoard: 'Clear every pile off the whole board.',
   undoMove: 'Undo your last move.',
 };
+function colorLocked(){
+  return (state.progress.colorsOwned || 4) >= colorRunCap(state);
+}
+function colorLockedLine(){
+  return 'All '+colorRunCap(state)+' colors unlocked.';
+}
 function openSkillHelp(skill){
   closePeekModal();
   const pop = $('#skillPop'); const tx = $('#skillPopText');
   if(!pop || !tx) return;
-  const line = skill==='tips' ? tipSkillLine(state) : (SKILL_BLURB[skill] || 'This skill spends coins.');
+  const line = skill==='tips' ? tipSkillLine(state)
+    : (skill==='color' && colorLocked() ? colorLockedLine() : (SKILL_BLURB[skill] || 'This skill spends coins.'));
   tx.textContent = line;
   pop.classList.add('show');
   pop.setAttribute('aria-hidden','false');
@@ -1234,8 +1241,10 @@ function renderPowers(){
     const priceN = skillNextPrice(d.skill);
     const n = skillUseCount(state, d.skill);
     const broke = skillUnaffordable(d.skill, priceN);
-    const depleted = d.skill==='undoMove' && !(state.run && state.run.undoSnap);
-    const help = d.skill==='tips' ? tipSkillLine(state) : SKILL_BLURB[d.skill];
+    const depleted = (d.skill==='undoMove' && !(state.run && state.run.undoSnap))
+      || (d.skill==='color' && colorLocked());
+    const help = d.skill==='tips' ? tipSkillLine(state)
+      : (d.skill==='color' && colorLocked() ? colorLockedLine() : SKILL_BLURB[d.skill]);
     const tip = 'Level '+n+'. '+help+' Next '+fmt(priceN)+' coins.';
     const cost = `<span class="pow-cost">🪙${fmt(priceN)}</span>`;
     const icon = /^[a-z0-9_]+$/.test(d.icon)
@@ -1264,6 +1273,9 @@ function renderPowers(){
       openPeekModal();
       return;
     }
+    if(mode==='color' && p.classList.contains('depleted')){
+      toast(colorLockedLine()); return;
+    }
     if(p.classList.contains('broke')){
       toast(ERRT.noFunds); return;
     }
@@ -1276,13 +1288,8 @@ function renderPowers(){
       if(r.error){ err(r); return; }
       state=r;
       const n=state.progress.colorsOwned;
-      const cap=(state.run&&state.run.palette&&state.run.palette.length)||CONFIG.MAX_COLORS;
-      if(n<=cap){
-        const who=creatureName(n);
-        toast('Unlocked: '+who+' (color '+n+')', faceColor(n));
-      } else {
-        toast('Every color in this café is already in.');
-      }
+      const who=creatureName(n);
+      toast('Unlocked: '+who+' (color '+n+')', faceColor(n));
       renderAll(); return;
     }
     if(mode==='tips'){

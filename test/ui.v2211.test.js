@@ -107,7 +107,9 @@ test('buying a color names the creature and shows its swatch', () => {
   assert.match(powers, /creatureName\(n\)/);
   assert.match(powers, /\(color '/);
   assert.match(powers, /toast\('Unlocked: '\+who\+' \(color '\+n\+'\)', faceColor\(n\)\)/);
-  assert.match(powers, /Every color in this café is already in\./);
+  assert.match(powers, /colorLockedLine\(\)/);
+  assert.match(powers, /d\.skill==='color' && colorLocked\(\)/);
+  assert.match(html, /All '\+colorRunCap\(state\)\+' colors unlocked/);
   assert.doesNotMatch(powers, /New roster color/);
   assert.match(html, /\.toast-swatch/);
   assert.match(html, /function toast\(msg, colorId\)/);
