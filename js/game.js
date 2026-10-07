@@ -11,7 +11,7 @@
 export const CONFIG = {
   BASE_COIN: 5,                     // R5.1
   EXP_BASE: 1.25,                   // R5.2 superlinear exponent
-  EXP_STEP: 0.05,                   // R5.2 multLevel exponent growth
+  EXP_STEP: 0.10,                   // R5.2 v2.24: each Tips level doubles the old 0.05 jump
   MULT_PRICE_BASE: 100,             // R5.2 historical list price; live tips use 40×1.6^n
   MULT_MAX: 6,                      // retired as a purchase cap in v2.22.4 (tips are unlimited)
   CALAMITY_BONUS_PER: 15,           // R5.3 / R8.5 bonus per calamity cell
@@ -1201,7 +1201,7 @@ export function tipSkillLine(state, qty = 8) {
   const n = skillUseCount(state, 'tips');
   const order = { qty };
   const extra = pay(order, n + 1) - pay(order, n);
-  const step = CONFIG.EXP_STEP;
+  const step = CONFIG.EXP_STEP.toFixed(2);
   return `Each level adds ${step} to the pay exponent. A size-${qty} order pays ${extra} more coins.`;
 }
 

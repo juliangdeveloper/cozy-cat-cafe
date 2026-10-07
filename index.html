@@ -396,12 +396,19 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
   box-shadow:0 0 0 2px var(--ink)}
 @keyframes floatUp{0%{opacity:0;transform:translateY(8px) scale(.6)}20%{opacity:1}100%{opacity:0;transform:translateY(-40px) scale(1)}}
-@keyframes coinPop{0%{opacity:0;transform:translateY(10px) scale(.45) rotate(-12deg)}16%{opacity:1;transform:translateY(-6px) scale(1.18) rotate(7deg)}42%{transform:translateY(-16px) scale(1) rotate(-3deg)}100%{opacity:0;transform:translateY(-54px) scale(.95) rotate(0)}}
+/* v2.24 — coin gains stay big and readable (~+70 on a 390px phone): pop, hold, then a slow rise and fade. */
+@keyframes coinPop{
+  0%{opacity:0;transform:translateY(16px) scale(.55) rotate(-8deg)}
+  12%{opacity:1;transform:translateY(-2px) scale(1.22) rotate(4deg)}
+  28%{transform:translateY(-12px) scale(1.08) rotate(-1deg)}
+  68%{opacity:1;transform:translateY(-22px) scale(1.06) rotate(0)}
+  100%{opacity:0;transform:translateY(-58px) scale(1) rotate(0)}
+}
 @keyframes coinBump{0%{transform:scale(1)}35%{transform:scale(1.14)}100%{transform:scale(1)}}
 .floater{position:absolute;z-index:6;font-weight:900;font-family:var(--font-display);color:var(--highlight);
   text-shadow:0 1px 0 var(--ink);pointer-events:none;font-size:18px;animation:floatUp 1s ease-out forwards}
-.floater.coin-gain{z-index:8;font-size:20px;white-space:nowrap;color:#c4840a;
-  text-shadow:0 2px 0 var(--ink);animation:coinPop 1.05s cubic-bezier(.18,.8,.2,1) forwards}
+.floater.coin-gain{z-index:8;font-size:36px;line-height:1;white-space:nowrap;color:#c4840a;
+  text-shadow:0 3px 0 var(--ink);animation:coinPop 2.4s cubic-bezier(.22,.7,.2,1) forwards}
 .chip.coin-bump{animation:coinBump .45s ease}
 .confetti{position:fixed;left:50%;top:35%;z-index:65;pointer-events:none}
 .cf{position:absolute;width:9px;height:9px;border-radius:2px;opacity:0;animation:conf .85s ease-out forwards}
@@ -721,8 +728,36 @@ function toast(msg, colorId){
   clearTimeout(t._h);
   t._h=setTimeout(()=>t.classList.remove('show'), colorId?2400:1500);
 }
+const COIN_GAIN_MS = 2400;
+// coinPop stays opaque while it rises ~22px and scales past 1. Keep that travel
+// inside the viewport: the counter sits on the top edge, and a cell at the
+// board's side would otherwise lose a 36px "+70 🪙" to overflow.
+const COIN_GAIN_RISE = 28;
+function pinCoinGain(el, e){
+  document.body.appendChild(e);
+  const r = el.getBoundingClientRect();
+  const w = e.offsetWidth, h = e.offsetHeight;
+  // coinPop peaks at scale 1.22, which paints past the layout box.
+  const padX = 8 + Math.ceil(w * 0.11);
+  const padY = 8;
+  let left = r.left + r.width / 2 - w / 2;
+  let top = r.top + Math.min(r.height * 0.2, 18);
+  const maxLeft = Math.max(padX, window.innerWidth - w - padX);
+  const minTop = padY + COIN_GAIN_RISE;
+  const maxTop = Math.max(minTop, window.innerHeight - h - padY);
+  left = Math.max(padX, Math.min(left, maxLeft));
+  top = Math.max(minTop, Math.min(top, maxTop));
+  e.style.position = 'fixed';
+  e.style.left = left + 'px';
+  e.style.top = top + 'px';
+  e.style.margin = '0';
+  e.style.zIndex = '40';
+}
 function floatOn(el, txt, extra){ if(!el) return; const e=document.createElement('div'); e.className='floater'+(extra?(' '+extra):'');
-  e.textContent=txt; el.appendChild(e); setTimeout(()=>e.remove(),1100); }
+  e.textContent=txt;
+  if(extra==='coin-gain') pinCoinGain(el, e);
+  else el.appendChild(e);
+  setTimeout(()=>e.remove(), extra==='coin-gain'?COIN_GAIN_MS:1100); }
 function showCoinGain(amount, anchor){
   const n=Math.round(Number(amount)||0);
   if(!(n>0)) return;

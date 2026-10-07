@@ -12,6 +12,10 @@ La foto se vacía al abrir la run, al reiniciar (Hold 3s, o el toque del velo tr
 
 **Barra.** Once skills, solo icono, precio y numeral de nivel (`skillUseCount`). Rejilla de 6 columnas (6+5) para que quepan en ~390px sin soltar la barra pegada abajo. Clear es 🧹 y Undo es ↩️. Waiter sigue fuera.
 
+**Tips.** `EXP_STEP` pasa de 0.05 a **0.10**. Cada nivel sigue sumando ese paso al exponente de `pay()` (`BASE_COIN × qty^(EXP_BASE + EXP_STEP × multLevel)`), así que el salto de propina de cada nivel es el doble del de v2.23. El hold usa esa fórmula: un pedido de tamaño 8 paga 16 monedas más en el primer nivel. No hay otra economía.
+
+**Monedas en vuelo.** El `+N 🪙` de servir, de un claro de 10+, y del bonus de calamidad al ganar es más grande (36px) y se queda ~2.4s: aparece de golpe, se lee quieto, y después sube y se apaga despacio. El rótulo va fijo a la pantalla y se empuja hacia adentro para que la subida no lo saque del teléfono: en ~390px un premio de unas 70 monedas se lee entero, también el que sale del contador de arriba. Los mismos tres disparos; no hay otro.
+
 ## v2.23.0 — propinas, 7 colores por run, monedas, nivel, historial, derrota
 
 **Tips.** El hold de ~500ms de Tips dice el efecto con la fórmula que ya existe. Cada nivel suma `EXP_STEP` (0.05) al exponente de `pay()`: `BASE_COIN × qty^(EXP_BASE + EXP_STEP × multLevel)`. La frase da las monedas extra de un pedido de tamaño 8 (`pay` del nivel siguiente menos `pay` del nivel actual). No hay otra economía.
