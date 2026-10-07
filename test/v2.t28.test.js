@@ -63,7 +63,9 @@ test('each run keeps 7 of 10 creatures and unlocks them gradually', () => {
   assert.equal(a.run.rosterIndex, 5);
   assert.equal(a.progress.colorsOwned, 4);
   for (const c of a.run.pool.flat()) assert.ok(c >= 1 && c <= 4);
-  for (const o of a.run.activeClients) assert.ok(o.color >= 1 && o.color <= 5);
+  for (const o of a.run.activeClients) {
+    assert.ok(o.color >= 1 && o.color <= Math.min(a.progress.colorsOwned + 1, a.run.palette.length));
+  }
   assert.equal(G.runFaceColor(a, 1), a.run.palette[0]);
   assert.equal(G.runFaceColor(a, 5), a.run.palette[4]);
   assert.equal(G.runFaceColor(a, 8), 8);
@@ -161,7 +163,7 @@ test('finished runs keep best and worst, capped, across a restart', () => {
 });
 
 test('save modal, skill level, coin float, and defeat are in the page', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.0'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.1'/);
   assert.match(html, /id="runHistory"/);
   assert.match(html, /function renderRunHistory/);
   assert.match(html, /bestWorstRuns/);

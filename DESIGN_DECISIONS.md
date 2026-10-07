@@ -1,5 +1,9 @@
 # Cozy Cat Café × HexaSort — Shared Understanding (post-grill)
 
+## v2.24.1 — el cliente pide lo comprado y el siguiente (2026-10-07)
+
+**Color del cliente.** `drawClientInto` sortea uniforme en `1..min(colorsOwned+1, palette.length)`. Los índices lógicos de la run son `1..k`. Lo que el jugador posee es `1..colorsOwned`. El siguiente que compraría Color (`buyColor`) es `colorsOwned+1`: esa función solo suma 1 a `colorsOwned`. La cara es `palette[k-1]` (`runFaceColor`). El techo es el largo de la paleta de la run (7). Con `colorsOwned >= 7` el sorteo queda en `1..7`: comprar Color otra vez (`colorsOwned` 8, 9, …) no hace aparecer una criatura nueva. No depende de `rosterIndex` (ese sigue subiendo cada 3 pilas y no cambia aquí). La bandeja sigue en `poolMaxColor` = `min(rosterIndex, colorsOwned)`: el color de más se puede pedir y no sale en el pool.
+
 ## v2.24.0 — Clear board y Undo (2026-10-07)
 
 **Clear board** (`clearBoard`). Un toque vacía las pilas de todo el tablero. No pide celda. La regla por celda es la de Destroy (`useDestroyPile`): si la celda está `blocked`, no se toca (el candado, su `hiddenStack` y cualquier pila visible sobre el candado se quedan); si no, `stack` pasa a `[]` sea cual sea la altura. No cambia `dormant`, `blocked`, `hiddenStack` ni las marcas de calamidad. Una pila oculta en una mesa apagada no es una pila ocupada: Destroy tampoco la borra. Si no queda ninguna pila que Destroy pudiera borrar, no cobra (`{error:'empty'}`). Precio propio: `CLEAR_BOARD_BASE × SKILL_USE_RATIO^n` = **10000 × 1.6^n** (producto exacto). No usa `SKILL_USE_BASE` (40). `n` es `run.skillUses.clearBoard`. Sin techo. El hold dice "Clear every pile off the whole board."

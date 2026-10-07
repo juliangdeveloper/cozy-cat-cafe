@@ -656,8 +656,9 @@ function v2Pile(rng, cu) {
 // v2.21 R16 — cola de clientes LAZY. El cliente ES un pedido flotante
 // {id, color, qty, served:false} SIN celda. El tamaño sale de rollOrderQty
 // (base 3, rampa hacia 10, 5 y 8 desde el inicio, legendario 10 con cupo).
-// Se DIBUJA al servir (llegada perezosa): color uniforme 1..rosterIndex —
-// puede pedir un color por encima de colorsOwned (presión R13.5).
+// Se DIBUJA al servir (llegada perezosa). v2.24.1: color uniforme entre los
+// que el jugador posee y el siguiente que buyColor desbloquearía,
+// 1..min(colorsOwned+1, palette.length). Con la paleta de 7 llena, solo 1..7.
 // NO se pre-generan los 100: contadores run.clientsDrawn / run.clientsServed.
 // v2.21 — tamaño de pedido. Puro: no muta legendaries (el caller anota el cupo).
 // Al inicio el centro es ORDER_QTY_BASE y el sorteo incluye ORDER_QTY_EARLY
@@ -702,8 +703,12 @@ export function rollOrderQty(state, color, rng) {
 function drawClientInto(s, r) {
   const total = totalClients(s);
   if ((s.run.clientsDrawn || 0) >= total) return false;    // cola agotada
-  const roster = s.run.rosterIndex || 1;
-  const color = rngInt(r, 1, Math.max(1, roster));
+  // Owned logical colors are 1..colorsOwned. The next purchase is
+  // colorsOwned+1 (buyColor only increments that counter). The run's
+  // palette length is the cap, so buying past 7 never asks for creature 8.
+  const owned = s.progress.colorsOwned || 1;
+  const cap = Math.max(1, Math.min(owned + 1, rosterCeiling(s.run)));
+  const color = rngInt(r, 1, cap);
   if (!s.run.legendaries || typeof s.run.legendaries !== 'object') s.run.legendaries = {};
   const rolled = rollOrderQty(s, color, r);
   if (rolled.legendary) s.run.legendaries[color] = (s.run.legendaries[color] || 0) + 1;
