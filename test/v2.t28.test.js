@@ -31,14 +31,17 @@ test('tip hold line uses pay() and the exponent step', () => {
   assert.equal(G.skillUseCount(s, 'tips'), 0);
   const extra0 = G.pay({ qty: 8 }, 1) - G.pay({ qty: 8 }, 0);
   const line0 = G.tipSkillLine(s);
-  assert.match(line0, /Each level adds 0\.05 to the pay exponent/);
+  assert.equal(G.CONFIG.EXP_STEP, 0.1);
+  assert.match(line0, /Each level adds 0\.10 to the pay exponent/);
   assert.match(line0, new RegExp(`A size-8 order pays ${extra0} more coins`));
+  assert.equal(extra0, G.pay({ qty: 8 }, 1) - G.pay({ qty: 8 }, 0));
+  assert.equal(extra0, 16);
   s = G.buyMultiplier(s);
   const n = G.skillUseCount(s, 'tips');
   const extra = G.pay({ qty: 8 }, n + 1) - G.pay({ qty: 8 }, n);
   const line = G.tipSkillLine(s);
   assert.match(line, new RegExp(`pays ${extra} more coins`));
-  assert.equal(G.CONFIG.EXP_BASE + G.CONFIG.EXP_STEP * n, 1.25 + 0.05 * n);
+  assert.equal(G.CONFIG.EXP_BASE + G.CONFIG.EXP_STEP * n, 1.25 + 0.1 * n);
   assert.match(html, /tipSkillLine\(state\)/);
   assert.match(html, /SKILL_HELP_MS = 500/);
 });
@@ -158,7 +161,7 @@ test('finished runs keep best and worst, capped, across a restart', () => {
 });
 
 test('save modal, skill level, coin float, and defeat are in the page', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.23\.0'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.0'/);
   assert.match(html, /id="runHistory"/);
   assert.match(html, /function renderRunHistory/);
   assert.match(html, /bestWorstRuns/);
@@ -169,6 +172,12 @@ test('save modal, skill level, coin float, and defeat are in the page', () => {
   assert.match(html, /skillUseCount\(state, d\.skill\)/);
   assert.match(html, /function showCoinGain/);
   assert.match(html, /coin-gain/);
+  assert.match(html, /COIN_GAIN_MS = 2400/);
+  assert.match(html, /COIN_GAIN_RISE = 28/);
+  assert.match(html, /function pinCoinGain/);
+  assert.match(html, /e\.style\.position = 'fixed'/);
+  assert.match(html, /font-size:36px/);
+  assert.match(html, /animation:coinPop 2\.4s/);
   assert.match(html, /debrisCoins/);
   assert.match(html, /calamityGain/);
   assert.match(html, /function playDefeat/);

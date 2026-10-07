@@ -11,7 +11,7 @@
 export const CONFIG = {
   BASE_COIN: 5,                     // R5.1
   EXP_BASE: 1.25,                   // R5.2 superlinear exponent
-  EXP_STEP: 0.05,                   // R5.2 multLevel exponent growth
+  EXP_STEP: 0.10,                   // R5.2 v2.24: each Tips level doubles the old 0.05 jump
   MULT_PRICE_BASE: 100,             // R5.2 historical list price; live tips use 40×1.6^n
   MULT_MAX: 6,                      // retired as a purchase cap in v2.22.4 (tips are unlimited)
   CALAMITY_BONUS_PER: 15,           // R5.3 / R8.5 bonus per calamity cell
@@ -38,11 +38,14 @@ export const CONFIG = {
   // v2.22 / v2.22.4 — cada skill se paga al usarla. Siguiente precio =
   //   SKILL_USE_BASE * SKILL_USE_RATIO^n = 40 × 1.6^n (producto exacto)
   // n = usos de ESA skill en esta run (se pone a 0 al abrir/reiniciar).
-  // Misma base y misma razón para todas: Destroy/Swap/Refresh/Unlock/Queue
-  // (skillUses), Tables (runTilesActivated), Color (colorsOwned−4),
-  // Tips (multLevel), Board/Peek (previewPool.level). Sin techo.
+  // Misma base y misma razón para todas salvo Clear board: Destroy/Swap/
+  // Refresh/Unlock/Queue/Undo (skillUses), Tables (runTilesActivated),
+  // Color (colorsOwned−4), Tips (multLevel), Board/Peek (previewPool.level).
+  // Sin techo.
   SKILL_USE_BASE: 40,
   SKILL_USE_RATIO: 1.6,
+  // v2.24 — Clear board no usa SKILL_USE_BASE. Precio = 10000 × 1.6^n.
+  CLEAR_BOARD_BASE: 10000,
   MAX_COLORS: 10,                   // R13.7 10 colores / criaturas en el ROSTER (R13.2)
   // v2.23 — cada run sortea este subconjunto del roster. El desbloqueo
   // gradual (bolsa, rosterIndex, colorsOwned) vive DENTRO de esos 7.
@@ -1010,6 +1013,7 @@ export function placeStack(state, cellId, slot, rngOrStack) {
     // celda vacía sin fusión se conserva el contrato T11b ('noMerge').
     return { error: (cell.stack && cell.stack.length) ? 'occupied' : 'noMerge', state: s };
   }
+  rememberUndo(s);
   cell.stack = cell.stack.concat(pileArr);          // R3.4 apila al tope
   // v2.11 R12.4: pila MONOCOLOR marca el ANCLA del jugador — durante la
   // cascada que dispara esta colocación, todo grupo que contenga esta celda
@@ -1029,6 +1033,7 @@ export function placeStack(state, cellId, slot, rngOrStack) {
   let idx = slot;
   if (idx === undefined) idx = s.run.pool.findIndex((x) => x.length > 0);
   if (idx < 0 || s.run.pool[idx].length === 0) return { error: 'emptySlot' }; // R3.5
+  rememberUndo(s);
   const pile = s.run.pool[idx];
   cell.stack = cell.stack.concat(pile);      // R3.4 / R4.2 stack on top
   s.run.pool[idx] = [];
@@ -1140,10 +1145,29 @@ export function skillUseCount(state, power) {
 
 export function skillUsePrice(state, power) {
   const n = skillUseCount(state, power);
-  // Exact 40 × 1.6^n for every skill, including tables. Rounding the
-  // product changes the ratio (102 instead of 102.4) and can skip a table
-  // the player could still afford.
-  return CONFIG.SKILL_USE_BASE * CONFIG.SKILL_USE_RATIO ** n;
+  // Exact base × 1.6^n. Rounding the product changes the ratio (102
+  // instead of 102.4) and can skip a table the player could still afford.
+  // Clear board is the one skill with its own base (10000, not 40).
+  const base = power === 'clearBoard' ? CONFIG.CLEAR_BOARD_BASE : CONFIG.SKILL_USE_BASE;
+  return base * CONFIG.SKILL_USE_RATIO ** n;
+}
+
+// One level of undo. The snapshot is the whole café immediately before the
+// last undoable action, with no nested snapshot. Undo restores that café
+// (the action's coins come back) and only then subtracts the Undo fee.
+function rememberUndo(s) {
+  if (!s || !s.run) return;
+  delete s.run.undoSnap;
+  s.run.undoSnap = clone(s);
+}
+
+// Funds check, then snapshot, then charge. The snapshot must precede the
+// charge so Undo refunds this action before taking its own fee.
+function chargeUndoable(s, power) {
+  const price = skillUsePrice(s, power);
+  if ((s.progress.coins || 0) < price) return { error: 'noFunds' };
+  rememberUndo(s);
+  return chargeSkill(s, power);
 }
 
 // Cobra el precio actual y anota el uso. No muta si no alcanza.
@@ -1177,7 +1201,7 @@ export function tipSkillLine(state, qty = 8) {
   const n = skillUseCount(state, 'tips');
   const order = { qty };
   const extra = pay(order, n + 1) - pay(order, n);
-  const step = CONFIG.EXP_STEP;
+  const step = CONFIG.EXP_STEP.toFixed(2);
   return `Each level adds ${step} to the pay exponent. A size-${qty} order pays ${extra} more coins.`;
 }
 
@@ -1204,6 +1228,7 @@ export function activateTile(state, cellId, rng) {
   // R14.3 v2.20: cobra la curva temporal. Sin usos ni techo permanente.
   const price = runTilePrice(s);
   if (s.progress.coins < price) return { error: 'noFunds', state: s };
+  rememberUndo(s);
   cell.dormant = false;                                // activa ESTA partida
   // v2.8 R8.1: revelar pila de calamidad oculta en baldosas (si la hay)
   if (cell.hiddenStack && cell.hiddenStack.length) {
@@ -1300,6 +1325,7 @@ export function serveOrder(state, orderId, cellId) {
   if (tg.color !== order.color || tg.count < order.qty) {                 // R4.4
     return { error: 'notEnough' };
   }
+  rememberUndo(s);
   // consume exactly order.qty pieces from the top (they are all order.color)
   cell.stack.splice(cell.stack.length - order.qty, order.qty);            // R4.3 v2
   order.served = true;
@@ -1599,7 +1625,7 @@ export function buySkill(state, power) {
 export function useQueueSkip(state) {
   const s = clone(state);
   if (!s.run || !Array.isArray(s.run.activeClients)) return { error: 'noRun' };
-  const bill = chargeSkill(s, 'queueSkip');
+  const bill = chargeUndoable(s, 'queueSkip');
   if (bill) return bill;
   const old = s.run.activeClients.splice(0, s.run.activeClients.length);
   s.run.queueBack.push(...old);                 // R17.1: al fondo, orden FIFO
@@ -1675,7 +1701,7 @@ export function useDestroyPile(state, cellId) {
   const cell = s.run.board[cellId];
   if (!cell) return { error: 'noCell' };
   if (cell.blocked) return { error: 'blocked' };                        // R7.5 block
-  const bill = chargeSkill(s, 'destroyPile');
+  const bill = chargeUndoable(s, 'destroyPile');
   if (bill) return bill;
   cell.stack = [];                                                       // R7.5 empty
   return s;
@@ -1688,7 +1714,7 @@ export function useSwapPiles(state, a, b) {
   if (a === b) return { error: 'same' };
   if (!board[a] || !board[b]) return { error: 'noCell' };
   if (board[a].blocked || board[b].blocked) return { error: 'blocked' }; // R7.6
-  const bill = chargeSkill(s, 'swapPiles');
+  const bill = chargeUndoable(s, 'swapPiles');
   if (bill) return bill;
   const tmp = board[a].stack;
   board[a].stack = board[b].stack;                                        // R7.6 swap
@@ -1702,7 +1728,7 @@ export function useUnlockLocks(state, cellId) {
   const cell = s.run.board[cellId];
   if (!cell) return { error: 'noCell' };
   if (!cell.blocked) return { error: 'notBlocked' };                    // R7.8 v2.8
-  const bill = chargeSkill(s, 'unlockLocks');
+  const bill = chargeUndoable(s, 'unlockLocks');
   if (bill) return bill;
   cell.blocked = false;
   if (cell.hiddenStack && cell.hiddenStack.length) {                    // R8.4 v2: revelar
@@ -1715,7 +1741,7 @@ export function useUnlockLocks(state, cellId) {
 export function useRefreshPool(state, rng) {
   const s = clone(state);
   if (!s.run) return { error: 'noRun' };
-  const bill = chargeSkill(s, 'refreshPool');
+  const bill = chargeUndoable(s, 'refreshPool');
   if (bill) return bill;
   // v2.10 R18: useRefreshPool consume de s.run.bag
   const r = rng || Math.random;
@@ -1726,6 +1752,49 @@ export function useRefreshPool(state, rng) {
   s.run.pilesDealt = (s.run.pilesDealt || 0) + piles.length;
   s.run.poolPlaced = 0;                                                   // R7.7
   return s;
+}
+
+// v2.24 — Clear board. Same per-cell rule as Destroy: a blocked cell is
+// left alone (lock, hidden pile, and any stack sitting on the lock stay).
+// Every other occupied cell loses its stack, whatever the height. Dormant,
+// calamity flags, and hiddenStack are not touched. One charge, no target.
+// An already-clear board does not charge.
+export function useClearBoard(state) {
+  const s = clone(state);
+  if (!s.run || !Array.isArray(s.run.board)) return { error: 'noRun' };
+  const targets = [];
+  s.run.board.forEach((cell, i) => {
+    if (!cell || cell.blocked) return;
+    if (cell.stack && cell.stack.length) targets.push(i);
+  });
+  if (!targets.length) return { error: 'empty' };
+  const bill = chargeUndoable(s, 'clearBoard');
+  if (bill) return bill;
+  for (const i of targets) s.run.board[i].stack = [];
+  return s;
+}
+
+// v2.24 — Undo the last action that mutated the board, pool, or orders.
+// Coin rule: restore the snapshot first (coins return to what they were
+// before that action, so its fee comes back), then deduct the Undo fee
+// (40 × 1.6^n) and count this use. Undo does not snapshot itself, and the
+// stack is cleared, so a second tap cannot refund the fee. If the restored
+// purse cannot cover the fee, nothing changes.
+export function useUndoMove(state) {
+  const s = clone(state);
+  if (!s.run) return { error: 'noRun' };
+  const snap = s.run.undoSnap;
+  if (!snap || !snap.run || !snap.progress) return { error: 'nothingToUndo' };
+  const n = skillUseCount(s, 'undoMove');
+  const price = skillUsePrice(s, 'undoMove');
+  const restored = snap.progress.coins || 0;
+  if (restored < price) return { error: 'noFunds' };
+  const next = clone(snap);
+  delete next.run.undoSnap;
+  next.progress.coins = restored - price;
+  if (!next.run.skillUses) next.run.skillUses = {};
+  next.run.skillUses.undoMove = n + 1;
+  return next;
 }
 
 // ---------------------------------------------------------------------------
@@ -1886,6 +1955,8 @@ export function beginVictory(state) {
   s.progress.coins += bonus;
   s.run.phase = 'victory';
   s.run.victoryBonus = bonus;
+  // The winning move is not rewound. Restart opens a fresh run anyway.
+  delete s.run.undoSnap;
   // The sitting is finished. Archive it once so the save modal can show it
   // before Hold 3s, and so restart does not record it a second time.
   s.run.archived = true;
