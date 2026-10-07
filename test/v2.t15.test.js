@@ -66,12 +66,12 @@ test('T15c [R15.1] buySkill(previewPool): level 1 -> recompra 2 -> en level 3 {e
     `RED: recompra de previewPool debe retornar state (ret=${JSON.stringify(r2)})`);
   assert.equal(r2.skills.previewPool.level, 2,
     'RED: recompra de previewPool debe subir level a 2 [R15.1]');
-  // 3a compra -> level 3; 4a compra -> {error:'max'}
+  // 3a compra -> level 3; v2.22.4: la 4a sigue (no hay tope)
   const r3 = unwind(G.buySkill(r2, 'previewPool'), r2);
   assert.equal(r3.skills.previewPool.level, 3, 'RED: 3a compra debe dejar level=3 [R15.1]');
-  const r4 = G.buySkill(r3, 'previewPool');
-  assert.ok(r4 && r4.error === 'max',
-    `RED: en level 3, recomprar previewPool debe retornar {error:'max'}, retornó ${JSON.stringify(r4)} [R15.1]`);
+  const r4 = unwind(G.buySkill(r3, 'previewPool'), r3);
+  assert.equal(r4.skills.previewPool.level, 4, 'v2.22.4: previewPool no tiene tope en 3');
+  assert.equal(r4.error, undefined);
 });
 
 // ---------------------------------------------------------------------------
