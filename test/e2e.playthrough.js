@@ -44,8 +44,12 @@ const prunePins = (s) => {
   for (const k of [...targetByOrder.keys()]) if (!live.has(k)) targetByOrder.delete(k);
 };
 
-// v2.1 R13.5: techo del roster = colorsOwned<10 ? colorsOwned+1 : 10
-const rosterCap = (owned) => owned < CONFIG.MAX_COLORS ? owned + 1 : CONFIG.MAX_COLORS;
+// v2.23: techo = min(colorsOwned+1, palette de la run). Sin palette, MAX_COLORS.
+const rosterCap = (owned) => {
+  const pal = (state.run && Array.isArray(state.run.palette) && state.run.palette.length)
+    || CONFIG.MAX_COLORS;
+  return Math.min((owned || 0) + 1, pal);
+};
 
 // un paso del jugador: sirve lo listo de los VISIBLES, compra color si hace
 // falta (R13.5/R13.7) y coloca UNA pila del pool (firma v2). Devuelve false

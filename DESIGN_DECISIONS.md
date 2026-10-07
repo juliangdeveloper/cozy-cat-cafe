@@ -1,5 +1,19 @@
 # Cozy Cat Café × HexaSort — Shared Understanding (post-grill)
 
+## v2.23.0 — propinas, 7 colores por run, monedas, nivel, historial, derrota
+
+**Tips.** El hold de ~500ms de Tips dice el efecto con la fórmula que ya existe. Cada nivel suma `EXP_STEP` (0.05) al exponente de `pay()`: `BASE_COIN × qty^(EXP_BASE + EXP_STEP × multLevel)`. La frase da las monedas extra de un pedido de tamaño 8 (`pay` del nivel siguiente menos `pay` del nivel actual). No hay otra economía.
+
+**Siete de diez.** `ROSTER` sigue en 10. Cada `openRun` sortea `RUN_COLORS` (7) criaturas y las guarda en `run.palette` (orden de desbloqueo de esa run). No se vuelcan las 7 al abrir: el pool arranca en `colorsOwned` (4) y el roster en 5; cada 3 pilas el roster sube hasta `min(colorsOwned+1, palette.length)`. El color de más se puede pedir y no sale en el pool mientras queden criaturas del subconjunto por comprar (presión pool < roster). Las fichas siguen siendo índices lógicos 1..k; la cara (criatura y baldosa) es `palette[k-1]`. Color sigue cobrando `40×1.6^n` sin tope (`n = colorsOwned−4`); por encima de las 7 no entra una criatura nueva. Una run vieja sin `palette` conserva el techo `MAX_COLORS` (10).
+
+**Monedas.** Cada premio de la run muestra `+N 🪙` con un vuelo: servir (cascada y toque), escombros de 10+, y el bonus de calamidad si la victoria lo suma.
+
+**Nivel.** Cada botón de skill muestra `n` de `40×1.6^n` (`skillUseCount`) junto al precio. Sigue siendo solo icono.
+
+**Historial.** `runHistory` va en el save (últimas 20). Se archiva al servir al cliente 100 y al reiniciar una run que aún no se archivó. Cada ficha: clientes servidos, apilaciones que generaron dinero (servir y escombros), pilas que salieron para colocar. El modal de guardar (`#saveModal`) muestra la mejor y la peor. Criterio: más/menos clientes; empate → apilaciones que pagaron; empate → pilas; si sigue empatado, la más reciente es la mejor y la más antigua es la peor.
+
+**Derrota.** Hold 3s a mitad de run: velo corto del mismo tipo que la victoria (cascada, luces bajas, frase del anfitrión) y después el reinicio. Si ya se sirvieron los 100, se queda el velo de victoria; ese hold no muestra la derrota.
+
 ## v2.22.4 — tutorial por encima del tablero, icono de calamidad, skills sin tope
 
 **Tutorial.** El velo (`#tutOverlay`, z-index 80) sigue debajo del tablero y las bandejas (z-index 90) para que se pueda seguir colocando. La tarjeta del paso y el contorno del foco son hermanos de ese velo, no hijos: su z-index (tarjeta 100, hueco 96) no queda atrapado y pintan por encima del tablero. Skip y Next siguen en la tarjeta. Los 5 pasos en inglés de v2.22.3 no cambian.

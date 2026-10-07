@@ -43,7 +43,12 @@ export const CONFIG = {
   // Tips (multLevel), Board/Peek (previewPool.level). Sin techo.
   SKILL_USE_BASE: 40,
   SKILL_USE_RATIO: 1.6,
-  MAX_COLORS: 10,                   // R13.7 10 colores / criaturas en orden de desbloqueo (R13.2)
+  MAX_COLORS: 10,                   // R13.7 10 colores / criaturas en el ROSTER (R13.2)
+  // v2.23 — cada run sortea este subconjunto del roster. El desbloqueo
+  // gradual (bolsa, rosterIndex, colorsOwned) vive DENTRO de esos 7.
+  // MAX_COLORS sigue siendo el roster completo; no es el techo de la run.
+  RUN_COLORS: 7,
+  RUN_HISTORY_MAX: 20,              // últimas runs terminadas en el save
   DEBRIS_THRESHOLD: 10,             // v2 escombros: umbral para entrar en tablero
   DEBRIS_BONUS_PER: 25,             // v2 escombros: bonus por escombro limpiado
   CASCADE_STEP_MS: 600,             // v2.2.1: ms entre eslabones (antes 1600 — muy lento para seguir el orden)
@@ -213,6 +218,9 @@ export function createGame(init = {}) {
     // New games start with seenTutorial false so the spotlight can run once.
     // A finished flag is not cleared here, on restart, or when an old save loads.
     settings: { reducedMotion: false, seenTutorial: false, boardRot: 0, epoch: 21 },
+    // v2.23 — historial compacto de runs terminadas. Sobrevive al reinicio
+    // (restartRun lo copia). El mute sigue fuera de este blob.
+    runHistory: [],
   };
   return deepMerge(base, init);
 }
@@ -495,12 +503,47 @@ export function runVictory(state) {
   return (state.run.clientsServed || 0) >= totalClients(state);
 }
 
-// v2.1 helper (R16.2 corrección): tope de roster de la partida =
-// colorsOwned < MAX_COLORS ? colorsOwned + 1 : MAX_COLORS. Con colorsOwned=4
-// el roster arranca (y se estanca) en 5; comprar colores sube el tope; con
-// colorsOwned=10 el tope es 10 (no 11).
-function rosterMax(colorsOwned) {
-  return Math.min((colorsOwned || 0) + 1, CONFIG.MAX_COLORS);
+// v2.23 — techo de criaturas de ESTA run. Con palette, es su largo (7).
+// Una run vieja sin palette conserva MAX_COLORS (10) para no reescribir fichas.
+function rosterCeiling(run) {
+  const p = run && run.palette;
+  if (Array.isArray(p) && p.length) return p.length;
+  return CONFIG.MAX_COLORS;
+}
+
+// v2.1 helper (R16.2) + v2.23: tope = min(colorsOwned+1, techo de la run).
+// Con colorsOwned=4 y palette de 7 el roster arranca (y se estanca) en 5.
+// Comprar colores sube el tope hasta el subconjunto, no hasta 11 ni hasta 10
+// si la run solo trajo 7. colorsOwned puede pasar de 7 (precio sin tope);
+// el roster no.
+function rosterMax(colorsOwned, ceiling) {
+  const cap = ceiling == null ? CONFIG.MAX_COLORS : ceiling;
+  return Math.min((colorsOwned || 0) + 1, cap);
+}
+
+// v2.23 — sorteo de RUN_COLORS criaturas distintas del ROSTER (ids 1..10),
+// en orden de desbloqueo de la run. Fisher-Yates con el rng de la run.
+export function pickRunPalette(rng) {
+  const r = rng || Math.random;
+  const all = [];
+  for (let i = 1; i <= ROSTER.length; i++) all.push(i);
+  for (let i = all.length - 1; i > 0; i--) {
+    const j = rngInt(r, 0, i);
+    const tmp = all[i];
+    all[i] = all[j];
+    all[j] = tmp;
+  }
+  const k = Math.min(CONFIG.RUN_COLORS, all.length);
+  return all.slice(0, k);
+}
+
+// Índice lógico 1..k de la run → id de criatura del roster. Sin palette
+// (save viejo) el índice lógico ES la criatura.
+export function runFaceColor(state, logical) {
+  const pal = state && state.run && state.run.palette;
+  const n = logical | 0;
+  if (!Array.isArray(pal) || !pal.length || n < 1 || n > pal.length) return n;
+  return pal[n - 1];
 }
 
 // v2 helper: color máximo que genera el pool = min(rosterIndex, colorsOwned).
@@ -702,7 +745,10 @@ export function openRun(state, rng) {
   let s = clone(state);
   const r = rng || Math.random;
   const board = generateBoard(36, r);                            // R14.1 board dual 36 (rectángulo 6×6 pointy, v2.14)
-  const rosterIdx = Math.min(5, rosterMax(s.progress.colorsOwned)); // R13.3 v2.1: 5 tipos activos
+  // v2.23: 7 de las 10 criaturas, fijas para esta run. El arranque sigue
+  // en 5 activos / pool de colorsOwned (no se vuelcan las 7 de golpe).
+  const palette = pickRunPalette(r);
+  const rosterIdx = Math.min(5, rosterMax(s.progress.colorsOwned, palette.length)); // R13.3 v2.1: 5 tipos activos
   const cu = poolMaxColor(rosterIdx, s.progress.colorsOwned);
   const initialBag = initBag(r, cu);                               // R18.2 bolsita inicial
   const { piles, nextBag } = drawPoolPiles(r, initialBag, cu);    // R18.5
@@ -716,6 +762,9 @@ export function openRun(state, rng) {
     calamityWave2Applied: false,                                   // v2.21 oleada 2, una vez por partida
     legendaries: {},                                               // v2.21 cupo de pedidos de 10 por color
     rosterIndex: rosterIdx,
+    palette,                                                       // v2.23: 7 criaturas de esta run, orden de desbloqueo
+    moneyStacks: 0,                                                // servir + escombros que pagaron
+    pilesDealt: piles.length,                                      // pilas repartidas para colocar
     placedCounter: 0,                                              // R13.4
     runTilesActivated: 0,                                          // R14.3 precio ×1.6; se resetea con la run
     skillUses: {},                                                 // v2.22 usos pagados esta run (precio ×1.6)
@@ -999,7 +1048,7 @@ export function placeStack(state, cellId, slot, rngOrStack) {
     s.run.placedCounter = (s.run.placedCounter || 0) + 1;
     if (s.run.placedCounter >= CONFIG.UNLOCK_PLACED_PILES) {
       s.run.placedCounter = 0;
-      const cap = rosterMax(s.progress.colorsOwned);
+      const cap = rosterMax(s.progress.colorsOwned, rosterCeiling(s.run));
       if (s.run.rosterIndex < cap) s.run.rosterIndex = s.run.rosterIndex + 1;
     }
   }
@@ -1012,8 +1061,10 @@ export function placeStack(state, cellId, slot, rngOrStack) {
       const { piles, nextBag } = drawPoolPiles(r, s.run.bag, cu);
       s.run.pool = piles;
       s.run.bag = nextBag;
+      s.run.pilesDealt = (s.run.pilesDealt || 0) + piles.length;
     } else {
       s.run.pool = buildPick(rng, 3, s.progress.colorsUnlocked);
+      s.run.pilesDealt = (s.run.pilesDealt || 0) + s.run.pool.length;
     }
     s.run.poolPlaced = 0;
   }
@@ -1117,6 +1168,17 @@ export function colorPrice(state) {
 
 export function tipPrice(state) {
   return skillUsePrice(state, 'tips');
+}
+
+// v2.23 — una frase para el hold de Tips. Usa pay() real: cada nivel suma
+// EXP_STEP al exponente. El ejemplo es un pedido de tamaño 8 (sale desde
+// el inicio). No inventa otra curva.
+export function tipSkillLine(state, qty = 8) {
+  const n = skillUseCount(state, 'tips');
+  const order = { qty };
+  const extra = pay(order, n + 1) - pay(order, n);
+  const step = CONFIG.EXP_STEP;
+  return `Each level adds ${step} to the pay exponent. A size-${qty} order pays ${extra} more coins.`;
 }
 
 export function previewPrice(state) {
@@ -1243,6 +1305,7 @@ export function serveOrder(state, orderId, cellId) {
   order.served = true;
   const amount = pay(order, s.economy.multLevel);                          // R5.1
   s.progress.coins += amount;
+  if (amount > 0) s.run.moneyStacks = (s.run.moneyStacks || 0) + 1;
   // v2.1 R16.3/R16.4: al servir un VISIBLE → clientsServed+1 y entra el
   // siguiente de la cola (queueBack primero, luego draw si clientsDrawn<TOTAL).
   if (run.clientsServed != null && Array.isArray(run.activeClients)) {
@@ -1279,6 +1342,7 @@ export function sweepDebrisRuns(board, progress) {
       if (runLen >= CONFIG.DEBRIS_THRESHOLD) {
         st.splice(j, runLen);
         if (progress) progress.coins += CONFIG.DEBRIS_BONUS_PER * runLen;
+        hit.stacks = (hit.stacks || 0) + 1;
         touched = true;
       } else {
         j = k;
@@ -1373,7 +1437,9 @@ export function resolveCascade(state) {
         const cell = s.run.board[idx];
         cell.stack.splice(cell.stack.length - order.qty, order.qty);   // exacto
         order.served = true;
-        s.progress.coins += pay(order, s.economy.multLevel);           // R5.1
+        const servedPay = pay(order, s.economy.multLevel);            // R5.1
+        s.progress.coins += servedPay;
+        if (servedPay > 0) s.run.moneyStacks = (s.run.moneyStacks || 0) + 1;
         if (s.run.clientsServed != null) s.run.clientsServed += 1;      // v2.1 R16.3
         acted = true;
       }
@@ -1394,6 +1460,7 @@ export function resolveCascade(state) {
   if (s.run && Array.isArray(s.run.board)) {
     const hit = sweepDebrisRuns(s.run.board, s.progress);
     if (hit.length) steps += 1;
+    if (hit.stacks) s.run.moneyStacks = (s.run.moneyStacks || 0) + hit.stacks;
   }
   // v2.1 R16.4: refill inmediato — UNA vez al FINAL de la cascada. Los clientes
   // recién llegados quedan visibles para la SIGUIENTE cascada / serveOrder;
@@ -1656,6 +1723,7 @@ export function useRefreshPool(state, rng) {
   const { piles, nextBag } = drawPoolPiles(r, s.run && s.run.bag, cu);
   s.run.pool = piles;
   s.run.bag = nextBag;
+  s.run.pilesDealt = (s.run.pilesDealt || 0) + piles.length;
   s.run.poolPlaced = 0;                                                   // R7.7
   return s;
 }
@@ -1732,16 +1800,76 @@ export function applyOffline(state, now) {
   return s;
 }
 
+// v2.23 — ficha compacta de una run que termina (reinicio o victoria).
+export function finishedRunRecord(state) {
+  const run = state && state.run;
+  if (!run) return null;
+  const served = run.clientsServed || 0;
+  return {
+    clientsServed: served,
+    moneyStacks: run.moneyStacks || 0,
+    pilesDealt: run.pilesDealt || 0,
+    victory: run.phase === 'victory' || served >= totalClients(state),
+  };
+}
+
+export function pushRunHistory(history, record, max = CONFIG.RUN_HISTORY_MAX) {
+  const next = Array.isArray(history) ? history.filter((row) => row && typeof row === 'object') : [];
+  if (record) next.push(record);
+  const cap = max > 0 ? max : CONFIG.RUN_HISTORY_MAX;
+  while (next.length > cap) next.shift();
+  return next;
+}
+
+// Mejor: más clientes; empate → más apilaciones que pagaron; empate → más
+// pilas repartidas; empate → la más reciente (índice mayor).
+// Peor: lo inverso en las tres cifras; si empatan, se queda la más antigua.
+export function bestWorstRuns(history) {
+  const list = Array.isArray(history) ? history.filter((row) => row && typeof row === 'object') : [];
+  if (!list.length) return { best: null, worst: null };
+  const clients = (row) => row.clientsServed || 0;
+  const stacks = (row) => row.moneyStacks || 0;
+  const piles = (row) => row.pilesDealt || 0;
+  let bestI = 0;
+  let worstI = 0;
+  for (let i = 1; i < list.length; i++) {
+    const r = list[i];
+    const b = list[bestI];
+    const w = list[worstI];
+    const better = clients(r) > clients(b)
+      || (clients(r) === clients(b) && stacks(r) > stacks(b))
+      || (clients(r) === clients(b) && stacks(r) === stacks(b) && piles(r) > piles(b))
+      || (clients(r) === clients(b) && stacks(r) === stacks(b) && piles(r) === piles(b));
+    if (better) bestI = i;
+    const worse = clients(r) < clients(w)
+      || (clients(r) === clients(w) && stacks(r) < stacks(w))
+      || (clients(r) === clients(w) && stacks(r) === stacks(w) && piles(r) < piles(w));
+    if (worse) worstI = i;
+  }
+  return { best: list[bestI], worst: list[worstI] };
+}
+
+function historyAfterRun(state) {
+  const prev = state && Array.isArray(state.runHistory) ? state.runHistory : [];
+  return pushRunHistory(prev, finishedRunRecord(state));
+}
+
 // v2.21 — reinicio de la jugadora. Monedas, skills, colores, capacidad,
 // idle y tablero empiezan de cero. El mute vive fuera de este objeto
 // (localStorage cozy-cat-cafe.audio.mute) y esta función no lo toca.
 // seenTutorial sí se conserva: un tutorial ya visto no se vuelve a mostrar.
+// v2.23 — el historial de runs también se conserva (y suma la run que cierra).
 export function restartRun(state, rng) {
   // Coins, skills, and colors start over. A finished spotlight stays finished
   // so Hold 3s does not replay the tutorial. Unseen stays unseen.
   const seen = !!(state && state.settings && state.settings.seenTutorial);
+  const already = !!(state && state.run && state.run.archived);
+  const history = already
+    ? pushRunHistory(state.runHistory || [], null)
+    : historyAfterRun(state);
   const next = openRun(createGame(), rng || Math.random);
   if (next.settings) next.settings.seenTutorial = seen;
+  next.runHistory = history;
   return next;
 }
 
@@ -1758,6 +1886,10 @@ export function beginVictory(state) {
   s.progress.coins += bonus;
   s.run.phase = 'victory';
   s.run.victoryBonus = bonus;
+  // The sitting is finished. Archive it once so the save modal can show it
+  // before Hold 3s, and so restart does not record it a second time.
+  s.run.archived = true;
+  s.runHistory = pushRunHistory(s.runHistory, finishedRunRecord(s));
   s.metaClose = {
     reason: 'allServed',
     bonus,
@@ -1850,6 +1982,7 @@ export function deserializeState(json) {
       if (!s.settings) s.settings = { reducedMotion: false };
       if (s.settings.seenTutorial == null) s.settings.seenTutorial = true;
       if (s.settings.boardRot == null) s.settings.boardRot = 0;
+      if (!Array.isArray(s.runHistory)) s.runHistory = [];
       dropPermanentTableFields(s);
       return s;
     }
