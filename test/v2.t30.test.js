@@ -113,7 +113,7 @@ test('color locks at the palette and size-8 tips step by 0.20', () => {
 test('colorsOwned 8 and 9 stay inside the 8-color palette', () => {
   const htmlCap = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'js', 'game.js'), 'utf8');
   assert.match(htmlCap, /Math\.min\(owned \+ 1, rosterCeiling\(s\.run\)\)/);
-  assert.match(html, /GAME_VERSION = 'v2\.24\.3'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.4'/);
   assert.match(html, /All '\+colorRunCap\(state\)\+' colors unlocked/);
 
   const almost = open(27);

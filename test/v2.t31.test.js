@@ -132,7 +132,7 @@ test('the tip table is pay() at this level and the next, and a clear is not scal
 
 test('the page floats the purse delta and builds the tip modal from pay()', () => {
   const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'index.html'), 'utf8');
-  assert.match(html, /GAME_VERSION = 'v2\.24\.3'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.4'/);
   assert.match(html, /const got=res\.progress\.coins-state\.progress\.coins/);
   assert.match(html, /showCoinGain\(got/);
   assert.match(html, /pay\(order, tipLevel\(s\)\)/);
