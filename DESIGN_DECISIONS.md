@@ -1,5 +1,13 @@
 # Cozy Cat Café × HexaSort — Shared Understanding (post-grill)
 
+## v2.24.4 — el tablero cabe en el iPhone 13 mini (2026-10-09)
+
+**Tamaño.** `--hx` del tablero ya no sale de una escalera de anchos. `fitBoardHx` mide el ancho y el alto libres de `.board-wrap` (lo que queda bajo la cabecera, los pedidos y la bandeja, y encima de las skills) y elige el entero más grande, como máximo 60, cuya caja coincide con la que pinta `renderBoard`: pointy `(maxX-minX)+√3·hx` por `(maxY-minY)+2·hx+liftPad`, y flat al rotar 90/270. `liftPad` sigue siendo `10×stackStep`. Entran las casillas de expansión cuando están abiertas. El mínimo tappable es 16; solo entonces el wrap puede scrollear.
+
+**Bandeja.** `:root --hx` se queda en los breakpoints de ancho (hasta 60 en escritorio) y solo afecta el bisel y el paso de las pilas del pool. Esas fichas siguen pointy y de tamaño fijo.
+
+**Pantalla.** La escena es una columna de `100dvh`. Cabecera, pedidos, bandeja y skills no se encogen. El tablero ocupa el resto. Se vuelve a medir con `ResizeObserver`, al rotar y al cambiar de orientación.
+
 ## v2.24.3 — propina un poco más baja, 8 colores por run (2026-10-07)
 
 **Tips.** `EXP_STEP` baja de 0.25 a **0.20**. Un pedido de tamaño 8 paga 67, 102, 155 y 234 monedas en los niveles 0, 1, 2 y 3. La tabla del hold sigue saliendo de `pay()`.
