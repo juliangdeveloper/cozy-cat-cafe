@@ -18,7 +18,7 @@ function sliceFn(name, next) {
 }
 
 test('version footer stays and reads v2.22.4', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.4'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.5'/);
   assert.match(html, /☕ Cozy Cat Café \$\{GAME_VERSION\}/);
   assert.match(html, /Hold 3s to restart/);
 });
@@ -62,14 +62,14 @@ test('shop panel is gone and former café buys sit in the skill grid', () => {
   assert.equal(html.includes('function showShop'), false);
   assert.equal(html.includes('This café only'), false);
   const powers = sliceFn('renderPowers', 'refreshFlow');
-  for (const id of ['destroyPile', 'swapPiles', 'refreshPool', 'tables', 'unlockLocks', 'queueSkip', 'previewPool', 'color', 'tips', 'clearBoard', 'undoMove']) {
+  for (const id of ['destroyPile', 'swapPiles', 'refreshPool', 'tables', 'unlockLocks', 'color', 'tips', 'clearBoard', 'undoMove']) {
     assert.match(powers, new RegExp(`skill:'${id}'`));
   }
   assert.doesNotMatch(powers, /serveManual/);
   assert.doesNotMatch(powers, /mode:'waiter'/);
   assert.doesNotMatch(html, /toggleServe/);
   assert.doesNotMatch(html, /Turn auto-serve/);
-  assert.match(powers, /mode:'preview'/);
+  assert.doesNotMatch(powers, /mode:'preview'|mode:'queueskip'/);
   assert.match(powers, /mode:'color'/);
   assert.match(powers, /mode:'tips'/);
   assert.doesNotMatch(powers, /queueSkip\.owned\)\s*\n\s*arr\.push/);
@@ -78,27 +78,10 @@ test('shop panel is gone and former café buys sit in the skill grid', () => {
   assert.doesNotMatch(powers, /class="uses"/);
 });
 
-test('using the chalkboard opens a modal of the next tray piles', () => {
-  assert.match(html, /id="peekPop"/);
-  assert.match(html, /id="peekTrays"/);
-  assert.match(html, /id="peekPopClose"/);
-  assert.match(html, /aria-labelledby="peekTitle"/);
-  assert.match(html, /function openPeekModal/);
-  assert.match(html, /function closePeekModal/);
-  assert.match(html, /previewPool\(state,\s*mulberry32\(ui\.previewSeed/);
-  assert.match(html, /class="pv-pile"/);
-  assert.match(html, /class="pv-t"/);
-  assert.match(html, /Peek at the next trays before they arrive\./);
+test('v2.24.5: Peek and queue skip are gone from the power bar', () => {
   const powers = sliceFn('renderPowers', 'refreshFlow');
-  assert.match(powers, /mode==='preview'/);
-  assert.match(powers, /openPeekModal\(\)/);
-  assert.match(powers, /peekLvl>0 && p\.classList\.contains\('broke'\)/);
-  assert.doesNotMatch(powers, /maxed/);
-  assert.doesNotMatch(powers, /Maxed/);
-  assert.doesNotMatch(powers, /pow-cost">Max/);
-  assert.match(html, /if\(e\.target === peekPop\) closePeekModal/);
-  const help = sliceFn('openSkillHelp', 'closeSkillHelp');
-  assert.match(help, /closePeekModal\(\)/);
+  assert.doesNotMatch(powers, /skill:'previewPool'|skill:'queueSkip'/);
+  assert.doesNotMatch(powers, /openPeekModal\(\)|useQueueSkip/);
 });
 
 test('buying a color names the creature and shows its swatch', () => {
@@ -135,7 +118,7 @@ test('a skill hold opens one sentence and a short tap still uses it', () => {
 
 test('skills are two rows, prices stay inside the button', () => {
   assert.match(css, /\.powerbar\{[^}]*display:grid/);
-  assert.match(css, /\.powerbar\{[^}]*grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/);
+  assert.match(css, /\.powerbar\{[^}]*grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
   assert.doesNotMatch(css, /grid-template-columns:repeat\(3/);
   assert.doesNotMatch(css, /\.powerbar\{[^}]*overflow-x:\s*auto/);
   assert.doesNotMatch(css, /\.powerbar\{[^}]*flex-wrap:\s*nowrap/);
