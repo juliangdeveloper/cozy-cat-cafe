@@ -353,8 +353,8 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .ttile .tface,.ttile .tface::before{transform:translateY(calc(var(--hx)*-0.015));clip-path:var(--hex-pointy)}
 .poolempty{font-size:10px;color:var(--wood-dark);font-weight:700;text-align:center;width:100%;align-self:flex-end;padding-bottom:6px}
 
-/* powers — v2.24: 11 skills, 6+5, not a carousel. Price sits in the button. */
-.powerbar{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;margin:6px 0 4px}
+/* powers — v2.24.5: 9 skills, 5+4, not a carousel. Price sits in the button. */
+.powerbar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;margin:6px 0 4px}
 .pow{min-width:0;min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:1px;background:var(--panel);border:2px solid var(--ink);border-radius:12px;cursor:pointer;font-weight:800;
   font-size:11px;box-shadow:0 3px 0 var(--wood-dark);position:relative;padding:3px 2px 2px;overflow:hidden;
@@ -1276,8 +1276,6 @@ const SKILL_BLURB = {
   refreshPool: 'Throw out this tray and draw a new one.',
   tables: 'Open one more table beside the ones already open.',
   unlockLocks: 'Unlock a locked table and show the pile under it.',
-  queueSkip: 'Send the visible guests to the back of the line.',
-  previewPool: 'Peek at the next trays before they arrive.',
   color: 'Add the next creature color to the roster.',
   clearBoard: 'Clear every pile off the whole board.',
   undoMove: 'Undo your last move.',
@@ -1351,8 +1349,6 @@ function renderPowers(){
     {skill:'refreshPool',icon:'power_refresh',mode:'refresh'},
     {skill:'tables',icon:'furniture_table',mode:'activate'},
     {skill:'unlockLocks',icon:'🔓',mode:'unlock'},
-    {skill:'queueSkip',icon:'📨',mode:'queueskip'},
-    {skill:'previewPool',icon:'📋',mode:'preview'},
     {skill:'color',icon:'🎨',mode:'color'},
     {skill:'tips',icon:'✨',mode:'tips'},
     {skill:'clearBoard',icon:'🧹',mode:'clear'},
@@ -1381,19 +1377,6 @@ function renderPowers(){
     p.addEventListener('click',()=>{
     if(held.tookHold()) return;
     if(ui.anim) return;
-    if(mode==='preview'){
-      const peekLvl=(state.skills.previewPool&&state.skills.previewPool.level)||0;
-      if(peekLvl>0 && p.classList.contains('broke')){
-        openPeekModal(); return;
-      }
-      if(p.classList.contains('broke')){ toast(ERRT.noFunds); return; }
-      const r=buySkill(state,'previewPool');
-      if(r.error){ err(r); return; }
-      state=r;
-      renderAll();
-      openPeekModal();
-      return;
-    }
     if(mode==='color' && p.classList.contains('depleted')){
       toast(colorLockedLine()); return;
     }
@@ -1418,14 +1401,6 @@ function renderPowers(){
       if(r.error){ err(r); return; }
       state=r; toast('Big-tip bonus level '+(state.progress.econ.multLevel));
       renderAll(); return;
-    }
-    if(mode==='queueskip'){
-      const r=useQueueSkip(state);
-      if(r.error){ err(r); } else {
-        state=r; toast('Clients sent to the back of the queue 📨'); renderAll();
-        settlePasses();
-      }
-      return;
     }
     if(mode==='refresh'){ refreshFlow(); return; }
     if(mode==='clear'){ clearBoardFlow(); return; }
@@ -1695,7 +1670,8 @@ function trayMarkup(tandas){
 function renderPreview(){
   const box=$('#preview'); if(!box) return;
   const lvl=(state.skills&&state.skills.previewPool&&state.skills.previewPool.level)||0;
-  if(!state.run||lvl<=0){ box.style.display='none'; box.innerHTML=''; return; }
+  // v2.24.5: Peek removed; old saves with a level stay hidden.
+  if(true||!state.run||lvl<=0){ box.style.display='none'; box.innerHTML=''; return; }
   const tandas=previewPool(state,mulberry32(ui.previewSeed||1))||[];
   box.style.display='flex';
   box.innerHTML='<span class="pv-lbl">NEXT:</span>'+trayMarkup(tandas);
@@ -2226,7 +2202,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.4';
+const GAME_VERSION = 'v2.24.5';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, get boardHx(){ return boardHx(); } };

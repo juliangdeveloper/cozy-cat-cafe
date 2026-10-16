@@ -46,6 +46,7 @@ export const CONFIG = {
   SKILL_USE_RATIO: 1.6,
   // v2.24 — Clear board no usa SKILL_USE_BASE. Precio = 10000 × 1.6^n.
   CLEAR_BOARD_BASE: 10000,
+  UNLOCK_LOCKS_BASE: 10000,         // v2.24.5
   MAX_COLORS: 10,                   // R13.7 10 colores / criaturas en el ROSTER (R13.2)
   // v2.23 — cada run sortea este subconjunto del roster. El desbloqueo
   // gradual (bolsa, rosterIndex, colorsOwned) vive DENTRO de esos colores.
@@ -1199,7 +1200,9 @@ export function skillUsePrice(state, power) {
   // Exact base × 1.6^n. Rounding the product changes the ratio (102
   // instead of 102.4) and can skip a table the player could still afford.
   // Clear board is the one skill with its own base (10000, not 40).
-  const base = power === 'clearBoard' ? CONFIG.CLEAR_BOARD_BASE : CONFIG.SKILL_USE_BASE;
+  // v2.24.5: Unlock 🔓 also starts at 10000.
+  const base = power === 'clearBoard' ? CONFIG.CLEAR_BOARD_BASE
+    : power === 'unlockLocks' ? CONFIG.UNLOCK_LOCKS_BASE : CONFIG.SKILL_USE_BASE;
   return base * CONFIG.SKILL_USE_RATIO ** n;
 }
 

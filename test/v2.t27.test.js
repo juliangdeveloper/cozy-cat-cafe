@@ -142,9 +142,11 @@ test('tips, chalkboard, and tables stay uncapped; color stops at the palette', (
   s.economy.multLevel = 4;
   s.skills.previewPool.level = 4;
   const expect = priceAt(4);
-  for (const id of ['destroyPile', 'swapPiles', 'refreshPool', 'unlockLocks', 'queueSkip', 'tables', 'color', 'tips', 'previewPool']) {
+  for (const id of ['destroyPile', 'swapPiles', 'refreshPool', 'queueSkip', 'tables', 'color', 'tips', 'previewPool']) {
     assert.equal(G.skillUsePrice(s, id), expect, id);
   }
+  // v2.24.5: Unlock starts at 10000.
+  assert.equal(G.skillUsePrice(s, 'unlockLocks'), 10000 * 1.6 ** 4);
   assert.equal(G.runTilePrice(s), expect);
   assert.equal(G.colorPrice(s), expect);
   assert.equal(G.tipPrice(s), expect);
