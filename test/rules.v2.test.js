@@ -143,7 +143,7 @@ test('T11e [R12.3] debris: grupo contiguo de 10 fichas color 1 => destruido y co
   const res = G.resolveCascade(s);
   const st = unwind(res, s);
   assert.equal(st.run.board[0].stack.length, 0, 'RED: stack debe perder las 10 fichas (grupo destruido)');
-  assert.equal(st.progress.coins, coinsBefore + 25 * 10, 'RED: coins debe subir 25*10=250');
+  assert.equal(st.progress.coins, coinsBefore + G.debrisPay(10), 'RED: un run de 10 paga ×4');
 });
 
 // ---------------------------------------------------------------------------

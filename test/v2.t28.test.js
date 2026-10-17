@@ -126,7 +126,7 @@ test('serving and a 10-stack count as paid stacks; trays are counted when dealt'
   const coins = d.progress.coins;
   const swept = G.resolveCascade(d);
   assert.equal(swept.state.run.moneyStacks, 1);
-  assert.equal(swept.state.progress.coins, coins + G.CONFIG.DEBRIS_BONUS_PER * 10);
+  assert.equal(swept.state.progress.coins, coins + G.debrisPay(10));
 
   const refreshed = G.useRefreshPool(open(), rng(8));
   assert.equal(refreshed.run.pilesDealt, 6);
@@ -184,7 +184,7 @@ test('finished runs keep best and worst, capped, across a restart', () => {
 });
 
 test('save modal, skill level, coin float, and defeat are in the page', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.6'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.7'/);
   assert.match(html, /id="runHistory"/);
   assert.match(html, /function renderRunHistory/);
   assert.match(html, /bestWorstRuns/);
