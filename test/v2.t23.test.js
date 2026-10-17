@@ -81,8 +81,8 @@ test('T23a [R12.3 v2.17] pile ≥10 survives merge steps; destroyed only after c
   const lens = [a, b, c].map(i => st.run.board[i].stack.length);
   const totalLeft = lens.reduce((x, y) => x + y, 0);
   assert.equal(totalLeft, 0, `RED: after settle, 11-of-color-4 must be destroyed; left ${lens}`);
-  assert.equal(st.progress.coins, coins0 + 25 * 11,
-    'RED: bonus = 25 * 11 for the final ≥10 run destroyed after chain');
+  assert.equal(st.progress.coins, coins0 + G.debrisPay(11),
+    'RED: bonus = debrisPay(11) for the final ≥10 run destroyed after chain');
   assert.ok(res.steps >= 1, 'RED: cascade must report steps including debris sweep');
 });
 
@@ -94,7 +94,7 @@ test('T23a2 [R12.3 v2.17] isolated 10-stack destroys on settle (steps>=1) withou
   const res = G.resolveCascade(s);
   const st = unwind(res, s);
   assert.equal(st.run.board[0].stack.length, 0);
-  assert.equal(st.progress.coins, coins0 + 250);
+  assert.equal(st.progress.coins, coins0 + G.debrisPay(10));
   assert.ok(res.steps >= 1);
 });
 
@@ -122,7 +122,7 @@ test('T23a3 [R12.3 v2.17] during chain a 10+ pile can still receive merges (not 
   const st = unwind(res, s);
   const left = st.run.board[i0].stack.length + st.run.board[i1].stack.length;
   assert.equal(left, 0, 'RED: 12-run must merge then destroy after settle');
-  assert.equal(st.progress.coins, coins0 + 25 * 12,
+  assert.equal(st.progress.coins, coins0 + G.debrisPay(12),
     'RED: proving the 10+ survived long enough to absorb +2 before destroy');
 });
 

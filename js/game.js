@@ -58,7 +58,7 @@ export const CONFIG = {
   RUN_HISTORY_MAX: 20,              // últimas runs terminadas en el save
   DEBRIS_THRESHOLD: 10,             // v2 escombros: umbral para entrar en tablero
   DEBRIS_BONUS_PER: 25,
-  DEBRIS_BIG_OVER: 10,              // v2.24.6: runs de MÁS de 10 pagan ×4
+  DEBRIS_BIG_OVER: 10,              // v2.24.7: runs de 10 o más pagan ×4
   DEBRIS_BIG_MULT: 4,             // v2 escombros: bonus por escombro limpiado
   CASCADE_STEP_MS: 600,             // v2.2.1: ms entre eslabones (antes 1600 — muy lento para seguir el orden)
   TABLES_HOLD_MS: 550,              // v2.17: press-and-hold Tables → batch activateAroundUnlocked
@@ -1199,17 +1199,38 @@ export function skillUseCount(state, power) {
   return (bag && bag[power]) || 0;
 }
 
+// Starting price (n = 0). Clear board, Unlock, and Color have their own base;
+// every other skill starts at SKILL_USE_BASE.
+function skillPriceBase(power) {
+  if (power === 'clearBoard') return CONFIG.CLEAR_BOARD_BASE;
+  if (power === 'unlockLocks') return CONFIG.UNLOCK_LOCKS_BASE;
+  if (power === 'color') return CONFIG.COLOR_SKILL_BASE;
+  return CONFIG.SKILL_USE_BASE;
+}
+
 export function skillUsePrice(state, power) {
   const n = skillUseCount(state, power);
   // Exact base × 1.6^n. Rounding the product changes the ratio (102
   // instead of 102.4) and can skip a table the player could still afford.
   // Clear board is the one skill with its own base (10000, not 40).
   // v2.24.5: Unlock 🔓 also starts at 10000.
-  const base = power === 'clearBoard' ? CONFIG.CLEAR_BOARD_BASE
-    : power === 'unlockLocks' ? CONFIG.UNLOCK_LOCKS_BASE
-    : power === 'color' ? CONFIG.COLOR_SKILL_BASE : CONFIG.SKILL_USE_BASE;
-  return base * CONFIG.SKILL_USE_RATIO ** n;
+  return skillPriceBase(power) * CONFIG.SKILL_USE_RATIO ** n;
 }
+
+export function skillStartPrice(power) {
+  return skillPriceBase(power);
+}
+
+// Bar order before v2.24.6 started re-sorting by the live price. Ties keep
+// this sequence. Sorted once, here, by starting price — not on each render.
+const SKILL_BAR_BASE = [
+  'destroyPile', 'swapPiles', 'refreshPool', 'tables', 'unlockLocks',
+  'color', 'tips', 'clearBoard', 'undoMove',
+];
+export const SKILL_BAR_ORDER = SKILL_BAR_BASE
+  .map((skill, base) => ({ skill, base, start: skillPriceBase(skill) }))
+  .sort((a, b) => (a.start - b.start) || (a.base - b.base))
+  .map((d) => d.skill);
 
 // One level of undo. The snapshot is the whole café immediately before the
 // last undoable action, with no nested snapshot. Undo restores that café
@@ -1415,10 +1436,10 @@ function rngFallback() { return Math.random; }
 // Retorna índices de celdas tocadas. NO reentra merge: se llama SOLO tras
 // estabilizar merges/auto-serves de la acción del jugador.
 // ---------------------------------------------------------------------------
-// v2.24.6: pago de un run destruido. <=10 igual que antes; >10 paga ×4.
+// v2.24.7: pago de un run destruido. Menos de 10 igual que antes; 10 o más paga ×4.
 export function debrisPay(runLen) {
   const base = CONFIG.DEBRIS_BONUS_PER * runLen;
-  return runLen > CONFIG.DEBRIS_BIG_OVER ? base * CONFIG.DEBRIS_BIG_MULT : base;
+  return runLen >= CONFIG.DEBRIS_BIG_OVER ? base * CONFIG.DEBRIS_BIG_MULT : base;
 }
 
 export function sweepDebrisRuns(board, progress) {

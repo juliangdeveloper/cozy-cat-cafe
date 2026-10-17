@@ -14,13 +14,15 @@ const rng = (seed) => { let a = seed >>> 0; return () => { a |= 0; a = (a + 0x6D
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
 const open = (coins = 1e9, seed = 1) => G.openRun(G.createGame({ progress: { coins, cafeLevel: 1, totalGames: 0 } }), rng(seed));
 
-test('debris of 10 pays as before, more than 10 pays 4x', () => {
-  assert.equal(G.debrisPay(10), 250);
+test('debris below 10 pays as before, 10 or more pays 4x', () => {
+  assert.equal(G.debrisPay(9), 225);
+  assert.equal(G.debrisPay(10), 25 * 10 * 4);
   assert.equal(G.debrisPay(11), 25 * 11 * 4);
-  const board = [{ stack: Array(10).fill(3) }, { stack: Array(12).fill(2) }];
+  const board = [{ stack: Array(9).fill(1) }, { stack: Array(10).fill(3) }, { stack: Array(12).fill(2) }];
   const p = { coins: 0 };
   G.sweepDebrisRuns(board, p);
-  assert.equal(p.coins, 250 + 1200);
+  assert.equal(board[0].stack.length, 9);
+  assert.equal(p.coins, 1000 + 1200);
 });
 
 test('Color starts at 1000 and grows 1.6x', () => {
@@ -76,11 +78,12 @@ test('clients only ask for owned colors plus the next one', () => {
   }
 });
 
-test('page: v2.24.6, help button, price-sorted bar, abbreviated money', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.6'/);
+test('page: v2.24.7, help button, fixed skill bar, abbreviated money', () => {
+  assert.match(html, /GAME_VERSION = 'v2\.24\.7'/);
   assert.match(html, /id="btnHelp"/);
   assert.match(html, /startTutorial\(\); \};/);
-  assert.match(html, /arr\.sort\(\(a,b\)=> \(a\.rank-b\.rank\) \|\| \(a\.base-b\.base\)\)/);
+  assert.match(html, /SKILL_BAR_ORDER\.map\(id=>meta\.find/);
+  assert.doesNotMatch(html, /a\.rank-b\.rank/);
   const src = html.match(/const fmt = n => \{[\s\S]*?\n\};/)[0];
   const fmt = new Function(src + '; return fmt;')();
   assert.equal(fmt(999), '999');

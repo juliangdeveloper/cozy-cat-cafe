@@ -18,7 +18,7 @@ function sliceFn(name, next) {
 }
 
 test('version footer stays and reads v2.22.4', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.6'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.7'/);
   assert.match(html, /☕ Cozy Cat Café \$\{GAME_VERSION\}/);
   assert.match(html, /Hold 3s to restart/);
 });
@@ -30,7 +30,7 @@ test('status and rotate/restart share one chrome strip', () => {
   const header = run.slice(top, orders);
   assert.ok(header.includes('id="coinNum"'));
   assert.ok(header.includes('id="calStrip"'));
-  assert.ok(header.includes('class="cal-ico-btn"'));
+  assert.ok(header.includes('class="cal-ico-btn hdr-ico"'));
   assert.equal(header.includes('cal-bar'), false);
   assert.equal(header.includes('id="calFill"'), false);
   assert.ok(header.includes('id="queueCount"'));
