@@ -178,16 +178,37 @@ test('finished runs keep best and worst, capped, across a restart', () => {
   assert.equal(capped[0].clientsServed, 25 - G.CONFIG.RUN_HISTORY_MAX + 1);
   assert.equal(capped[capped.length - 1].clientsServed, 25);
 
+  let kept = [{ clientsServed: 100, moneyStacks: 3, pilesDealt: 4 }];
+  for (let i = 0; i < 30; i++) kept = G.pushRunHistory(kept, { clientsServed: 2, moneyStacks: 0, pilesDealt: i });
+  assert.equal(kept.length, G.CONFIG.RUN_HISTORY_MAX);
+  assert.equal(kept.some((row) => row.clientsServed === 100), true);
+  const freshBest = { clientsServed: 100, moneyStacks: 9, pilesDealt: 1 };
+  kept = G.pushRunHistory(kept, freshBest);
+  const top = G.topRuns(kept);
+  assert.equal(top.length, G.CONFIG.TOP_RUNS);
+  assert.equal(top[0], freshBest);
+  assert.equal(top[1].clientsServed, 100);
+  assert.equal(top[1].moneyStacks, 3);
+  assert.ok(top.every((row, i) => i === 0 || (row.clientsServed || 0) <= (top[i - 1].clientsServed || 0)));
+  const oldShape = G.deserializeState(JSON.stringify({
+    version: 1,
+    settings: { epoch: 21, seenTutorial: true },
+    runHistory: [{ clientsServed: 4 }, { guests: 9 }, null, { clientsServed: 15, moneyStacks: 2 }],
+  }));
+  assert.equal(oldShape.runHistory.length, 4);
+  assert.equal(G.topRuns(oldShape.runHistory)[0].clientsServed, 15);
+
   const saved = G.deserializeState(G.serializeState(s));
   assert.equal(saved.runHistory.length, 2);
   assert.equal(saved.runHistory[1].clientsServed, 100);
 });
 
 test('save modal, skill level, coin float, and defeat are in the page', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.9'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.10'/);
   assert.match(html, /id="runHistory"/);
   assert.match(html, /function renderRunHistory/);
-  assert.match(html, /bestWorstRuns/);
+  assert.match(html, /topRuns\(hist/);
+  assert.match(html, /Top 10 runs, best first/);
   assert.match(html, /guests · /);
   assert.match(html, /paid stacks/);
   assert.match(html, /trays/);
