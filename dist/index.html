@@ -119,6 +119,8 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
 .run-history{margin:0 0 12px;padding:10px;background:var(--wood);border:2px solid var(--ink);border-radius:12px}
 .run-history h4{margin:0 0 6px;font-family:var(--font-display);font-size:16px;text-align:center}
 .run-history p{margin:0 0 6px;font-size:13px;font-weight:700;text-align:center}
+.run-history ol{margin:0 0 6px;padding:0 0 0 1.4em;text-align:left}
+.run-history li{font-size:12px;font-weight:700;line-height:1.25;margin:0 0 2px}
 .run-history .rh-note{font-size:11px;color:var(--ink-soft);font-weight:700;line-height:1.35}
 .foot{text-align:center;font-size:11px;color:var(--ink-soft);font-weight:700;margin:4px 0 2px;flex-shrink:0}
 .order-card.legendary{box-shadow:0 0 0 3px var(--highlight),0 3px 0 var(--shadow)}
@@ -1192,7 +1194,8 @@ const CONFIG = {
   // v2.24.3: 8 de 10. MAX_COLORS sigue siendo el roster completo.
   // Una run ya guardada conserva el largo de su palette (7 no se reescribe).
   RUN_COLORS: 8,
-  RUN_HISTORY_MAX: 20,              // últimas runs terminadas en el save
+  RUN_HISTORY_MAX: 20,              // best finished runs kept, more than the top 10 shown
+  TOP_RUNS: 10,                     // save modal lists this many, best first
   DEBRIS_THRESHOLD: 10,             // v2 escombros: umbral para entrar en tablero
   DEBRIS_BONUS_PER: 25,
   DEBRIS_BIG_OVER: 10,              // v2.24.7: runs de 10 o más pagan ×4
@@ -3137,38 +3140,56 @@ function finishedRunRecord(state) {
   };
 }
 
+function historyRows(history) {
+  return Array.isArray(history) ? history.filter((row) => row && typeof row === 'object') : [];
+}
+
+// A run is better with more guests served. Ties break on paid stacks, then
+// trays dealt, then the later record (higher index).
+function runIsBetter(a, b, aIndex, bIndex) {
+  const clients = (row) => (row && row.clientsServed) || 0;
+  const stacks = (row) => (row && row.moneyStacks) || 0;
+  const piles = (row) => (row && row.pilesDealt) || 0;
+  if (clients(a) !== clients(b)) return clients(a) > clients(b);
+  if (stacks(a) !== stacks(b)) return stacks(a) > stacks(b);
+  if (piles(a) !== piles(b)) return piles(a) > piles(b);
+  return aIndex > bIndex;
+}
+
 function pushRunHistory(history, record, max = CONFIG.RUN_HISTORY_MAX) {
-  const next = Array.isArray(history) ? history.filter((row) => row && typeof row === 'object') : [];
+  const next = historyRows(history);
   if (record) next.push(record);
   const cap = max > 0 ? max : CONFIG.RUN_HISTORY_MAX;
-  while (next.length > cap) next.shift();
-  return next;
+  if (next.length <= cap) return next;
+  // Drop the worst, not the oldest, so a best run stays available for the top 10.
+  const keep = new Set(topRuns(next, cap));
+  return next.filter((row) => keep.has(row));
+}
+
+// Best first. limit defaults to the ten shown in the save modal.
+function topRuns(history, limit = CONFIG.TOP_RUNS) {
+  const list = historyRows(history);
+  const ranked = list.map((row, index) => ({ row, index }));
+  ranked.sort((a, b) => {
+    if (runIsBetter(a.row, b.row, a.index, b.index)) return -1;
+    if (runIsBetter(b.row, a.row, b.index, a.index)) return 1;
+    return 0;
+  });
+  const n = limit > 0 ? limit : CONFIG.TOP_RUNS;
+  return ranked.slice(0, n).map((d) => d.row);
 }
 
 // Mejor: más clientes; empate → más apilaciones que pagaron; empate → más
 // pilas repartidas; empate → la más reciente (índice mayor).
 // Peor: lo inverso en las tres cifras; si empatan, se queda la más antigua.
 function bestWorstRuns(history) {
-  const list = Array.isArray(history) ? history.filter((row) => row && typeof row === 'object') : [];
+  const list = historyRows(history);
   if (!list.length) return { best: null, worst: null };
-  const clients = (row) => row.clientsServed || 0;
-  const stacks = (row) => row.moneyStacks || 0;
-  const piles = (row) => row.pilesDealt || 0;
   let bestI = 0;
   let worstI = 0;
   for (let i = 1; i < list.length; i++) {
-    const r = list[i];
-    const b = list[bestI];
-    const w = list[worstI];
-    const better = clients(r) > clients(b)
-      || (clients(r) === clients(b) && stacks(r) > stacks(b))
-      || (clients(r) === clients(b) && stacks(r) === stacks(b) && piles(r) > piles(b))
-      || (clients(r) === clients(b) && stacks(r) === stacks(b) && piles(r) === piles(b));
-    if (better) bestI = i;
-    const worse = clients(r) < clients(w)
-      || (clients(r) === clients(w) && stacks(r) < stacks(w))
-      || (clients(r) === clients(w) && stacks(r) === stacks(w) && piles(r) < piles(w));
-    if (worse) worstI = i;
+    if (runIsBetter(list[i], list[bestI], i, bestI)) bestI = i;
+    if (runIsBetter(list[worstI], list[i], worstI, i)) worstI = i;
   }
   return { best: list[bestI], worst: list[worstI] };
 }
@@ -4733,17 +4754,15 @@ async function playVictory(){
 function renderRunHistory(){
   const box=$('#runHistory'); if(!box) return;
   const hist=Array.isArray(state.runHistory)?state.runHistory:[];
-  const ranked=bestWorstRuns(hist);
-  const line=(rec)=>{
-    if(!rec) return '—';
-    return (rec.clientsServed|0)+' guests · '+(rec.moneyStacks|0)+' paid stacks · '+(rec.pilesDealt|0)+' trays';
-  };
-  const note='Ranked by guests served. Ties break on paid stacks, then trays dealt. The later tie is best; the earlier tie is worst. Last '+(CONFIG.RUN_HISTORY_MAX||20)+' runs.';
-  if(!hist.length){
+  const top=topRuns(hist, CONFIG.TOP_RUNS||10);
+  const line=(rec)=> (rec.clientsServed|0)+' guests · '+(rec.moneyStacks|0)+' paid stacks · '+(rec.pilesDealt|0)+' trays';
+  const note='Top 10 runs, best first. Ranked by guests served. Ties break on paid stacks, then trays dealt, then the later run.';
+  if(!top.length){
     box.innerHTML='<h4>Run history</h4><p>No finished runs yet.</p><p class="rh-note">'+note+'</p>';
     return;
   }
-  box.innerHTML='<h4>Run history</h4><p><b>Best</b> — '+line(ranked.best)+'</p><p><b>Worst</b> — '+line(ranked.worst)+'</p><p class="rh-note">'+note+'</p>';
+  const rows=top.map((rec)=>'<li>'+line(rec)+'</li>').join('');
+  box.innerHTML='<h4>Run history</h4><ol>'+rows+'</ol><p class="rh-note">'+note+'</p>';
 }
 function showSave(){ renderRunHistory(); $('#saveModal').classList.add('show'); }
 
@@ -4949,7 +4968,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.9';
+const GAME_VERSION = 'v2.24.10';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, get boardHx(){ return boardHx(); } };

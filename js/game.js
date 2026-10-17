@@ -55,7 +55,8 @@ export const CONFIG = {
   // v2.24.3: 8 de 10. MAX_COLORS sigue siendo el roster completo.
   // Una run ya guardada conserva el largo de su palette (7 no se reescribe).
   RUN_COLORS: 8,
-  RUN_HISTORY_MAX: 20,              // últimas runs terminadas en el save
+  RUN_HISTORY_MAX: 20,              // best finished runs kept, more than the top 10 shown
+  TOP_RUNS: 10,                     // save modal lists this many, best first
   DEBRIS_THRESHOLD: 10,             // v2 escombros: umbral para entrar en tablero
   DEBRIS_BONUS_PER: 25,
   DEBRIS_BIG_OVER: 10,              // v2.24.7: runs de 10 o más pagan ×4
@@ -2000,38 +2001,56 @@ export function finishedRunRecord(state) {
   };
 }
 
+function historyRows(history) {
+  return Array.isArray(history) ? history.filter((row) => row && typeof row === 'object') : [];
+}
+
+// A run is better with more guests served. Ties break on paid stacks, then
+// trays dealt, then the later record (higher index).
+function runIsBetter(a, b, aIndex, bIndex) {
+  const clients = (row) => (row && row.clientsServed) || 0;
+  const stacks = (row) => (row && row.moneyStacks) || 0;
+  const piles = (row) => (row && row.pilesDealt) || 0;
+  if (clients(a) !== clients(b)) return clients(a) > clients(b);
+  if (stacks(a) !== stacks(b)) return stacks(a) > stacks(b);
+  if (piles(a) !== piles(b)) return piles(a) > piles(b);
+  return aIndex > bIndex;
+}
+
 export function pushRunHistory(history, record, max = CONFIG.RUN_HISTORY_MAX) {
-  const next = Array.isArray(history) ? history.filter((row) => row && typeof row === 'object') : [];
+  const next = historyRows(history);
   if (record) next.push(record);
   const cap = max > 0 ? max : CONFIG.RUN_HISTORY_MAX;
-  while (next.length > cap) next.shift();
-  return next;
+  if (next.length <= cap) return next;
+  // Drop the worst, not the oldest, so a best run stays available for the top 10.
+  const keep = new Set(topRuns(next, cap));
+  return next.filter((row) => keep.has(row));
+}
+
+// Best first. limit defaults to the ten shown in the save modal.
+export function topRuns(history, limit = CONFIG.TOP_RUNS) {
+  const list = historyRows(history);
+  const ranked = list.map((row, index) => ({ row, index }));
+  ranked.sort((a, b) => {
+    if (runIsBetter(a.row, b.row, a.index, b.index)) return -1;
+    if (runIsBetter(b.row, a.row, b.index, a.index)) return 1;
+    return 0;
+  });
+  const n = limit > 0 ? limit : CONFIG.TOP_RUNS;
+  return ranked.slice(0, n).map((d) => d.row);
 }
 
 // Mejor: más clientes; empate → más apilaciones que pagaron; empate → más
 // pilas repartidas; empate → la más reciente (índice mayor).
 // Peor: lo inverso en las tres cifras; si empatan, se queda la más antigua.
 export function bestWorstRuns(history) {
-  const list = Array.isArray(history) ? history.filter((row) => row && typeof row === 'object') : [];
+  const list = historyRows(history);
   if (!list.length) return { best: null, worst: null };
-  const clients = (row) => row.clientsServed || 0;
-  const stacks = (row) => row.moneyStacks || 0;
-  const piles = (row) => row.pilesDealt || 0;
   let bestI = 0;
   let worstI = 0;
   for (let i = 1; i < list.length; i++) {
-    const r = list[i];
-    const b = list[bestI];
-    const w = list[worstI];
-    const better = clients(r) > clients(b)
-      || (clients(r) === clients(b) && stacks(r) > stacks(b))
-      || (clients(r) === clients(b) && stacks(r) === stacks(b) && piles(r) > piles(b))
-      || (clients(r) === clients(b) && stacks(r) === stacks(b) && piles(r) === piles(b));
-    if (better) bestI = i;
-    const worse = clients(r) < clients(w)
-      || (clients(r) === clients(w) && stacks(r) < stacks(w))
-      || (clients(r) === clients(w) && stacks(r) === stacks(w) && piles(r) < piles(w));
-    if (worse) worstI = i;
+    if (runIsBetter(list[i], list[bestI], i, bestI)) bestI = i;
+    if (runIsBetter(list[worstI], list[i], worstI, i)) worstI = i;
   }
   return { best: list[bestI], worst: list[worstI] };
 }

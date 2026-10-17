@@ -119,6 +119,8 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
 .run-history{margin:0 0 12px;padding:10px;background:var(--wood);border:2px solid var(--ink);border-radius:12px}
 .run-history h4{margin:0 0 6px;font-family:var(--font-display);font-size:16px;text-align:center}
 .run-history p{margin:0 0 6px;font-size:13px;font-weight:700;text-align:center}
+.run-history ol{margin:0 0 6px;padding:0 0 0 1.4em;text-align:left}
+.run-history li{font-size:12px;font-weight:700;line-height:1.25;margin:0 0 2px}
 .run-history .rh-note{font-size:11px;color:var(--ink-soft);font-weight:700;line-height:1.35}
 .foot{text-align:center;font-size:11px;color:var(--ink-soft);font-weight:700;margin:4px 0 2px;flex-shrink:0}
 .order-card.legendary{box-shadow:0 0 0 3px var(--highlight),0 3px 0 var(--shadow)}
@@ -682,7 +684,7 @@ import {
   totalClients, runVictory, useQueueSkip,
   // v2.21 — meta efímera, pedidos, oleada 2, victoria
   restartRun, beginVictory, clearTables, calamityForecast,
-  tipLevel, tipPayTable, runFaceColor, bestWorstRuns,
+  tipLevel, tipPayTable, runFaceColor, topRuns,
   undoStackOf, undoTopCoins,
 } from './js/game.js';
 import {
@@ -2048,17 +2050,15 @@ async function playVictory(){
 function renderRunHistory(){
   const box=$('#runHistory'); if(!box) return;
   const hist=Array.isArray(state.runHistory)?state.runHistory:[];
-  const ranked=bestWorstRuns(hist);
-  const line=(rec)=>{
-    if(!rec) return '—';
-    return (rec.clientsServed|0)+' guests · '+(rec.moneyStacks|0)+' paid stacks · '+(rec.pilesDealt|0)+' trays';
-  };
-  const note='Ranked by guests served. Ties break on paid stacks, then trays dealt. The later tie is best; the earlier tie is worst. Last '+(CONFIG.RUN_HISTORY_MAX||20)+' runs.';
-  if(!hist.length){
+  const top=topRuns(hist, CONFIG.TOP_RUNS||10);
+  const line=(rec)=> (rec.clientsServed|0)+' guests · '+(rec.moneyStacks|0)+' paid stacks · '+(rec.pilesDealt|0)+' trays';
+  const note='Top 10 runs, best first. Ranked by guests served. Ties break on paid stacks, then trays dealt, then the later run.';
+  if(!top.length){
     box.innerHTML='<h4>Run history</h4><p>No finished runs yet.</p><p class="rh-note">'+note+'</p>';
     return;
   }
-  box.innerHTML='<h4>Run history</h4><p><b>Best</b> — '+line(ranked.best)+'</p><p><b>Worst</b> — '+line(ranked.worst)+'</p><p class="rh-note">'+note+'</p>';
+  const rows=top.map((rec)=>'<li>'+line(rec)+'</li>').join('');
+  box.innerHTML='<h4>Run history</h4><ol>'+rows+'</ol><p class="rh-note">'+note+'</p>';
 }
 function showSave(){ renderRunHistory(); $('#saveModal').classList.add('show'); }
 
@@ -2264,7 +2264,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.9';
+const GAME_VERSION = 'v2.24.10';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, get boardHx(){ return boardHx(); } };

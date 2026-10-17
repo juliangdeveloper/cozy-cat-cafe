@@ -12,7 +12,7 @@ const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'i
 const css = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
 
 test('v2.24.9 puts a moving calamity icon on a thin track above the clients', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.9'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.10'/);
   const run = html.slice(html.indexOf('function renderRun'), html.indexOf('function renderCalamity'));
   const top = run.indexOf('class="topbar"');
   const cal = run.indexOf('class="cal-row"');
