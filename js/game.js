@@ -47,6 +47,8 @@ export const CONFIG = {
   // v2.24 — Clear board no usa SKILL_USE_BASE. Precio = 10000 × 1.6^n.
   CLEAR_BOARD_BASE: 10000,
   UNLOCK_LOCKS_BASE: 10000,         // v2.24.5
+  COLOR_SKILL_BASE: 1000,           // v2.24.6: Color arranca en 1000 (×1.6)
+  UNDO_HISTORY_MAX: 200,            // v2.24.6: tope de memoria del historial de undo
   MAX_COLORS: 10,                   // R13.7 10 colores / criaturas en el ROSTER (R13.2)
   // v2.23 — cada run sortea este subconjunto del roster. El desbloqueo
   // gradual (bolsa, rosterIndex, colorsOwned) vive DENTRO de esos colores.
@@ -55,7 +57,9 @@ export const CONFIG = {
   RUN_COLORS: 8,
   RUN_HISTORY_MAX: 20,              // últimas runs terminadas en el save
   DEBRIS_THRESHOLD: 10,             // v2 escombros: umbral para entrar en tablero
-  DEBRIS_BONUS_PER: 25,             // v2 escombros: bonus por escombro limpiado
+  DEBRIS_BONUS_PER: 25,
+  DEBRIS_BIG_OVER: 10,              // v2.24.6: runs de MÁS de 10 pagan ×4
+  DEBRIS_BIG_MULT: 4,             // v2 escombros: bonus por escombro limpiado
   CASCADE_STEP_MS: 600,             // v2.2.1: ms entre eslabones (antes 1600 — muy lento para seguir el orden)
   TABLES_HOLD_MS: 550,              // v2.17: press-and-hold Tables → batch activateAroundUnlocked
   CLOSE_HOLD_MS: 3000,              // Hold 3s restarts the run; coins do not carry over
@@ -1202,7 +1206,8 @@ export function skillUsePrice(state, power) {
   // Clear board is the one skill with its own base (10000, not 40).
   // v2.24.5: Unlock 🔓 also starts at 10000.
   const base = power === 'clearBoard' ? CONFIG.CLEAR_BOARD_BASE
-    : power === 'unlockLocks' ? CONFIG.UNLOCK_LOCKS_BASE : CONFIG.SKILL_USE_BASE;
+    : power === 'unlockLocks' ? CONFIG.UNLOCK_LOCKS_BASE
+    : power === 'color' ? CONFIG.COLOR_SKILL_BASE : CONFIG.SKILL_USE_BASE;
   return base * CONFIG.SKILL_USE_RATIO ** n;
 }
 
@@ -1211,8 +1216,17 @@ export function skillUsePrice(state, power) {
 // (the action's coins come back) and only then subtracts the Undo fee.
 function rememberUndo(s) {
   if (!s || !s.run) return;
+  // v2.24.6: historial completo. Cada snapshot se guarda sin su propio
+  // historial (sin anidar); la pila vive en run.undoStack.
+  const stack = Array.isArray(s.run.undoStack) ? s.run.undoStack : [];
+  delete s.run.undoStack;
+  if (s.run.undoSnap) { stack.push(s.run.undoSnap); }
   delete s.run.undoSnap;
-  s.run.undoSnap = clone(s);
+  const snap = clone(s);
+  stack.push(snap);
+  const max = CONFIG.UNDO_HISTORY_MAX || 200;
+  while (stack.length > max) stack.shift();
+  s.run.undoStack = stack;
 }
 
 // Funds check, then snapshot, then charge. The snapshot must precede the
@@ -1401,6 +1415,12 @@ function rngFallback() { return Math.random; }
 // Retorna índices de celdas tocadas. NO reentra merge: se llama SOLO tras
 // estabilizar merges/auto-serves de la acción del jugador.
 // ---------------------------------------------------------------------------
+// v2.24.6: pago de un run destruido. <=10 igual que antes; >10 paga ×4.
+export function debrisPay(runLen) {
+  const base = CONFIG.DEBRIS_BONUS_PER * runLen;
+  return runLen > CONFIG.DEBRIS_BIG_OVER ? base * CONFIG.DEBRIS_BIG_MULT : base;
+}
+
 export function sweepDebrisRuns(board, progress) {
   const hit = [];
   if (!Array.isArray(board)) return hit;
@@ -1415,7 +1435,7 @@ export function sweepDebrisRuns(board, progress) {
       const runLen = k - j;
       if (runLen >= CONFIG.DEBRIS_THRESHOLD) {
         st.splice(j, runLen);
-        if (progress) progress.coins += CONFIG.DEBRIS_BONUS_PER * runLen;
+        if (progress) progress.coins += debrisPay(runLen);
         hit.stacks = (hit.stacks || 0) + 1;
         touched = true;
       } else {
@@ -1828,10 +1848,29 @@ export function useClearBoard(state) {
 // (40 × 1.6^n) and count this use. Undo does not snapshot itself, and the
 // stack is cleared, so a second tap cannot refund the fee. If the restored
 // purse cannot cover the fee, nothing changes.
+export function undoStackOf(state) {
+  const run = state && state.run;
+  if (!run) return [];
+  const st = Array.isArray(run.undoStack) ? run.undoStack.slice() : [];
+  if (run.undoSnap) st.push(run.undoSnap);   // save v2.24.0–v2.24.5 (un nivel)
+  return st;
+}
+
+// v2.24.6 — the purse Undo would return to (top of the history), or null.
+export function undoTopCoins(state) {
+  const st = undoStackOf(state);
+  const top = st[st.length - 1];
+  return top && top.progress ? (top.progress.coins || 0) : null;
+}
+
+// v2.24.6: unlimited depth. Each tap pops one snapshot. The fee is also
+// taken from every older snapshot still in the stack, so a later Undo
+// never refunds an Undo fee already paid.
 export function useUndoMove(state) {
   const s = clone(state);
   if (!s.run) return { error: 'noRun' };
-  const snap = s.run.undoSnap;
+  const stack = undoStackOf(s);
+  const snap = stack.pop();
   if (!snap || !snap.run || !snap.progress) return { error: 'nothingToUndo' };
   const n = skillUseCount(s, 'undoMove');
   const price = skillUsePrice(s, 'undoMove');
@@ -1839,6 +1878,10 @@ export function useUndoMove(state) {
   if (restored < price) return { error: 'noFunds' };
   const next = clone(snap);
   delete next.run.undoSnap;
+  for (const old of stack) {
+    if (old && old.progress) old.progress.coins = (old.progress.coins || 0) - price;
+  }
+  next.run.undoStack = stack;
   next.progress.coins = restored - price;
   if (!next.run.skillUses) next.run.skillUses = {};
   next.run.skillUses.undoMove = n + 1;
@@ -2007,6 +2050,7 @@ export function beginVictory(state) {
   s.run.victoryBonus = bonus;
   // The winning move is not rewound. Restart opens a fresh run anyway.
   delete s.run.undoSnap;
+  delete s.run.undoStack;
   // The sitting is finished. Archive it once so the save modal can show it
   // before Hold 3s, and so restart does not record it a second time.
   s.run.archived = true;

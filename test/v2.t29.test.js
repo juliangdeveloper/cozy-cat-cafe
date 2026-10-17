@@ -164,15 +164,15 @@ test('undo of a place rewinds the cascade and does not refund the undo fee', () 
   const placed = G.placeStack(s, cell, slot, rng(4));
   assert.equal(placed.error, undefined);
   const fin = G.resolveCascade(placed);
-  assert.ok(fin.state.run.undoSnap);
-  assert.equal(fin.state.run.undoSnap.run.undoSnap, undefined);
+  assert.equal(fin.state.run.undoStack.length, 1);
+  assert.equal(fin.state.run.undoStack[0].run.undoStack, undefined);
   const undone = G.useUndoMove(fin.state);
   assert.deepEqual(stacks(undone), beforeStacks);
   assert.deepEqual(undone.run.pool, beforePool);
   assert.deepEqual(undone.run.activeClients.map((o) => o.id), beforeClients);
   assert.equal(undone.progress.coins, beforeCoins - 40);
   assert.equal(undone.run.skillUses.undoMove, 1);
-  assert.equal(undone.run.undoSnap, undefined);
+  assert.equal(undone.run.undoStack.length, 0);
   const again = G.useUndoMove(undone);
   assert.equal(again.error, 'nothingToUndo');
   assert.equal(undone.progress.coins, beforeCoins - 40);
@@ -190,13 +190,13 @@ test('undo refuses when the restored purse cannot pay, and a fresh run has no st
   s.run.board[cell].stack = [2];
   const destroyed = G.useDestroyPile(s, cell);
   assert.equal(destroyed.progress.coins, 10);
-  destroyed.run.undoSnap.progress.coins = 10;
+  destroyed.run.undoStack[0].progress.coins = 10;
   const stuck = G.useUndoMove(destroyed);
   assert.equal(stuck.error, 'noFunds');
   assert.deepEqual(destroyed.run.board[cell].stack, []);
   assert.equal(destroyed.progress.coins, 10);
   assert.equal(destroyed.run.skillUses.destroyPile, 1);
-  assert.ok(destroyed.run.undoSnap);
+  assert.equal(destroyed.run.undoStack.length, 1);
 });
 
 test('undo of clear board, refresh, and queue skip; restart and victory drop the stack', () => {
@@ -244,7 +244,7 @@ test('undo of clear board, refresh, and queue skip; restart and victory drop the
 });
 
 test('the power bar ships both skills in English at v2.24.0', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.5'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.6'/);
   assert.match(html, /useClearBoard/);
   assert.match(html, /useUndoMove/);
   assert.match(html, /skill:'clearBoard'/);
