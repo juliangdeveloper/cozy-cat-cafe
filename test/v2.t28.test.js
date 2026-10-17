@@ -144,16 +144,20 @@ test('finished runs keep best and worst, capped, across a restart', () => {
   assert.equal(s.runHistory[0].moneyStacks, 4);
   assert.equal(s.runHistory[0].pilesDealt, 9);
   assert.equal(s.runHistory[0].victory, false);
+  assert.equal(s.runHistory[0].coins, 50);
   assert.equal(s.run.pilesDealt, 3);
 
   s.run.clientsServed = 100;
   s.run.moneyStacks = 40;
   s.run.pilesDealt = 80;
+  s.progress.coins = 2500;
+  const purse = 2500 + G.bonusCalamity(s.run);
   s = G.beginVictory(s);
   assert.equal(s.run.phase, 'victory');
   assert.equal(s.runHistory.length, 2);
   assert.equal(s.runHistory[1].victory, true);
   assert.equal(s.runHistory[1].clientsServed, 100);
+  assert.equal(s.runHistory[1].coins, purse);
   s = G.restartRun(s, rng(4));
   assert.equal(s.runHistory.length, 2);
   assert.equal(s.runHistory[1].victory, true);
@@ -170,6 +174,14 @@ test('finished runs keep best and worst, capped, across a restart', () => {
   assert.equal(tie.best.pilesDealt, 9);
   assert.equal(tie.best, tied[2]);
   assert.equal(tie.worst, tied[0]);
+  const richer = [
+    { clientsServed: 8, moneyStacks: 1, pilesDealt: 2, coins: 9 },
+    { clientsServed: 8, moneyStacks: 1, pilesDealt: 2, coins: 9000 },
+  ];
+  const coinTie = G.bestWorstRuns(richer);
+  assert.equal(coinTie.best, richer[1]);
+  assert.equal(coinTie.worst, richer[0]);
+  assert.equal(G.topRuns([{ clientsServed: 3, coins: 1e9 }, { clientsServed: 4, coins: 0 }])[0].clientsServed, 4);
 
   const many = [];
   for (let i = 0; i < 25; i++) many.push({ clientsServed: i, moneyStacks: 0, pilesDealt: 3 });
@@ -197,6 +209,7 @@ test('finished runs keep best and worst, capped, across a restart', () => {
   }));
   assert.equal(oldShape.runHistory.length, 4);
   assert.equal(G.topRuns(oldShape.runHistory)[0].clientsServed, 15);
+  assert.equal(oldShape.runHistory[0].coins, undefined);
 
   const saved = G.deserializeState(G.serializeState(s));
   assert.equal(saved.runHistory.length, 2);
@@ -204,14 +217,15 @@ test('finished runs keep best and worst, capped, across a restart', () => {
 });
 
 test('save modal, skill level, coin float, and defeat are in the page', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.10'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.11'/);
   assert.match(html, /id="runHistory"/);
   assert.match(html, /function renderRunHistory/);
   assert.match(html, /topRuns\(hist/);
   assert.match(html, /Top 10 runs, best first/);
   assert.match(html, /guests · /);
   assert.match(html, /paid stacks/);
-  assert.match(html, /trays/);
+  assert.match(html, /trays · /);
+  assert.match(html, /Number\.isFinite\(rec\.coins\) \? fmt\(rec\.coins\) : '—'/);
   assert.match(html, /class="pow-lvl"/);
   assert.match(html, /skillUseCount\(state, d\.skill\)/);
   assert.match(html, /function showCoinGain/);
