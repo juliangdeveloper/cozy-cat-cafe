@@ -25,6 +25,7 @@ const START_ORDER = [
   ['color', 1000],
   ['unlockLocks', 10000],
   ['clearBoard', 10000],
+  ['rotateBoard', 0],
 ];
 
 test('a destroyed run of 10 pays 4x and a run of 9 does not', () => {
@@ -66,7 +67,7 @@ test('the skill bar is sorted once by starting price and stays put', () => {
 });
 
 test('restart is a white flag with a hold label, and header buttons match', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.8'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.9'/);
   assert.match(html, /aria-label="Hold 3s to restart"/);
   assert.match(html, /class="flag-ico"/);
   assert.match(html, /fill="#fff"/);
@@ -75,7 +76,7 @@ test('restart is a white flag with a hold label, and header buttons match', () =
   assert.match(html, /class="iconbtn chrome-hold hdr-ico" id="btnClose"/);
   assert.match(html, /bindCloseHold\(\)/);
   assert.match(html, /CLOSE_HOLD_MS/);
-  for (const id of ['btnMute', 'btnHelp', 'btnSave', 'btnRotate', 'btnClose']) {
+  for (const id of ['btnMute', 'btnHelp', 'btnSave', 'btnClose']) {
     assert.match(html, new RegExp(`id="${id}"[^>]*hdr-ico|hdr-ico[^>]*id="${id}"|class="[^"]*hdr-ico[^"]*" id="${id}"`));
   }
   assert.match(css, /\.topbar \.hdr-ico\{[^}]*width:40px;height:40px;min-width:40px;min-height:40px/);

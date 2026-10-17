@@ -48,33 +48,30 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
 .mute-ico,.flag-ico{display:block;width:18px;height:18px}
 .chip.dropping{background:var(--highlight);transition:transform .42s cubic-bezier(.2,.8,.2,1)}
 
-/* v2.22.4 — one chrome row. Calamity is a single icon: its fill shifts
-   from calm (success) toward danger as calamityForecast().progress climbs. */
+/* v2.22.4 — one chrome row. v2.24.9: calamity is a thin track above the
+   clients. The icon rides left to right with progress and shifts from calm
+   (success) toward danger as calamityForecast().progress climbs. */
 .topbar .chip{min-height:40px;padding:2px 8px}
-.cal-ico-btn{flex:0 0 auto;width:40px;height:40px;min-width:40px;min-height:40px;
-  padding:0;margin:0;position:relative;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;
-  --cal-p:0;
+.cal-row{flex:0 0 auto;margin:2px 0 0;height:22px}
+.cal-track{position:relative;display:block;width:100%;height:22px;min-height:22px;
+  padding:0;margin:0;border:0;background:transparent;cursor:pointer;--cal-p:0}
+.cal-line{position:absolute;left:11px;right:11px;top:50%;height:3px;margin-top:-1.5px;
+  border-radius:999px;background:var(--wood);pointer-events:none}
+.cal-mark{position:absolute;top:50%;left:11px;width:18px;height:18px;margin:-9px 0 0 -9px;
+  display:flex;align-items:center;justify-content:center;pointer-events:none;
+  border-radius:999px;border:2px solid var(--ink);
   background:color-mix(in srgb, var(--danger) calc(var(--cal-p) * 100%), var(--success));
-  border:2px solid var(--ink);border-radius:10px;
-  box-shadow:0 2px 0 var(--wood-dark);
-  font-family:var(--font-display);font-weight:800;font-size:13px;line-height:1;color:var(--ink)}
-.cal-ico-btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--wood-dark)}
-.cal-ico-btn[data-tone="warn"]{background:color-mix(in srgb, var(--danger) calc(var(--cal-p) * 100%), var(--highlight))}
-.cal-ico-btn[data-tone="critical"]{color:#fff8ec}
-.cal-ico-btn[data-tone="clear"]{background:var(--success);color:var(--ink)}
-.cal-mark{pointer-events:none}
-/* v2.24.8: calamity leaves the header and sits on its own row above the clients. */
-.cal-row{flex:0 0 auto;margin:2px 0 0}
-.cal-row .cal-ico-btn{width:100%;max-width:none;height:32px;min-height:32px;min-width:0;
-  border-radius:10px;justify-content:flex-start;gap:8px;padding:0 10px}
-.cal-row-label{font-size:13px;font-weight:800;pointer-events:none;line-height:1}
+  box-shadow:0 1px 0 var(--wood-dark);
+  font-family:var(--font-display);font-weight:800;font-size:10px;line-height:1;color:var(--ink)}
+.cal-track[data-tone="warn"] .cal-mark{background:color-mix(in srgb, var(--danger) calc(var(--cal-p) * 100%), var(--highlight))}
+.cal-track[data-tone="critical"] .cal-mark{color:#fff8ec}
+.cal-track[data-tone="clear"] .cal-mark{background:var(--success);color:var(--ink)}
 .cal-meta{font-size:12px;font-weight:800;color:var(--ink-soft);text-align:center}
 .topbar .queuecount{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;
   min-height:40px;font-size:11px;line-height:1.1;font-weight:800;
   background:var(--highlight);border:2px solid var(--ink);border-radius:999px;padding:0 6px;
   box-shadow:0 2px 0 var(--wood-dark);font-variant-numeric:tabular-nums}
-.hdr-tools{display:flex;flex:0 0 auto;align-items:center;gap:2px}
+.hdr-tools{display:flex;flex:0 0 auto;align-items:center;gap:2px;margin-left:auto}
 .hdr-tools .iconbtn{width:40px;height:40px;min-width:40px;min-height:40px;padding:0;font-size:16px;border-radius:10px}
 .hdr-tools .mute-ico,.hdr-tools .flag-ico{width:18px;height:18px}
 /* v2.24.7: every header icon button is the same 40×40 chrome. */
@@ -565,7 +562,6 @@ body.tut-on .topbar{z-index:90}
 body.tut-on .topbar .chip,
 body.tut-on .topbar #btnSave,
 body.tut-on .topbar #btnHelp,
-body.tut-on .topbar #btnRotate,
 body.tut-on .topbar #btnClose{pointer-events:none}
 body.tut-on .topbar #btnMute{pointer-events:auto}
 body.tut-on .powerbar.tut-spot{z-index:90}
@@ -2343,6 +2339,7 @@ function skillUseCount(state, power) {
 // Starting price (n = 0). Clear board, Unlock, and Color have their own base;
 // every other skill starts at SKILL_USE_BASE.
 function skillPriceBase(power) {
+  if (power === 'rotateBoard') return 0;
   if (power === 'clearBoard') return CONFIG.CLEAR_BOARD_BASE;
   if (power === 'unlockLocks') return CONFIG.UNLOCK_LOCKS_BASE;
   if (power === 'color') return CONFIG.COLOR_SKILL_BASE;
@@ -2350,6 +2347,8 @@ function skillPriceBase(power) {
 }
 
 function skillUsePrice(state, power) {
+  // Rotate stays free. Uses never raise it.
+  if (power === 'rotateBoard') return 0;
   const n = skillUseCount(state, power);
   // Exact base × 1.6^n. Rounding the product changes the ratio (102
   // instead of 102.4) and can skip a table the player could still afford.
@@ -2371,7 +2370,8 @@ const SKILL_BAR_BASE = [
 const SKILL_BAR_ORDER = SKILL_BAR_BASE
   .map((skill, base) => ({ skill, base, start: skillPriceBase(skill) }))
   .sort((a, b) => (a.start - b.start) || (a.base - b.base))
-  .map((d) => d.skill);
+  .map((d) => d.skill)
+  .concat(['rotateBoard']);
 
 // One level of undo. The snapshot is the whole café immediately before the
 // last undoable action, with no nested snapshot. Undo restores that café
@@ -3580,14 +3580,13 @@ function renderRun(){
           ${muteBtnMarkup()}
           <button type="button" class="iconbtn hdr-ico" id="btnHelp" aria-label="How to play" title="How to play">❓</button>
           <button type="button" class="iconbtn hdr-ico" id="btnSave" aria-label="Save" title="Save">💾</button>
-          <button type="button" class="iconbtn chrome-rot hdr-ico" id="btnRotate" title="Rotate board 90°" aria-label="Rotate board 90°"><span class="rot-arrow" aria-hidden="true">↻</span></button>
           <button type="button" class="iconbtn chrome-hold hdr-ico" id="btnClose" title="Hold 3s to restart" aria-label="Hold 3s to restart"><span class="hold-label">${flagMarkup()}</span></button>
         </div>
       </div>
       <div class="cal-row">
-        <button type="button" class="cal-ico-btn" id="calStrip" data-tone="calm" aria-expanded="false" aria-controls="calPop" aria-label="Incoming calamity">
+        <button type="button" class="cal-track" id="calStrip" data-tone="calm" aria-expanded="false" aria-controls="calPop" aria-label="Incoming calamity">
+          <span class="cal-line" aria-hidden="true"></span>
           <span class="cal-mark" id="calIco" aria-hidden="true">I</span>
-          <span class="cal-row-label" id="calRowLabel">Tables</span>
         </button>
       </div>
       <div class="orders" id="orders"></div>
@@ -3606,7 +3605,6 @@ function renderRun(){
   $('#btnSave').onclick=showSave;
   const hb=$('#btnHelp'); if(hb) hb.onclick=()=>{ if(ui.anim||tutActive) return; ui.mode=null; ui.slot=false; ui.servingOrder=null; renderAll(); startTutorial(); };
   bindMute();
-  bindRotateBoard();
   bindCloseHold();
   bindCalamity();
   renderCalamity();
@@ -3634,11 +3632,11 @@ function renderCalamity(){
     tone = p >= 0.66 ? 'critical' : p >= 0.33 ? 'warn' : 'calm';
   }
   ico.textContent = mark;
+  // The line runs under the icon. 0 sits on the left end, 1 on the right.
+  ico.style.left = `calc(11px + (100% - 22px) * ${p.toFixed(3)})`;
   btn.dataset.tone = tone;
   btn.style.setProperty('--cal-p', p.toFixed(3));
   btn.setAttribute('aria-label', 'Incoming calamity: ' + meta);
-  const rowLabel = $('#calRowLabel');
-  if(rowLabel) rowLabel.textContent = meta;
   const popMeta = $('#calPopMeta');
   if(popMeta) popMeta.textContent = meta;
 }
@@ -3809,7 +3807,7 @@ function boardMetrics(pts, hxN, rot){
     if(v.y>maxY) maxY=v.y;
   }
   if(!pts.length){ minX=minY=maxX=maxY=0; }
-  const liftPad=10*Math.max(5,Math.round(hxN*0.225));
+  const liftPad=3*Math.max(5,Math.round(hxN*0.225));
   // The tile bevel shifts down by 0.055*hx and must stay inside this box.
   const bevel=Math.ceil(hxN*0.055);
   return { w:(maxX-minX)+cw, h:(maxY-minY)+ch+liftPad+bevel, cw, ch, liftPad, flat, view, minX, minY };
@@ -4024,6 +4022,7 @@ const SKILL_BLURB = {
   color: 'Add the next creature color to the roster.',
   clearBoard: 'Clear every pile off the whole board.',
   undoMove: 'Undo your last move.',
+  rotateBoard: 'Turn the board 90°.',
 };
 function colorLocked(){
   return (state.progress.colorsOwned || 4) >= colorRunCap(state);
@@ -4098,6 +4097,7 @@ function renderPowers(){
     {skill:'tips',icon:'✨',mode:'tips'},
     {skill:'clearBoard',icon:'🧹',mode:'clear'},
     {skill:'undoMove',icon:'↩️',mode:'undo'},
+    {skill:'rotateBoard',icon:'↻',mode:'rotate'},
   ];
   // v2.24.7: one fixed order, sorted once by starting price. A price that
   // grows during the run does not move the button.
@@ -4110,13 +4110,15 @@ function renderPowers(){
       || (d.skill==='color' && colorLocked());
     const help = d.skill==='tips' ? 'Served orders pay more.'
       : (d.skill==='color' && colorLocked() ? colorLockedLine() : SKILL_BLURB[d.skill]);
-    const tip = 'Level '+n+'. '+help+' Next '+fmt(priceN)+' coins.';
+    const free = d.skill==='rotateBoard';
+    const tip = free ? help+' Free.' : 'Level '+n+'. '+help+' Next '+fmt(priceN)+' coins.';
     const cost = `<span class="pow-cost">🪙${fmt(priceN)}</span>`;
     const icon = /^[a-z0-9_]+$/.test(d.icon)
       ? skillArt(d.icon)
       : `<span class="pow-emoji" aria-hidden="true">${d.icon}</span>`;
-    return `<div class="pow ${broke?'broke':''} ${depleted?'depleted':''} ${ui.mode===d.mode?'selected':''}" data-mode="${d.mode}" data-skill="${d.skill}" data-level="${n}" role="button" title="${tip}" aria-label="${tip}">
-      <span class="pow-lvl">${n}</span>
+    const lvl = free ? '' : `<span class="pow-lvl">${n}</span>`;
+    return `<div class="pow ${broke?'broke':''} ${depleted?'depleted':''} ${ui.mode===d.mode?'selected':''}" data-mode="${d.mode}" data-skill="${d.skill}" data-level="${free?0:n}" role="button" title="${tip}" aria-label="${tip}">
+      ${lvl}
       <span class="pow-face"><span class="pow-ico">${icon}</span></span>${cost}</div>`;
   }).join('');
   $$('#powerbar .pow').forEach(p=>{
@@ -4153,6 +4155,7 @@ function renderPowers(){
     if(mode==='refresh'){ refreshFlow(); return; }
     if(mode==='clear'){ clearBoardFlow(); return; }
     if(mode==='undo'){ undoFlow(); return; }
+    if(mode==='rotate'){ rotateBoard(); return; }
     ui.mode = ui.mode===mode?null:mode; ui.swapFirst=null;
     renderPowers(); renderBoard();
   });
@@ -4602,10 +4605,6 @@ function rotateBoard(){
   persist();
   renderBoard();
 }
-function bindRotateBoard(){
-  const b=$('#btnRotate'); if(!b) return;
-  b.addEventListener('click', ()=>{ if(ui.anim||tutActive) return; rotateBoard(); });
-}
 function bindCloseHold(){
   const p=$('#btnClose'); if(!p) return;
   let holdTimer=null, raf=null, holdStart=0, holdDone=false;
@@ -4950,7 +4949,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.8';
+const GAME_VERSION = 'v2.24.9';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, get boardHx(){ return boardHx(); } };
