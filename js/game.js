@@ -1202,6 +1202,7 @@ export function skillUseCount(state, power) {
 // Starting price (n = 0). Clear board, Unlock, and Color have their own base;
 // every other skill starts at SKILL_USE_BASE.
 function skillPriceBase(power) {
+  if (power === 'rotateBoard') return 0;
   if (power === 'clearBoard') return CONFIG.CLEAR_BOARD_BASE;
   if (power === 'unlockLocks') return CONFIG.UNLOCK_LOCKS_BASE;
   if (power === 'color') return CONFIG.COLOR_SKILL_BASE;
@@ -1209,6 +1210,8 @@ function skillPriceBase(power) {
 }
 
 export function skillUsePrice(state, power) {
+  // Rotate stays free. Uses never raise it.
+  if (power === 'rotateBoard') return 0;
   const n = skillUseCount(state, power);
   // Exact base × 1.6^n. Rounding the product changes the ratio (102
   // instead of 102.4) and can skip a table the player could still afford.
@@ -1230,7 +1233,8 @@ const SKILL_BAR_BASE = [
 export const SKILL_BAR_ORDER = SKILL_BAR_BASE
   .map((skill, base) => ({ skill, base, start: skillPriceBase(skill) }))
   .sort((a, b) => (a.start - b.start) || (a.base - b.base))
-  .map((d) => d.skill);
+  .map((d) => d.skill)
+  .concat(['rotateBoard']);
 
 // One level of undo. The snapshot is the whole café immediately before the
 // last undoable action, with no nested snapshot. Undo restores that café
