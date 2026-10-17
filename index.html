@@ -41,11 +41,11 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
 .chip.pops{background:var(--highlight)}
 .spacer{flex:1}
 .iconbtn{background:var(--panel);border:2px solid var(--ink);border-radius:10px;width:40px;height:40px;
-  display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 3px 0 var(--wood-dark);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 0 var(--wood-dark);
   font-size:18px}
 .iconbtn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--wood-dark)}
-.iconbtn.mute-btn{width:44px;height:44px;min-width:44px;min-height:44px;padding:0;color:var(--ink)}
-.mute-ico{display:block;width:22px;height:22px}
+.iconbtn.mute-btn{width:40px;height:40px;min-width:40px;min-height:40px;padding:0;color:var(--ink)}
+.mute-ico,.flag-ico{display:block;width:18px;height:18px}
 .chip.dropping{background:var(--highlight);transition:transform .42s cubic-bezier(.2,.8,.2,1)}
 
 /* v2.22.4 — one chrome row. Calamity is a single icon: its fill shifts
@@ -56,7 +56,7 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
   display:flex;align-items:center;justify-content:center;
   --cal-p:0;
   background:color-mix(in srgb, var(--danger) calc(var(--cal-p) * 100%), var(--success));
-  border:2px solid var(--ink);border-radius:12px;
+  border:2px solid var(--ink);border-radius:10px;
   box-shadow:0 2px 0 var(--wood-dark);
   font-family:var(--font-display);font-weight:800;font-size:13px;line-height:1;color:var(--ink)}
 .cal-ico-btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--wood-dark)}
@@ -71,15 +71,19 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
   box-shadow:0 2px 0 var(--wood-dark);font-variant-numeric:tabular-nums}
 .hdr-tools{display:flex;flex:0 0 auto;align-items:center;gap:2px}
 .hdr-tools .iconbtn{width:40px;height:40px;min-width:40px;min-height:40px;padding:0;font-size:16px;border-radius:10px}
-.hdr-tools .mute-ico{width:18px;height:18px}
+.hdr-tools .mute-ico,.hdr-tools .flag-ico{width:18px;height:18px}
+/* v2.24.7: every header icon button is the same 40×40 chrome. */
+.topbar .hdr-ico{width:40px;height:40px;min-width:40px;min-height:40px;max-width:40px;padding:0;margin:0;
+  border:2px solid var(--ink);border-radius:10px;box-shadow:0 2px 0 var(--wood-dark);
+  display:flex;align-items:center;justify-content:center;flex:0 0 auto}
 .rot-stack{display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;pointer-events:none}
 .rot-arrow{font-size:16px;line-height:1}
 .rot-deg{font-size:8px;font-weight:800;font-family:var(--font-ui);line-height:1;margin-top:1px}
 .chrome-hold{position:relative;overflow:hidden;flex:0 0 auto;display:flex;align-items:center;justify-content:center;min-height:40px;
-  height:40px;min-width:52px;padding:0 7px;
+  width:40px;height:40px;min-width:40px;max-width:40px;padding:0;
   background:var(--panel);border:2px solid var(--ink);border-radius:10px;
   box-shadow:0 2px 0 var(--wood-dark);color:var(--ink);cursor:pointer;
-  font-family:var(--font-ui);font-weight:800;font-size:11px;line-height:1;white-space:nowrap}
+  font-family:var(--font-ui);font-weight:800;font-size:18px;line-height:1}
 .chrome-hold:active{transform:translateY(2px);box-shadow:0 1px 0 var(--wood-dark)}
 .chrome-hold.holding{outline:2px solid var(--danger)}
 .chrome-hold .hold-label{position:relative;z-index:1}
@@ -487,19 +491,16 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   body{font-size:14px}
   /* v2.22.1 — una sola tira: estado + rotar + hold. Controles ≥40px. */
   .topbar{padding:2px 0;flex-wrap:nowrap;gap:2px}
-  /* v2.24.6: the ❓ help button joins the strip; tools shrink so the purse stays whole */
+  /* v2.24.7: header icon buttons stay one size; the purse stays a chip */
   .topbar .chip{flex:0 0 auto;white-space:nowrap}
-  .hdr-tools .iconbtn{width:34px;min-width:34px}
-  .hdr-tools .iconbtn.mute-btn{width:34px;min-width:34px}
-  .topbar .cal-ico-btn{width:34px;min-width:34px}
-  .topbar .cal-ico-btn{width:34px;height:40px;min-width:34px;min-height:40px}
   .topbar .chip{font-size:13px;padding:2px 6px;min-width:0;min-height:40px}
   .chip{font-size:13px;padding:2px 7px;min-width:0}
   .chip.sm{font-size:10px;padding:2px 5px}
   .iconbtn{width:40px;height:40px;font-size:16px}
   .hdr-tools{gap:2px}
   .hdr-tools .iconbtn,.iconbtn.mute-btn{width:40px;height:40px;min-width:40px;min-height:40px;padding:0}
-  .chrome-hold{width:auto;height:40px;min-width:56px;min-height:40px;padding:0 6px;font-size:11px}
+  .chrome-hold{width:40px;height:40px;min-width:40px;max-width:40px;min-height:40px;padding:0}
+  .topbar .cal-ico-btn,.topbar .hdr-ico{width:40px;height:40px;min-width:40px;min-height:40px;max-width:40px;padding:0}
   .logo{font-size:26px}
   .menu{min-height:88vh;gap:10px;padding:12px 0}
   .btn-primary{min-height:56px;font-size:19px}
@@ -663,6 +664,7 @@ import {
   useClearBoard, useUndoMove,        // v2.24 Clear board + Undo
   buyIdleUpgrade, tickIdle, applyOffline, colorsUnlocked,
   buyColor, colorPrice, colorRunCap, tipPrice, previewPrice, skillUsePrice, skillUseCount, // v2.22 pay-per-use
+  SKILL_BAR_ORDER, // v2.24.7: fixed bar, sorted once by starting price
   serializeState, deserializeState, importSave, mulberry32,
   // v2 — R13/R14/R15: roster, cascada, baldosas, preview
   ROSTER, resolveCascade, activateTile, runTilePrice, previewPool, pay,
@@ -859,16 +861,16 @@ function renderRun(){
     <div class="scene active${won?' dim':''}">
       <div class="topbar">
         <div class="chip" title="Coins">🪙<span id="coinNum">${fmt(state.progress.coins)}</span></div>
-        <button type="button" class="cal-ico-btn" id="calStrip" data-tone="calm" aria-expanded="false" aria-controls="calPop" aria-label="Incoming calamity">
+        <button type="button" class="cal-ico-btn hdr-ico" id="calStrip" data-tone="calm" aria-expanded="false" aria-controls="calPop" aria-label="Incoming calamity">
           <span class="cal-mark" id="calIco" aria-hidden="true">I</span>
         </button>
         <span id="queueCount" class="queuecount" title="Guests served" aria-label="Guests served">0/100</span>
         <div class="hdr-tools">
           ${muteBtnMarkup()}
-          <button type="button" class="iconbtn" id="btnHelp" aria-label="How to play" title="How to play">❓</button>
-          <button class="iconbtn" id="btnSave" aria-label="Save" title="Save">💾</button>
-          <button type="button" class="iconbtn chrome-rot" id="btnRotate" title="Rotate board 90°" aria-label="Rotate board 90°"><span class="rot-stack" aria-hidden="true"><span class="rot-arrow">↻</span><span class="rot-deg">90°</span></span></button>
-          <button type="button" class="chrome-hold" id="btnClose" title="Hold 3s to restart" aria-label="Hold 3s to restart"><span class="hold-label">Hold 3s</span></button>
+          <button type="button" class="iconbtn hdr-ico" id="btnHelp" aria-label="How to play" title="How to play">❓</button>
+          <button type="button" class="iconbtn hdr-ico" id="btnSave" aria-label="Save" title="Save">💾</button>
+          <button type="button" class="iconbtn chrome-rot hdr-ico" id="btnRotate" title="Rotate board 90°" aria-label="Rotate board 90°"><span class="rot-stack" aria-hidden="true"><span class="rot-arrow">↻</span><span class="rot-deg">90°</span></span></button>
+          <button type="button" class="iconbtn chrome-hold hdr-ico" id="btnClose" title="Hold 3s to restart" aria-label="Hold 3s to restart"><span class="hold-label">${flagMarkup()}</span></button>
         </div>
       </div>
       <div class="orders" id="orders"></div>
@@ -936,10 +938,13 @@ function speakerMarkup(muted){
     : '<path d="M15.6 9.1a3.4 3.4 0 0 1 0 5.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M18.1 6.8a6.2 6.2 0 0 1 0 10.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>';
   return `<svg class="mute-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M4 9.2h3.3L12 5.1v13.8l-4.7-4.1H4z"/>${extra}</svg>`;
 }
+function flagMarkup(){
+  return `<svg class="flag-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5.5 3.2v17.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M6.6 4.1h12.4l-2.5 4 2.5 4H6.6z" fill="#fff" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
+}
 function muteBtnMarkup(){
   const m = cafeAudioMuted();
   const aria = m ? 'Unmute music' : 'Mute music';
-  return `<button type="button" class="iconbtn mute-btn" id="btnMute" aria-pressed="${m?'true':'false'}" aria-label="${aria}" title="${aria}">${speakerMarkup(m)}</button>`;
+  return `<button type="button" class="iconbtn mute-btn hdr-ico" id="btnMute" aria-pressed="${m?'true':'false'}" aria-label="${aria}" title="${aria}">${speakerMarkup(m)}</button>`;
 }
 function bindMute(){
   const b=$('#btnMute'); if(!b) return;
@@ -1364,7 +1369,7 @@ function bindSkillHold(p){
 function renderPowers(){
   const box=$('#powerbar'); if(!box) return;
   // v2.22.1 — two rows, icon only. The next coin price sits under the icon.
-  const arr=[
+  const meta=[
     {skill:'destroyPile',icon:'power_destroy',mode:'destroy'},
     {skill:'swapPiles',icon:'power_swap',mode:'swap'},
     {skill:'refreshPool',icon:'power_refresh',mode:'refresh'},
@@ -1375,12 +1380,9 @@ function renderPowers(){
     {skill:'clearBoard',icon:'🧹',mode:'clear'},
     {skill:'undoMove',icon:'↩️',mode:'undo'},
   ];
-  // v2.24.6: cheapest first (top-left), priciest last. Ties keep the base
-  // order above, and a maxed Color goes last, so the bar only shifts when a
-  // price actually crosses another one.
-  arr.forEach((d,i)=>{ d.base=i; d.priceN=skillNextPrice(d.skill);
-    d.rank=(d.skill==='color' && colorLocked()) ? Infinity : d.priceN; });
-  arr.sort((a,b)=> (a.rank-b.rank) || (a.base-b.base));
+  // v2.24.7: one fixed order, sorted once by starting price. A price that
+  // grows during the run does not move the button.
+  const arr=SKILL_BAR_ORDER.map(id=>meta.find(d=>d.skill===id));
   box.innerHTML = arr.map(d=>{
     const priceN = skillNextPrice(d.skill);
     const n = skillUseCount(state, d.skill);
@@ -2229,7 +2231,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.6';
+const GAME_VERSION = 'v2.24.7';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, get boardHx(){ return boardHx(); } };
