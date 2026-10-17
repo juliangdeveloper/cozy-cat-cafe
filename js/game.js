@@ -1993,11 +1993,14 @@ export function finishedRunRecord(state) {
   const run = state && state.run;
   if (!run) return null;
   const served = run.clientsServed || 0;
+  const purse = state.progress && state.progress.coins;
   return {
     clientsServed: served,
     moneyStacks: run.moneyStacks || 0,
     pilesDealt: run.pilesDealt || 0,
     victory: run.phase === 'victory' || served >= totalClients(state),
+    // Purse when the run finished. Missing on older records; 0 is a real balance.
+    coins: Math.max(0, Math.floor(purse || 0)),
   };
 }
 
