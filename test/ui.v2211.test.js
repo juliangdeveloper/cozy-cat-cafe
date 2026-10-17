@@ -18,7 +18,7 @@ function sliceFn(name, next) {
 }
 
 test('version footer stays and reads v2.22.4', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.7'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.8'/);
   assert.match(html, /☕ Cozy Cat Café \$\{GAME_VERSION\}/);
   assert.match(html, /Hold 3s to restart/);
 });
@@ -28,11 +28,15 @@ test('status and rotate/restart share one chrome strip', () => {
   const top = run.indexOf('class="topbar"');
   const orders = run.indexOf('id="orders"');
   const header = run.slice(top, orders);
+  const barEnd = header.indexOf('class="cal-row"');
+  const topbar = header.slice(0, barEnd);
   assert.ok(header.includes('id="coinNum"'));
   assert.ok(header.includes('id="calStrip"'));
-  assert.ok(header.includes('class="cal-ico-btn hdr-ico"'));
+  assert.ok(header.includes('class="cal-row"'));
+  assert.equal(topbar.includes('id="calStrip"'), false);
   assert.equal(header.includes('cal-bar'), false);
   assert.equal(header.includes('id="calFill"'), false);
+  assert.equal(header.includes('rot-deg'), false);
   assert.ok(header.includes('id="queueCount"'));
   assert.ok(header.includes('id="btnSave"'));
   assert.ok(header.includes('id="btnRotate"'));
@@ -45,11 +49,12 @@ test('status and rotate/restart share one chrome strip', () => {
   const count = header.indexOf('id="queueCount"');
   const rotate = header.indexOf('id="btnRotate"');
   const restart = header.indexOf('id="btnClose"');
-  assert.ok(strip >= 0 && count > strip && rotate > count && restart > rotate);
+  assert.ok(count >= 0 && rotate > count && restart > rotate && strip > restart && orders > 0);
   assert.match(css, /\.topbar\{[^}]*flex-wrap:\s*nowrap/);
   assert.match(css, /\.cal-ico-btn\{[^}]*min-height:\s*40px/);
   assert.match(css, /\.cal-ico-btn\{[^}]*--cal-p/);
   assert.match(css, /color-mix\(in srgb, var\(--danger\)/);
+  assert.match(css, /\.cal-row \.cal-ico-btn\{[^}]*width:100%/);
   assert.doesNotMatch(css, /\.cal-strip\{/);
   assert.doesNotMatch(header, /class="cal-bar"/);
   assert.match(css, /\.chrome-hold\{[^}]*min-height:\s*40px/);
