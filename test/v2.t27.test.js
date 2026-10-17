@@ -123,9 +123,10 @@ test('a current save drops a leftover Waiter skill on load', () => {
 
 test('tips, chalkboard, and tables stay uncapped; color stops at the palette', () => {
   let s = open();
-  assert.equal(G.colorPrice(s), priceAt(0));
+  assert.equal(G.colorPrice(s), 1000);
+  s.progress.coins += 1000;
   s = G.buyColor(s);
-  assert.equal(G.colorPrice(s), priceAt(1));
+  assert.equal(G.colorPrice(s), 1000 * 1.6);
   assert.equal(G.tipPrice(s), priceAt(0));
   s = G.buyMultiplier(s);
   assert.equal(G.tipPrice(s), priceAt(1));
@@ -142,13 +143,14 @@ test('tips, chalkboard, and tables stay uncapped; color stops at the palette', (
   s.economy.multLevel = 4;
   s.skills.previewPool.level = 4;
   const expect = priceAt(4);
-  for (const id of ['destroyPile', 'swapPiles', 'refreshPool', 'queueSkip', 'tables', 'color', 'tips', 'previewPool']) {
+  assert.equal(G.skillUsePrice(s, 'color'), 1000 * 1.6 ** 4);
+  for (const id of ['destroyPile', 'swapPiles', 'refreshPool', 'queueSkip', 'tables', 'tips', 'previewPool']) {
     assert.equal(G.skillUsePrice(s, id), expect, id);
   }
   // v2.24.5: Unlock starts at 10000.
   assert.equal(G.skillUsePrice(s, 'unlockLocks'), 10000 * 1.6 ** 4);
   assert.equal(G.runTilePrice(s), expect);
-  assert.equal(G.colorPrice(s), expect);
+  assert.equal(G.colorPrice(s), 1000 * 1.6 ** 4);
   assert.equal(G.tipPrice(s), expect);
   assert.equal(G.previewPrice(s), expect);
 

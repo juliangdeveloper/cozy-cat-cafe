@@ -487,7 +487,12 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   body{font-size:14px}
   /* v2.22.1 — una sola tira: estado + rotar + hold. Controles ≥40px. */
   .topbar{padding:2px 0;flex-wrap:nowrap;gap:2px}
-  .topbar .cal-ico-btn{width:40px;height:40px;min-width:40px;min-height:40px}
+  /* v2.24.6: the ❓ help button joins the strip; tools shrink so the purse stays whole */
+  .topbar .chip{flex:0 0 auto;white-space:nowrap}
+  .hdr-tools .iconbtn{width:34px;min-width:34px}
+  .hdr-tools .iconbtn.mute-btn{width:34px;min-width:34px}
+  .topbar .cal-ico-btn{width:34px;min-width:34px}
+  .topbar .cal-ico-btn{width:34px;height:40px;min-width:34px;min-height:40px}
   .topbar .chip{font-size:13px;padding:2px 6px;min-width:0;min-height:40px}
   .chip{font-size:13px;padding:2px 7px;min-width:0}
   .chip.sm{font-size:10px;padding:2px 5px}
@@ -549,6 +554,7 @@ body.tut-on .tut-spot-block{pointer-events:none!important}
 body.tut-on .topbar{z-index:90}
 body.tut-on .topbar .chip,
 body.tut-on .topbar #btnSave,
+body.tut-on .topbar #btnHelp,
 body.tut-on .topbar #btnRotate,
 body.tut-on .topbar #btnClose{pointer-events:none}
 body.tut-on .topbar #btnMute{pointer-events:auto}
@@ -1172,6 +1178,8 @@ const CONFIG = {
   // v2.24 — Clear board no usa SKILL_USE_BASE. Precio = 10000 × 1.6^n.
   CLEAR_BOARD_BASE: 10000,
   UNLOCK_LOCKS_BASE: 10000,         // v2.24.5
+  COLOR_SKILL_BASE: 1000,           // v2.24.6: Color arranca en 1000 (×1.6)
+  UNDO_HISTORY_MAX: 200,            // v2.24.6: tope de memoria del historial de undo
   MAX_COLORS: 10,                   // R13.7 10 colores / criaturas en el ROSTER (R13.2)
   // v2.23 — cada run sortea este subconjunto del roster. El desbloqueo
   // gradual (bolsa, rosterIndex, colorsOwned) vive DENTRO de esos colores.
@@ -1180,7 +1188,9 @@ const CONFIG = {
   RUN_COLORS: 8,
   RUN_HISTORY_MAX: 20,              // últimas runs terminadas en el save
   DEBRIS_THRESHOLD: 10,             // v2 escombros: umbral para entrar en tablero
-  DEBRIS_BONUS_PER: 25,             // v2 escombros: bonus por escombro limpiado
+  DEBRIS_BONUS_PER: 25,
+  DEBRIS_BIG_OVER: 10,              // v2.24.6: runs de MÁS de 10 pagan ×4
+  DEBRIS_BIG_MULT: 4,             // v2 escombros: bonus por escombro limpiado
   CASCADE_STEP_MS: 600,             // v2.2.1: ms entre eslabones (antes 1600 — muy lento para seguir el orden)
   TABLES_HOLD_MS: 550,              // v2.17: press-and-hold Tables → batch activateAroundUnlocked
   CLOSE_HOLD_MS: 3000,              // Hold 3s restarts the run; coins do not carry over
@@ -2327,7 +2337,8 @@ function skillUsePrice(state, power) {
   // Clear board is the one skill with its own base (10000, not 40).
   // v2.24.5: Unlock 🔓 also starts at 10000.
   const base = power === 'clearBoard' ? CONFIG.CLEAR_BOARD_BASE
-    : power === 'unlockLocks' ? CONFIG.UNLOCK_LOCKS_BASE : CONFIG.SKILL_USE_BASE;
+    : power === 'unlockLocks' ? CONFIG.UNLOCK_LOCKS_BASE
+    : power === 'color' ? CONFIG.COLOR_SKILL_BASE : CONFIG.SKILL_USE_BASE;
   return base * CONFIG.SKILL_USE_RATIO ** n;
 }
 
@@ -2336,8 +2347,17 @@ function skillUsePrice(state, power) {
 // (the action's coins come back) and only then subtracts the Undo fee.
 function rememberUndo(s) {
   if (!s || !s.run) return;
+  // v2.24.6: historial completo. Cada snapshot se guarda sin su propio
+  // historial (sin anidar); la pila vive en run.undoStack.
+  const stack = Array.isArray(s.run.undoStack) ? s.run.undoStack : [];
+  delete s.run.undoStack;
+  if (s.run.undoSnap) { stack.push(s.run.undoSnap); }
   delete s.run.undoSnap;
-  s.run.undoSnap = clone(s);
+  const snap = clone(s);
+  stack.push(snap);
+  const max = CONFIG.UNDO_HISTORY_MAX || 200;
+  while (stack.length > max) stack.shift();
+  s.run.undoStack = stack;
 }
 
 // Funds check, then snapshot, then charge. The snapshot must precede the
@@ -2526,6 +2546,12 @@ function rngFallback() { return Math.random; }
 // Retorna índices de celdas tocadas. NO reentra merge: se llama SOLO tras
 // estabilizar merges/auto-serves de la acción del jugador.
 // ---------------------------------------------------------------------------
+// v2.24.6: pago de un run destruido. <=10 igual que antes; >10 paga ×4.
+function debrisPay(runLen) {
+  const base = CONFIG.DEBRIS_BONUS_PER * runLen;
+  return runLen > CONFIG.DEBRIS_BIG_OVER ? base * CONFIG.DEBRIS_BIG_MULT : base;
+}
+
 function sweepDebrisRuns(board, progress) {
   const hit = [];
   if (!Array.isArray(board)) return hit;
@@ -2540,7 +2566,7 @@ function sweepDebrisRuns(board, progress) {
       const runLen = k - j;
       if (runLen >= CONFIG.DEBRIS_THRESHOLD) {
         st.splice(j, runLen);
-        if (progress) progress.coins += CONFIG.DEBRIS_BONUS_PER * runLen;
+        if (progress) progress.coins += debrisPay(runLen);
         hit.stacks = (hit.stacks || 0) + 1;
         touched = true;
       } else {
@@ -2953,10 +2979,29 @@ function useClearBoard(state) {
 // (40 × 1.6^n) and count this use. Undo does not snapshot itself, and the
 // stack is cleared, so a second tap cannot refund the fee. If the restored
 // purse cannot cover the fee, nothing changes.
+function undoStackOf(state) {
+  const run = state && state.run;
+  if (!run) return [];
+  const st = Array.isArray(run.undoStack) ? run.undoStack.slice() : [];
+  if (run.undoSnap) st.push(run.undoSnap);   // save v2.24.0–v2.24.5 (un nivel)
+  return st;
+}
+
+// v2.24.6 — the purse Undo would return to (top of the history), or null.
+function undoTopCoins(state) {
+  const st = undoStackOf(state);
+  const top = st[st.length - 1];
+  return top && top.progress ? (top.progress.coins || 0) : null;
+}
+
+// v2.24.6: unlimited depth. Each tap pops one snapshot. The fee is also
+// taken from every older snapshot still in the stack, so a later Undo
+// never refunds an Undo fee already paid.
 function useUndoMove(state) {
   const s = clone(state);
   if (!s.run) return { error: 'noRun' };
-  const snap = s.run.undoSnap;
+  const stack = undoStackOf(s);
+  const snap = stack.pop();
   if (!snap || !snap.run || !snap.progress) return { error: 'nothingToUndo' };
   const n = skillUseCount(s, 'undoMove');
   const price = skillUsePrice(s, 'undoMove');
@@ -2964,6 +3009,10 @@ function useUndoMove(state) {
   if (restored < price) return { error: 'noFunds' };
   const next = clone(snap);
   delete next.run.undoSnap;
+  for (const old of stack) {
+    if (old && old.progress) old.progress.coins = (old.progress.coins || 0) - price;
+  }
+  next.run.undoStack = stack;
   next.progress.coins = restored - price;
   if (!next.run.skillUses) next.run.skillUses = {};
   next.run.skillUses.undoMove = n + 1;
@@ -3132,6 +3181,7 @@ function beginVictory(state) {
   s.run.victoryBonus = bonus;
   // The winning move is not rewound. Restart opens a fresh run anyway.
   delete s.run.undoSnap;
+  delete s.run.undoStack;
   // The sitting is finished. Archive it once so the save modal can show it
   // before Hold 3s, and so restart does not record it a second time.
   s.run.archived = true;
@@ -3298,7 +3348,19 @@ const ui = { slot:false, mode:null, swapFirst:null, servingOrder:null, placeTile
 
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
-const fmt = n => Math.max(0, Math.floor(n||0)).toLocaleString('en-US');
+// v2.24.6: 1000+ abbreviated (1K, 1.5K, 1M, 1B, 1T, then 1e15 style).
+const fmt = n => {
+  const v = Math.max(0, Math.floor(n||0));
+  if(v < 1000) return String(v);
+  const U = ['K','M','B','T','Qa','Qi','Sx','Sp','Oc','No','Dc'];
+  let i = -1, x = v;
+  while(x >= 1000 && i < U.length-1){ x /= 1000; i++; }
+  // floor to 1 decimal so the label never overstates the purse
+  let d = Math.floor(x*10)/10;
+  if(d >= 1000 && i < U.length-1){ d = 1; i++; }
+  const t = (d >= 100 ? Math.floor(d) : d).toString();
+  return t.replace(/\.0$/,'')+U[i];
+};
 const TILE_CSS = {1:'--tile-mint',2:'--tile-blue',3:'--tile-pink',4:'--tile-blush',5:'--tile-lavender',6:'--tile-cream',
   7:'--tile-denim',8:'--tile-teal',9:'--tile-pine',10:'--tile-orchid'}; // v2.6.1: 7..10 existian en game.js pero caian al fallback mint
 function faceColor(logical){ return runFaceColor(state, logical); }
@@ -3464,6 +3526,7 @@ function renderRun(){
         <span id="queueCount" class="queuecount" title="Guests served" aria-label="Guests served">0/100</span>
         <div class="hdr-tools">
           ${muteBtnMarkup()}
+          <button type="button" class="iconbtn" id="btnHelp" aria-label="How to play" title="How to play">❓</button>
           <button class="iconbtn" id="btnSave" aria-label="Save" title="Save">💾</button>
           <button type="button" class="iconbtn chrome-rot" id="btnRotate" title="Rotate board 90°" aria-label="Rotate board 90°"><span class="rot-stack" aria-hidden="true"><span class="rot-arrow">↻</span><span class="rot-deg">90°</span></span></button>
           <button type="button" class="chrome-hold" id="btnClose" title="Hold 3s to restart" aria-label="Hold 3s to restart"><span class="hold-label">Hold 3s</span></button>
@@ -3483,6 +3546,7 @@ function renderRun(){
       <div class="foot">☕ Cozy Cat Café ${GAME_VERSION}</div>
     </div>`;
   $('#btnSave').onclick=showSave;
+  const hb=$('#btnHelp'); if(hb) hb.onclick=()=>{ if(ui.anim||tutActive) return; ui.mode=null; ui.slot=false; ui.servingOrder=null; renderAll(); startTutorial(); };
   bindMute();
   bindRotateBoard();
   bindCloseHold();
@@ -3879,9 +3943,9 @@ function skillNextPrice(id){
 // Undo spends from the purse the move returns to, not from the coins on screen.
 function skillUnaffordable(id, priceN){
   if(id==='undoMove'){
-    const snap=state.run && state.run.undoSnap;
-    if(!snap || !snap.progress) return false;
-    return (snap.progress.coins||0) < priceN;
+    const top=undoTopCoins(state);
+    if(top==null) return false;
+    return top < priceN;
   }
   return state.progress.coins < priceN;
 }
@@ -3972,11 +4036,17 @@ function renderPowers(){
     {skill:'clearBoard',icon:'🧹',mode:'clear'},
     {skill:'undoMove',icon:'↩️',mode:'undo'},
   ];
+  // v2.24.6: cheapest first (top-left), priciest last. Ties keep the base
+  // order above, and a maxed Color goes last, so the bar only shifts when a
+  // price actually crosses another one.
+  arr.forEach((d,i)=>{ d.base=i; d.priceN=skillNextPrice(d.skill);
+    d.rank=(d.skill==='color' && colorLocked()) ? Infinity : d.priceN; });
+  arr.sort((a,b)=> (a.rank-b.rank) || (a.base-b.base));
   box.innerHTML = arr.map(d=>{
     const priceN = skillNextPrice(d.skill);
     const n = skillUseCount(state, d.skill);
     const broke = skillUnaffordable(d.skill, priceN);
-    const depleted = (d.skill==='undoMove' && !(state.run && state.run.undoSnap))
+    const depleted = (d.skill==='undoMove' && !undoStackOf(state).length)
       || (d.skill==='color' && colorLocked());
     const help = d.skill==='tips' ? 'Served orders pay more.'
       : (d.skill==='color' && colorLocked() ? colorLockedLine() : SKILL_BLURB[d.skill]);
@@ -4038,7 +4108,7 @@ function clearBoardFlow(){
   renderAll();
 }
 function undoFlow(){
-  if(!(state.run && state.run.undoSnap)){ toast(ERRT.nothingToUndo); return; }
+  if(!undoStackOf(state).length){ toast(ERRT.nothingToUndo); return; }
   const r=useUndoMove(state);
   if(r.error){ err(r); return; }
   state=r; ui.mode=null; ui.swapFirst=null; ui.slot=false;
@@ -4820,7 +4890,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.5';
+const GAME_VERSION = 'v2.24.6';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, get boardHx(){ return boardHx(); } };
