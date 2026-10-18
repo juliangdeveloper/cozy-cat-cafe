@@ -159,6 +159,13 @@ test('mute persists, the loop waits for a gesture, and effects share that mute',
   music._playing = false; // buffer not audible yet — a second render must not stack the loop
   amb.noteCafeOpen();
   assert.equal(music.playCalls, 1);
+  onPointer({ type: 'pointerdown', pointerType: 'touch', target: { closest: () => null } });
+  assert.equal(music.playCalls, 1, 'a touch pointerdown is not allowed to start the loop');
+  for (const fn of listeners.pointerup || []) {
+    fn({ type: 'pointerup', pointerType: 'touch', target: { closest: () => null } });
+  }
+  assert.equal(music.playCalls, 2, 'the loop starts on the touch pointerup');
+  assert.equal(music.playing(), true);
 
   amb.playCafeSfx('stack');
   const stack = created.find((h) => h.opts && String(h.opts.src).includes('sfx-stack'));
@@ -264,6 +271,23 @@ test('mute persists, the loop waits for a gesture, and effects share that mute',
   const again = created.filter((h) => h.opts && h.opts.loop).at(-1);
   assert.equal(again.playing(), true);
   assert.equal(muteKey(), '0');
+
+  // A phone reports hasFocus() false while the café is on screen.
+  globalThis.window.matchMedia = (q) => ({ matches: String(q).includes('coarse'), media: String(q) });
+  globalThis.document._focus = false;
+  globalThis.document.visibilityState = 'visible';
+  await new Promise((r) => setTimeout(r, 450));
+  fire('win:blur');
+  assert.equal(again.playing(), true, 'a visible phone keeps the loop when focus is false');
+  assert.equal(muteKey(), '0');
+  globalThis.document.visibilityState = 'hidden';
+  fire('visibilitychange');
+  assert.equal(again.playing(), false, 'hiding the phone still pauses the loop');
+  globalThis.document.visibilityState = 'visible';
+  globalThis.document._focus = true;
+  delete globalThis.window.matchMedia;
+  fire('visibilitychange');
+  assert.equal(again.playing(), true, 'showing the phone starts the loop again');
 
   assert.equal(amb.toggleCafeAudio(), true);
   assert.equal(muteKey(), '1');
