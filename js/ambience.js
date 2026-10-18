@@ -132,21 +132,36 @@ function ambHowlerReady() {
   return typeof Howl === 'function' && typeof Howler !== 'undefined';
 }
 
-// Page Visibility is the reliable signal: background tab, minimized window,
-// and a phone sending the browser to the background all set visibilityState
-// to "hidden". Another desktop window can take focus while this tab stays
-// "visible", so document.hasFocus() covers that case. Mobile blur/focus is
-// not reliable on its own (it can miss an app switch, or fire for browser
-// UI), so a blur only counts when hasFocus() agrees. This is not the Mute
-// button and must not write cozy-cat-cafe.audio.mute.
+// A hidden page (background tab, minimized window, phone app switch) is silent.
+// On a desktop, another window can cover this tab while it stays "visible",
+// so hasFocus() covers that. A phone reports hasFocus() false the whole time
+// the café is on screen, so a coarse pointer that is still visible keeps playing.
+// This is not the Mute button and must not write cozy-cat-cafe.audio.mute.
+function ambCoarseScreen() {
+  try {
+    return !!(typeof window !== 'undefined' && window.matchMedia
+      && window.matchMedia('(pointer: coarse)').matches);
+  } catch (e) { return false; }
+}
 function ambHearable() {
   if (typeof document === 'undefined') return true;
   if (document.visibilityState === 'hidden') return false;
   // The tap that opened the shop is still this gesture. Focus may dip while
   // the page rebuilds; that is not "the window went away."
   if (Date.now() - ambGestureAt < 400) return true;
+  if (ambCoarseScreen()) return true;
   if (typeof document.hasFocus === 'function' && document.hasFocus() === false) return false;
   return true;
+}
+// iPhone only grants media playback on touchend, click, keydown, or a
+// pointerup whose pointer is not a mouse. pointerdown is a gesture for a
+// mouse only, so a touch pointerdown must not call play().
+function ambGesturePlays(e) {
+  if (!e || !e.type) return true;
+  if (e.type === 'keydown' || e.type === 'click' || e.type === 'touchend') return true;
+  if (e.type === 'pointerup') return e.pointerType !== 'mouse';
+  if (e.type === 'pointerdown') return e.pointerType !== 'touch' && e.pointerType !== 'pen';
+  return false;
 }
 
 // iOS keeps the Web Audio context suspended until a gesture resumes it.
@@ -186,7 +201,13 @@ function ambPrimeHtml5(howl) {
     if (!ambMuted) node.volume = ambMusicVol;
     const pending = node.play();
     if (pending && typeof pending.catch === 'function') {
-      pending.catch(() => {
+      pending.catch((err) => {
+        // A touch pointerdown is not allowed to start audio. Stay on HTML5
+        // and try again from the real tap instead of the silent Web Audio path.
+        if (err && err.name === 'NotAllowedError') {
+          ambInFlight = false;
+          return;
+        }
         if (ambMusic === howl && ambMusicHtml5 && !ambMusicPlaying()) ambFailMusic();
       });
     }
@@ -210,13 +231,40 @@ function ambRecreateMusic() {
 
 let ambFailing = false;
 let ambSfxWanted = '';
+// GitHub Pages serves the mp3 as audio/mp3. iOS plays audio/mpeg, so the phone
+// gets a blob of that type when it cannot play the ogg loop.
+let ambMp3Blob = '';
+
+function ambOggOk() {
+  try {
+    if (typeof document === 'undefined' || typeof document.createElement !== 'function') return false;
+    const probe = document.createElement('audio');
+    return !!(probe && probe.canPlayType && probe.canPlayType('audio/ogg; codecs="vorbis"'));
+  } catch (e) { return false; }
+}
+function ambPrefetchMp3() {
+  if (ambMp3Blob) return;
+  const url = './assets/audio/hybrid-sunlatte-90s.mp3';
+  if (url.indexOf('data:') === 0) { ambMp3Blob = url; return; }
+  const fetchFn = typeof window !== 'undefined' && typeof window.fetch === 'function' ? window.fetch.bind(window) : null;
+  if (!fetchFn || typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') return;
+  fetchFn(url).then((res) => (res && res.ok ? res.arrayBuffer() : null)).then((buf) => {
+    if (!buf || ambMp3Blob) return;
+    ambMp3Blob = URL.createObjectURL(new Blob([buf], { type: 'audio/mpeg' }));
+  }).catch(() => {});
+}
+function ambLoopChoice() {
+  if (ambMp3Blob && !ambOggOk()) return { src: [ambMp3Blob].concat(ambLoopSrc), format: ['mp3'].concat(ambLoopFmt) };
+  return { src: ambLoopSrc, format: ambLoopFmt };
+}
 
 function ambEnsure() {
   if (!ambHowlerReady()) return false;
   if (!ambMusic) {
+    const loop = ambLoopChoice();
     ambMusic = new Howl({
-      src: ambLoopSrc,
-      format: ambLoopFmt,
+      src: loop.src,
+      format: loop.format,
       loop: true,
       volume: ambMusicVol,
       // HTML5 audio decodes this loop where the Web Audio buffer stays silent.
@@ -285,6 +333,15 @@ function ambFailMusic() {
   ambFailing = true;
   ambInFlight = false;
   try {
+    // The long loop is audible through HTML5 on a phone. Web Audio decodes it
+    // to silence there, so a coarse screen retries the same element.
+    if (ambMusicHtml5 && ambCoarseScreen()) {
+      const chosen = ambMusic && ambMusic._src;
+      if (ambMp3Blob && chosen && chosen[0] !== ambMp3Blob) ambRecreateMusic();
+      ambEnsure();
+      ambScheduleRetry();
+      return;
+    }
     if (ambMusicHtml5) {
       ambMusicHtml5 = false;
       ambRecreateMusic();
@@ -450,17 +507,21 @@ function ambOnGesture(e) {
   ambUnlocked = true;
   // A stuck first play() must not keep the rest of the session silent.
   if (ambMusic && !ambMusicPlaying()) ambInFlight = false;
+  if (!ambGesturePlays(e)) return;
   ambEnsure();
   ambResumeCtx();
   if (!muteTap) ambStartMusic();
 }
 
 export function bindCafeAudio() {
+  ambPrefetchMp3();
   ambMuted = ambReadMute();
   if (ambHowlerReady() && typeof Howler.mute === 'function') Howler.mute(ambMuted);
   if (ambGestureBound || typeof document === 'undefined' || !document.addEventListener) return;
   ambGestureBound = true;
   document.addEventListener('pointerdown', ambOnGesture, true);
+  document.addEventListener('pointerup', ambOnGesture, true);
+  document.addEventListener('touchend', ambOnGesture, true);
   document.addEventListener('keydown', ambOnGesture, true);
   document.addEventListener('visibilitychange', ambSyncHearing);
   const host = typeof window !== 'undefined' ? window : null;

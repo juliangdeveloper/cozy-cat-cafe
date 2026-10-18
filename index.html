@@ -26,9 +26,14 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;height:100%;overflow:hidden}
 body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
-  min-height:100vh;min-height:100dvh;touch-action:manipulation}
-#app{max-width:560px;margin:0 auto;padding:0 10px calc(12px + env(safe-area-inset-bottom));
-  height:100dvh;max-height:100dvh;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+  height:100%;touch-action:manipulation}
+/* v2.24.12 — the café is the 375×812 phone frame, scaled to the viewport. */
+#stage{position:fixed;inset:0;overflow:hidden;background:var(--bg-primary)}
+#frame{position:absolute;left:50%;top:50%;width:375px;height:812px;overflow:hidden;
+  transform-origin:center center;
+  transform:translate(-50%, -50%) scale(min(100vw / 375px, 100dvh / 812px))}
+#app{width:100%;height:100%;max-width:none;margin:0;padding:0 10px calc(12px + env(safe-area-inset-bottom));
+  display:flex;flex-direction:column;min-height:0;overflow:hidden}
 
 /* top bar */
 .topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;flex-wrap:nowrap;gap:4px;
@@ -439,7 +444,6 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .cf{position:absolute;width:9px;height:9px;border-radius:2px;opacity:0;animation:conf .85s ease-out forwards}
 @keyframes conf{0%{opacity:1;transform:translate(0,0) rotate(0)}60%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(720deg)}}
 
-@media(min-width:720px){#app{max-width:680px}}
 /* v2.4: tablero RECTÁNGULO 8×4 pointy (32 celdas, 4 filas de 8) — extensión
    real del panal ≈ 16.7hx (8 columnas √3·hx + offset de fila impar 0.866·hx,
    con margen). El criterio es "máximo hx que quepa": hx = floor((vw-20)/16.7),
@@ -473,26 +477,14 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
    (hx fraccional imposible: el pitch del panal exige enteros)
    v2.24.4: these breakpoints size the TRAY bevel only (--hx on :root).
    The board's --hx is computed from .board-wrap (width and height), max 60. */
-:root{ --hx:32px; }                          /* tray bevel; board hx is fitted in JS */
-@media(min-width:761px){:root{--hx:60px}}    /* 60·11.526=692 <= 741 */
-@media(max-width:720px){:root{--hx:35px}}    /* 35·11.526=403 <= 421 (vw 433+) */
-@media(max-width:432px){:root{--hx:33px}}    /* 33·11.526=380 <= 393 (vw 405+) */
-@media(max-width:404px){:root{--hx:32px}}
-@media(max-width:387px){:root{--hx:31px}}    /* 357 <= 361 (vw 373+) */
-@media(max-width:372px){:root{--hx:30px}}
-@media(max-width:357px){:root{--hx:28px}}
-@media(max-width:341px){:root{--hx:27px}}
-@media(max-width:325px){:root{--hx:25px}}
-@media(max-width:309px){:root{--hx:24px}}
-@media(max-width:293px){:root{--hx:23px}}
-@media(max-width:281px){:root{--hx:17px}}
+:root{ --hx:31px; }                          /* tray bevel at 375px; the board hx is fitted in JS */
 
 /* ============================================================
    MOBILE-FIRST (<=560px): board-first, powerbar sticky inferior,
    pedidos compactos, densidad -20%, font-ui 14px. El tablero es
    lo primero: idle queda plegado (<details>) por defecto.
    ============================================================ */
-@media(max-width:560px){
+/* Phone chrome. The frame is 375px wide, so this is the only layout. */
   #app{padding:0 0 calc(2px + env(safe-area-inset-bottom))}
   body{font-size:14px}
   /* v2.24.8 — header is one row. Calamity has its own row above the clients. */
@@ -544,7 +536,6 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   .collap summary::-webkit-details-marker{display:none}
   .collap summary::before{content:'▸ '}
   .collap[open] summary::before{content:'▾ '}
-}
 @media(hover:none){.btn:hover{transform:none;filter:none}}
 @media(prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01s!important;transition:none!important}}
 
@@ -582,6 +573,7 @@ body.tut-on .powerbar.tut-spot{z-index:90}
 </style>
 </head>
 <body>
+<div id="stage"><div id="frame">
 <div id="app"></div>
 <div id="toast" class="toast"></div>
 
@@ -656,6 +648,7 @@ body.tut-on .powerbar.tut-spot{z-index:90}
   </div>
 </div>
 
+</div></div>
 <script src="./vendor/howler.min.js"></script>
 <script type="module">
 // ===========================================================================
@@ -802,18 +795,35 @@ const COIN_GAIN_MS = 2400;
 // inside the viewport: the counter sits on the top edge, and a cell at the
 // board's side would otherwise lose a 36px "+70 🪙" to overflow.
 const COIN_GAIN_RISE = 28;
+function frameMetrics(){
+  const frame=document.getElementById('frame');
+  if(!frame) return {s:1,w:innerWidth,h:innerHeight,l:0,t:0,host:document.body};
+  const r=frame.getBoundingClientRect();
+  const s=r.width/(frame.offsetWidth||375)||1;
+  return {s,w:frame.clientWidth,h:frame.clientHeight,l:r.left,t:r.top,host:frame};
+}
+function fitFrame(){
+  const frame=document.getElementById('frame');
+  if(!frame) return;
+  const vv=window.visualViewport;
+  const vw=vv?vv.width:document.documentElement.clientWidth;
+  const vh=vv?vv.height:document.documentElement.clientHeight;
+  const scale=Math.min(vw/375, vh/812);
+  frame.style.transform='translate(-50%, -50%) scale('+scale+')';
+}
 function pinCoinGain(el, e){
-  document.body.appendChild(e);
+  const box=frameMetrics();
+  box.host.appendChild(e);
   const r = el.getBoundingClientRect();
   const w = e.offsetWidth, h = e.offsetHeight;
   // coinPop peaks at scale 1.22, which paints past the layout box.
   const padX = 8 + Math.ceil(w * 0.11);
   const padY = 8;
-  let left = r.left + r.width / 2 - w / 2;
-  let top = r.top + Math.min(r.height * 0.2, 18);
-  const maxLeft = Math.max(padX, window.innerWidth - w - padX);
+  let left = (r.left - box.l) / box.s + (r.width / box.s) / 2 - w / 2;
+  let top = (r.top - box.t) / box.s + Math.min((r.height / box.s) * 0.2, 18);
+  const maxLeft = Math.max(padX, box.w - w - padX);
   const minTop = padY + COIN_GAIN_RISE;
-  const maxTop = Math.max(minTop, window.innerHeight - h - padY);
+  const maxTop = Math.max(minTop, box.h - h - padY);
   left = Math.max(padX, Math.min(left, maxLeft));
   top = Math.max(minTop, Math.min(top, maxTop));
   e.style.position = 'fixed';
@@ -1624,16 +1634,17 @@ function flyHexes(fromIds,toId,color,qty){
   const board=$('#board'); if(!board) return;
   const to=document.querySelector(`#board .cell[data-id="${toId}"]`);
   if(!to) return;
+  const box=frameMetrics();
   const bR=board.getBoundingClientRect();
   const tR=to.getBoundingClientRect();
-  const x2=tR.left-bR.left+tR.width/2, y2=tR.top-bR.top+tR.height/2;
+  const x2=(tR.left-bR.left)/box.s+tR.width/box.s/2, y2=(tR.top-bR.top)/box.s+tR.height/box.s/2;
   const c=tileVar(color);
   const n=Math.max(1,Math.min(qty||1,6));
   for(let i=0;i<n;i++){
     const from=document.querySelector(`#board .cell[data-id="${fromIds[i%fromIds.length]}"]`);
     if(!from) continue;
     const fR=from.getBoundingClientRect();
-    const x1=fR.left-bR.left+fR.width/2, y1=fR.top-bR.top+fR.height/2;
+    const x1=(fR.left-bR.left)/box.s+fR.width/box.s/2, y1=(fR.top-bR.top)/box.s+fR.height/box.s/2;
     setTimeout(()=>{
       const e=document.createElement('div');
       e.className='flyhex';
@@ -1652,11 +1663,12 @@ function flyToClient(order,cellId){
   const cell=document.querySelector(`#board .cell[data-id="${cellId}"]`);
   const card=document.querySelector(`.order-card[data-oid="${order.id}"]`);
   if(!cell||!card) return;
+  const box=frameMetrics();
   const bR=board.getBoundingClientRect();
   const cR=cell.getBoundingClientRect(), kR=card.getBoundingClientRect();
-  const x1=cR.left-bR.left+cR.width/2, y1=cR.top-bR.top+cR.height/2;
+  const x1=(cR.left-bR.left)/box.s+cR.width/box.s/2, y1=(cR.top-bR.top)/box.s+cR.height/box.s/2;
   // el cliente vive FUERA del board => volar hacia la esquina superior (dir de la fila de pedidos)
-  const x2=kR.left-bR.left+kR.width/2, y2=kR.top-bR.top+kR.height/2;
+  const x2=(kR.left-bR.left)/box.s+kR.width/box.s/2, y2=(kR.top-bR.top)/box.s+kR.height/box.s/2;
   const c=tileVar(order.color);
   const n=Math.max(1,Math.min(order.qty||1,6));
   for(let i=0;i<n;i++){
@@ -2200,14 +2212,19 @@ function positionTut(sel){
     return;
   }
   hole.hidden = false;
+  const box = frameMetrics();
   const r = el.getBoundingClientRect();
   const pad = 8;
-  hole.style.left = Math.max(4, r.left - pad) + 'px';
-  hole.style.top = Math.max(4, r.top - pad) + 'px';
-  hole.style.width = Math.min(window.innerWidth - 8, r.width + pad*2) + 'px';
-  hole.style.height = (r.height + pad*2) + 'px';
-  const midY = r.top + r.height/2;
-  if(midY > window.innerHeight * 0.42){
+  const left = (r.left - box.l) / box.s;
+  const top = (r.top - box.t) / box.s;
+  const w = r.width / box.s;
+  const h = r.height / box.s;
+  hole.style.left = Math.max(4, left - pad) + 'px';
+  hole.style.top = Math.max(4, top - pad) + 'px';
+  hole.style.width = Math.min(box.w - 8, w + pad*2) + 'px';
+  hole.style.height = (h + pad*2) + 'px';
+  const midY = top + h/2;
+  if(midY > box.h * 0.42){
     card.style.top = 'max(12px, env(safe-area-inset-top, 0px))';
     card.style.bottom = 'auto';
   } else {
@@ -2231,6 +2248,7 @@ function tutNext(){
   else { tutStep++; showTutStep(); }
 }
 window.addEventListener('resize', ()=>{
+  fitFrame();
   if(tutActive) showTutStep();
   const w=document.querySelector('.board-wrap');
   if(!w || !state || !state.run || ui.fitting) return;
@@ -2243,6 +2261,11 @@ window.addEventListener('resize', ()=>{
 window.addEventListener('orientationchange', ()=>{ if(tutActive) setTimeout(showTutStep, 120); });
 
 async function boot(){
+  fitFrame();
+  if(window.visualViewport){
+    visualViewport.addEventListener('resize', fitFrame);
+    visualViewport.addEventListener('scroll', fitFrame);
+  }
   const raw = localStorage.getItem(KEY);
   state = raw ? deserializeState(raw) : createGame();
   normalizeOrders(state);          // v2: saves viejos pueden traer pedidos sin cell
@@ -2265,10 +2288,11 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.11';
+const GAME_VERSION = 'v2.24.12';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
-window.__dbg = { get state(){ return state; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, get boardHx(){ return boardHx(); } };
+window.__dbg = { get state(){ return state; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, get boardHx(){ return boardHx(); } };
+fitFrame();
 window.addEventListener('load', boot);
 </script>
 </body>

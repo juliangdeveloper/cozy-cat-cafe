@@ -67,7 +67,7 @@ test('the skill bar is sorted once by starting price and stays put', () => {
 });
 
 test('restart is a white flag with a hold label, and header buttons match', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.11'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.12'/);
   assert.match(html, /aria-label="Hold 3s to restart"/);
   assert.match(html, /class="flag-ico"/);
   assert.match(html, /fill="#fff"/);
