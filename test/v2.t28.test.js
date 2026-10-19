@@ -217,8 +217,10 @@ test('finished runs keep best and worst, capped, across a restart', () => {
 });
 
 test('save modal, skill level, coin float, and defeat are in the page', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.22'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.23'/);
   assert.match(html, /id="runHistory"/);
+  assert.match(html, /#saveModal label\.btn\{display:flex;align-items:center;justify-content:center;text-align:center;\n  font-family:var\(--font-display\);font-weight:800;font-size:19px;color:var\(--ink\)\}/);
+  assert.match(html, /<label class="btn btn-sec">\n      Import save…/);
   assert.match(html, /function renderRunHistory/);
   assert.match(html, /topRuns\(hist/);
   assert.match(html, /Top 10 runs, best first/);
