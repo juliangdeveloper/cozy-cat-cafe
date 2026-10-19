@@ -249,8 +249,8 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 /* v2.24.4 — the wrap is the board's budget. JS sets --hx on #board so the
    lattice, including the stack lift, fits this box. Scroll only if the
    tappable minimum still cannot. Tray tiles do not inherit this size. */
-.board-wrap{flex:1 1 auto;min-height:0;min-width:0;overflow:hidden;padding:4px 2px;position:relative;z-index:1;
-  display:flex;align-items:flex-start;justify-content:center}
+.board-wrap{flex:1 1 auto;min-height:0;min-width:0;overflow:hidden;padding:4px 2px;position:relative;z-index:6;
+  display:flex;align-items:flex-start;justify-content:center;overflow-anchor:none}
 :root{ --hx:34px; --cw:calc(var(--hx)*1.732); --ch:calc(var(--hx)*2); }
 .board{position:relative;margin:0;flex:0 0 auto;--hexclip:var(--hex-pointy);
   --cw:calc(var(--hx)*1.732);--ch:calc(var(--hx)*2)}
@@ -458,7 +458,7 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 /* pool */
 /* v2.24.8: the tray paints above the board so a tall pile is never covered. */
 .pool{position:relative;z-index:12;overflow:visible;display:flex;align-items:flex-start;gap:6px;padding:8px;background:var(--wood);border:3px solid var(--ink);border-radius:14px;margin-top:6px;flex-shrink:0}
-.poolslot{flex:1;height:64px;display:flex;align-items:flex-end;justify-content:center;background:rgba(248,241,213,.5);
+.poolslot{flex:1;height:64px;display:flex;align-items:flex-end;justify-content:center;overflow:visible;background:rgba(248,241,213,.5);
   border:2px solid transparent;border-radius:10px;cursor:pointer}
 .poolslot.selected{background:var(--highlight);border:2px solid var(--accent)}
 .poolslot.drop{border:2px dashed var(--wood-dark)}
@@ -3078,6 +3078,21 @@ function stackLiftPadPx(hx) {
   return STACK_VISUAL_CAP * stackStepPx(hxN) + face + badgeHang;
 }
 
+// Pixels to move a tray stack UP so its painted center sits on the slot center.
+// `step`/`tileH`/`slotH` are CSS pixels. `bevel` hangs below the lowest tile
+// and `face` rises above the highest. A tall stack may return a small or
+// negative shift; the overflow is allowed and must not be clipped.
+function trayStackShiftPx(count, step, tileH, slotH, bevel, face) {
+  const n = count | 0;
+  if (n <= 0) return 0;
+  const b = Number(bevel) || 0;
+  const f = Number(face) || 0;
+  const visualBottom = -b;
+  const visualTop = (n - 1) * step + tileH + f;
+  const center = (visualBottom + visualTop) / 2;
+  return slotH / 2 - center;
+}
+
 // What the board paints for a pile. `layers` run bottom to top. `lift` is in
 // steps (pixels = lift * stackStepPx). A pile of 7 or more keeps the top 6
 // and parks everything under them on lift 0 as one base.
@@ -4735,7 +4750,10 @@ function renderBoard(){
   box.style.setProperty('--hx', hxN+'px');
   box.classList.toggle('food-lg', hxN >= 28);
   if(wrap){
-    wrap.style.overflow=needsScroll?'auto':'hidden';
+    // Visible, not a scrollport: a tall top pile must not drag the lattice down.
+    wrap.style.overflow=needsScroll?'auto':'visible';
+    wrap.style.overflowAnchor='none';
+    if(!needsScroll) wrap.scrollTop=0;
     wrap.style.clipPath='';
     wrap.dataset.boardHx=String(hxN);
     wrap.dataset.boardShift=shift.toFixed(1);
@@ -4748,12 +4766,16 @@ function renderBoard(){
     return { ...src, ...m.view(p.q,p.r) };
   });
   placed.sort((a,b)=>a.y-b.y||a.x-b.x);
+  const topY=placed.length?placed[0].y:0;
   let html='';
   let badges='';
   placed.forEach((v,zi)=>{
     const left=(v.x-m.minX);
     const top=(v.y-m.minY)+m.liftPad;
-    const cellBox=`position:absolute;left:${left}px;top:${top}px;width:${m.cw}px;height:${m.ch}px;z-index:${zi}`;
+    // A tall pile on the top row paints over the clients. It does not move the lattice.
+    const overhang=!v.slot && v.cell && v.cell.stack && v.cell.stack.length>=6 && v.y<=topY+0.01;
+    const z=overhang?40+zi:zi;
+    const cellBox=`position:absolute;left:${left}px;top:${top}px;width:${m.cw}px;height:${m.ch}px;z-index:${z}`;
     const flatCls=m.flat?' hex-flat':'';
     if(v.slot){
       html+=`<div class="cell expand-slot${flatCls}" data-pos="${v.p.q},${v.p.r}" title="Place table here" style="${cellBox}"><div class="hexbg"></div><div class="exicon">＋</div></div>`;
@@ -4797,6 +4819,26 @@ function renderPool(){
     ui.slot = (ui.slot===i)?false:i;
     renderPool(); renderBoard(); renderPoolSel();
   }));
+  centerTrayStacks();
+}
+function centerTrayStacks(){
+  const hxN=rootHx();
+  const bevel=hxN*0.055;
+  const face=hxN*0.015;
+  const step=trayStep();
+  $$('#pool .poolslot').forEach(slot=>{
+    const tray=slot.querySelector('.tray');
+    if(!tray) return;
+    const tiles=tray.querySelectorAll('.ttile');
+    const n=tiles.length;
+    if(!n) return;
+    const tileH=tiles[0].offsetHeight||parseFloat(getComputedStyle(tiles[0]).height)||0;
+    const slotH=slot.clientHeight||parseFloat(getComputedStyle(slot).height)||0;
+    if(!(tileH>0)||!(slotH>0)) return;
+    const up=trayStackShiftPx(n, step, tileH, slotH, bevel, face);
+    tray.style.transform=`translateY(${(-up).toFixed(2)}px)`;
+    tray.dataset.shift=up.toFixed(2);
+  });
 }
 function renderPoolSel(){ $$('#pool .poolslot').forEach(x=>x.classList.toggle('selected', +x.dataset.slot===ui.slot)); }
 function skillNextPrice(id){
@@ -5884,7 +5926,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.25';
+const GAME_VERSION = 'v2.24.26';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, set state(v){ state=v; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, maybeBoardShuffle, applyBoardShuffle, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, stackVisual, stackLiftPadPx, get boardHx(){ return boardHx(); } };
