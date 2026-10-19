@@ -280,6 +280,13 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .tface::before{content:"";position:absolute;inset:1.5px;
   background:linear-gradient(180deg,color-mix(in srgb,var(--tc),#fff 16%),var(--tc) 55%);
   clip-path:var(--hexclip)}
+/* Guest food on the top face. 16px keeps a 1:1 pixel grid on hex 22 and in
+   the tray. Hexes at 28 and up use 32px, a clean 2× of the same drawing. */
+.tfood{position:absolute;left:50%;top:50%;width:16px;height:16px;transform:translate(-50%,-56%);
+  z-index:2;pointer-events:none;display:block;line-height:0}
+.tfood svg{display:block;width:100%;height:100%}
+.board.food-lg .tile .tfood{width:32px;height:32px}
+.ttile .tfood{width:16px;height:16px;transform:translate(-50%,-60%)}
 /* Run count rides the top tile; the total sits on the front lip.
    Both are board-level so a front hex cannot cover them. */
 .runbadge,.totalbadge{position:absolute;z-index:80;pointer-events:none;display:inline-flex;
@@ -588,11 +595,11 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 @media(hover:none){.btn:hover{transform:none;filter:none}}
 @media(prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01s!important;transition:none!important}}
 @media(prefers-reduced-motion: reduce){.px-idle{animation:none!important;background-position:0 0!important}}
-/* 32px guest sheet drawn at 3× so it fills the square card. Whole pixels only.
-   The order badge stays in the corner and the name stays under the picture. */
-.order-card .px-avatar{width:96px;height:96px;flex:0 0 96px;overflow:hidden}
-.order-card .px-avatar .px32{display:block!important;width:96px!important;height:96px!important;
-  --fw:96px!important;background-size:384px 96px!important;image-rendering:pixelated}
+/* The name is gone, so the guest art fills the card. The card box stays the
+   same size. The count badge stays in the corner. */
+.order-card .px-avatar{width:100%;height:100%;flex:1 1 auto;min-height:0;max-height:100%;overflow:hidden}
+.order-card .px-avatar .px32{display:block!important;width:100%!important;height:100%!important;
+  --fw:100%!important;background-size:400% 100%!important;image-rendering:pixelated}
 .order-card .px-avatar .px28{display:none!important}
 
 /* v2.18 — first-run spotlight tutorial.
@@ -1209,14 +1216,12 @@ function renderOrders(){
   }
   box.innerHTML = vis.map((o)=>{
     // v2 R13.2: nombre del ROSTER — el pedido de una criatura usa SOLO su color
-    const name = creatureName(o.color||1);
     const ready = !o.served && orderIsReady(o);
     const sel = ui.servingOrder===o.id;
     return `<div class="order-card ${o.served?'served':''} ${ready?'ready':''} ${sel?'selected':''} ${o.legendary?'legendary':''}" data-oid="${o.id}"
       style="border-top:4px solid var(${tileVar(o.color)})">
       ${customerAvatar(o.color||1)}
       <div class="bubble">${o.qty}<span class="minitile" style="--mc:var(${tileVar(o.color)})"></span></div>
-      <div class="oname">${o.served?'✔ ':''}${name}</div>
       ${sel?'<div class="seltag">▼</div>':''}</div>`;
   }).join('');
   $$('#orders .order-card').forEach(c=>c.addEventListener('click',()=>{
@@ -1388,6 +1393,283 @@ function cellHTML(cell, idx){
   return `<div class="${cls}" data-id="${idx}"${glowKind?` data-order-glow="${glowKind}"`:''}${tip?` title="${tip}"`:''}><div class="hexbg"></div>${stack}
     ${cell.blocked?'<div class="lockovl"><span>🔒</span></div>':''}</div>`;
 }
+// One food per roster color (colorIndex = ROSTER position + 1).
+// Drawn as 16×16 pixels so hex 22 and the tray stay 1:1, and hex 32 is 2×.
+const FOOD_ART = {
+  1: { // Host cat matcha taiyaki
+    X:'#3a2418',
+    C:'#f3d09a',
+    D:'#d4924a',
+    M:'#176b3c',
+    W:'#fffaf0',
+    B:'#241c14',
+    rows:[
+      '................',
+      '................',
+      '.......XXXX.....',
+      '......XCCCCX....',
+      '.....XCCDDCCX...',
+      '....XCCMMMMCCX..',
+      '...XCCMCCCCMCCX.',
+      '..XXCCMWWWWMCCX.',
+      '..XCCCCMBBMCCCC.',
+      '...XCCMMMMCCCCX.',
+      '....XCCCCCCCCX..',
+      '.....XCCCCCCX...',
+      '......XXXXXX....',
+      '.....XX....XX...',
+      '................',
+      '................',
+    ],
+  },
+  2: { // Fox kit blueberry tart
+    X:'#3a2418',
+    O:'#f3d09a',
+    D:'#c9843c',
+    B:'#24306e',
+    H:'#fff8e0',
+    S:'#9aafef',
+    rows:[
+      '................',
+      '....XXXXXXXX....',
+      '...XOOOOOOOOX...',
+      '..XODDDDDDDDOX..',
+      '.XXOBBBBBBBBOXX.',
+      '.XBBBHBBBHBBBBX.',
+      '.XBBBBSBBBSBBBX.',
+      '.XBBBHBBBHBBBBX.',
+      '.XBBBBBBBBBBBBX.',
+      '.XOOOOOOOOOOOOX.',
+      '.XDDDDDDDDDDDDX.',
+      '..XXXXXXXXXXXX..',
+      '................',
+      '................',
+      '................',
+      '................',
+    ],
+  },
+  3: { // Frog lily-pad cake
+    X:'#2a2118',
+    G:'#1f7a3c',
+    V:'#8ed87a',
+    R:'#c4162e',
+    S:'#ffe08a',
+    C:'#fffaf0',
+    rows:[
+      '................',
+      '......XXXX......',
+      '.....XRRRRX.....',
+      '....XRRSSRRX....',
+      '....XRRCRRRX....',
+      '.....XRRRRX.....',
+      '....XX....XX....',
+      '..XXXXXXXXXXXX..',
+      '.XGGGGGGGGGGGGX.',
+      '.XGVGGGGGGGVGGX.',
+      '.XGGGGGGGGGGGGX.',
+      '.XGGGVGGGGVGGGX.',
+      '.XGGGGGGGGGGGGX.',
+      '..XXXXXXXXXXXX..',
+      '................',
+      '................',
+    ],
+  },
+  4: { // Dragonling creme brulee
+    X:'#3a2418',
+    K:'#6a3010',
+    C:'#fff6dc',
+    E:'#ffe4ae',
+    R:'#fffdf8',
+    rows:[
+      '................',
+      '..XXXXXXXXXXXX..',
+      '.XKKKKKKKKKKKKX.',
+      '.XKKCKKCKKCKKKX.',
+      '.XKCKKKCKKKCKKX.',
+      '.XXXXXXXXXXXXXX.',
+      '.XEEEEEEEEEEEEEX',
+      '.XEEEEEEEEEEEEEX',
+      '.XEEEEEEEEEEEEEX',
+      '.XRRRRRRRRRRRRRX',
+      '.XRRRRRRRRRRRRRX',
+      '..XXXXXXXXXXXX..',
+      '................',
+      '................',
+      '................',
+      '................',
+    ],
+  },
+  5: { // Sweeper bot broom cookie
+    X:'#3a2418',
+    C:'#f3d09a',
+    H:'#6b3e22',
+    L:'#fff8ea',
+    rows:[
+      '................',
+      '...XXXXXXXXXX...',
+      '..XCCCCCCCCCCX..',
+      '.XCCCLCCLCCLCCX.',
+      '.XCCCCCCCCCCCCX.',
+      '.XCCLCCLCCLCCCX.',
+      '..XXXXXXXXXXXX..',
+      '.....XXHHXX.....',
+      '......XHX.......',
+      '......XHX.......',
+      '......XHX.......',
+      '......XHX.......',
+      '......XHX.......',
+      '......XHX.......',
+      '.....XXXXX......',
+      '................',
+    ],
+  },
+  6: { // Barista bot vanilla latte
+    X:'#3a2418',
+    U:'#fffaf0',
+    F:'#fffdf8',
+    K:'#6b3a22',
+    rows:[
+      '................',
+      '...XXXXXXXXXX...',
+      '..XFFFFFFFFFFX..',
+      '..XFFFXKKXFFFX..',
+      '..XFFXKKKKXFFX.X',
+      '..XFFFXKKXFFFX.X',
+      '..XFFFFFFFFFFX..',
+      '...XXXXXXXXXX...',
+      '....XUUUUUUX....',
+      '....XUUUUUUX....',
+      '....XUUUUUUX....',
+      '....XUUUUUUX....',
+      '...XXUUUUUUXX...',
+      '...XUUUUUUUUX...',
+      '....XXXXXXXX....',
+      '................',
+    ],
+  },
+  7: { // Delivery bot boxed sandwich
+    X:'#140e0a',
+    P:'#f7e7c6',
+    T:'#d5e4f8',
+    B:'#f3d29a',
+    L:'#348a40',
+    M:'#d4654a',
+    rows:[
+      '................',
+      '.XXXXXXXXXXXXXX.',
+      'XPXPPPPPPPPPPXP.',
+      'XPPTTTTTTTTTTPPX',
+      'XPXPPPPPPPPPPXP.',
+      '.XXXXXXXXXXXXXX.',
+      '.XBBBBBBBBBBBBX.',
+      '.XBBBBBBBBBBBBX.',
+      '.XLLLLLLLLLLLLX.',
+      '.XMMMMMMMMMMMMX.',
+      '.XBBBBBBBBBBBBX.',
+      '.XXXXXXXXXXXXXX.',
+      '................',
+      '................',
+      '................',
+      '................',
+    ],
+  },
+  8: { // DJ bot vinyl cookie
+    X:'#1a120c',
+    O:'#f3d09a',
+    V:'#141414',
+    G:'#3c3c3c',
+    L:'#ffe7a3',
+    H:'#1a120c',
+    rows:[
+      '................',
+      '....XXXXXXXX....',
+      '...XOOOOOOOOX...',
+      '..XOOXVVVVVXOOX.',
+      '.XOOXVGVGVGVXOOX',
+      '.XOXVVVVVVVVVXOX',
+      '.XOXVVVLLLVVVXOX',
+      '.XOXVVVLHLVVVXOX',
+      '.XOXVVVLLLVVVXOX',
+      '.XOXVVVVVVVVVXOX',
+      '.XOOXVGVGVGVXOOX',
+      '..XOOXVVVVVXOOX.',
+      '...XOOOOOOOOX...',
+      '....XXXXXXXX....',
+      '................',
+      '................',
+    ],
+  },
+  9: { // Human twin A green-tea dango
+    X:'#24180f',
+    G:'#e4fad4',
+    W:'#ffffff',
+    H:'#e8c48a',
+    rows:[
+      '................',
+      '.....XXXXX......',
+      '....XGGGGGX.....',
+      '....XGGWGGX.....',
+      '....XGGGGGX.....',
+      '.....XXHXX......',
+      '......XHX.......',
+      '....XGGGGGX.....',
+      '....XGGWGGX.....',
+      '....XGGGGGX.....',
+      '.....XXHXX......',
+      '......XHX.......',
+      '....XGGGGGX.....',
+      '....XGGWGGX.....',
+      '....XGGGGGX.....',
+      '.....XXXXX......',
+    ],
+  },
+  10: { // Human twin B ube dango
+    X:'#24180f',
+    U:'#f8e8ff',
+    W:'#ffffff',
+    H:'#e8c48a',
+    F:'#ff9ec4',
+    Y:'#ffe08a',
+    rows:[
+      '......F.F.......',
+      '.....XXXXX......',
+      '....XUUUUUX.....',
+      '....XUUWUUXY....',
+      '....XUUUUUX.....',
+      '.....XXHXX......',
+      '......XHX.......',
+      '....XUUUUUX.....',
+      '....XUUWUUXX....',
+      '....XUUUUUX.....',
+      '.....XXHXX......',
+      '......XHX.......',
+      '....XUUUUUX.....',
+      '....XUUWUUXX....',
+      '....XUUUUUX.....',
+      '.....XXXXX......',
+    ],
+  },
+};
+function foodSvg(face){
+  const art = FOOD_ART[face];
+  if(!art) return '';
+  let rects = '';
+  const rows = art.rows;
+  for(let y=0;y<rows.length;y++){
+    const row = rows[y];
+    for(let x=0;x<row.length;x++){
+      const fill = art[row[x]];
+      if(!fill) continue;
+      rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="${fill}"/>`;
+    }
+  }
+  return `<svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true">${rects}</svg>`;
+}
+function foodMarkup(color){
+  const face = faceColor(color);
+  return `<i class="tfood" data-food="${face}">${foodSvg(face)}</i>`;
+}
+
 // Top 6 tiles, each one step above the last. A taller pile adds one wood
 // slab under them (lift 0) instead of another tile, so the top stays at
 // STACK_VISUAL_CAP steps. Badges are painted later, on the board.
@@ -1398,7 +1680,7 @@ function stackBodyHTML(cell){
     ? '<div class="woodbase" aria-hidden="true"><i class="woodside"></i><i class="woodface"></i></div>'
     : '';
   const tiles=view.layers.map((layer)=>
-    `<div class="tile" style="--lift:${-layer.lift*step}px;--tc:var(${tileVar(layer.color)})"><i class="tface"></i></div>`).join('');
+    `<div class="tile" style="--lift:${-layer.lift*step}px;--tc:var(${tileVar(layer.color)})"><i class="tface">${foodMarkup(layer.color)}</i></div>`).join('');
   return `<div class="stack">${base}${tiles}</div>`;
 }
 function stackBadgeHTML(cell, idx, left, top, m){
@@ -1491,6 +1773,7 @@ function renderBoard(){
   box.style.marginTop=shift?(-shift)+'px':'';
   const needsScroll=hxN<=HX_MIN && (m.w>availW+0.5 || cellsH>availH+0.5);
   box.style.setProperty('--hx', hxN+'px');
+  box.classList.toggle('food-lg', hxN >= 28);
   if(wrap){
     wrap.style.overflow=needsScroll?'auto':'hidden';
     wrap.style.clipPath='';
@@ -1540,7 +1823,7 @@ function renderPool(){
   // (data-slot === posición); al colocar una, las demás NO se corren.
   box.innerHTML = r.pool.map((pile,i)=>{
     let inner = pile&&pile.length ? '<div class="tray">'+pile.map((c,ci)=>
-      `<div class="ttile" style="bottom:${ci*step}px;--tc:var(${tileVar(c)})"><i class="tface"></i></div>`).join('')+'</div>'
+      `<div class="ttile" style="bottom:${ci*step}px;--tc:var(${tileVar(c)})"><i class="tface">${foodMarkup(c)}</i></div>`).join('')+'</div>'
       : '<div class="poolempty">empty</div>';
     return `<div class="poolslot ${ui.slot===i?'selected':''} ${(!pile||!pile.length)?'drop':''}" data-slot="${i}">${inner}</div>`;
   }).join('');

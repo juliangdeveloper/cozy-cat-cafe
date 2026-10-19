@@ -33,12 +33,31 @@ test('order cards use the creature for that color, with idle frames', () => {
   assert.match(css, /image-rendering:\s*pixelated/);
   assert.match(css, /\.px-avatar\{[^}]*width:32px/);
   assert.match(css, /\.px-avatar\{[^}]*height:32px/);
-  assert.match(css, /\.order-card \.px-avatar\{[^}]*width:96px/);
-  assert.match(css, /\.order-card \.px-avatar\{[^}]*height:96px/);
-  assert.match(css, /\.order-card \.px-avatar \.px32\{[^}]*width:96px!important/);
-  assert.match(css, /\.order-card \.px-avatar \.px32\{[^}]*--fw:96px!important/);
-  assert.match(css, /\.order-card \.px-avatar \.px32\{[^}]*background-size:384px 96px!important/);
+  assert.doesNotMatch(orders, /class="oname"/);
+  assert.match(css, /\.order-card \.px-avatar\{[^}]*width:100%/);
+  assert.match(css, /\.order-card \.px-avatar\{[^}]*height:100%/);
+  assert.match(css, /\.order-card \.px-avatar \.px32\{[^}]*width:100%!important/);
+  assert.match(css, /\.order-card \.px-avatar \.px32\{[^}]*--fw:100%!important/);
+  assert.match(css, /\.order-card \.px-avatar \.px32\{[^}]*background-size:400% 100%!important/);
   assert.match(css, /\.order-card \.px-avatar \.px28\{display:none!important\}/);
+  assert.match(css, /\.order-card\{flex:0 0 calc\(\(100% - 8px\)\/3\);width:calc\(\(100% - 8px\)\/3\);aspect-ratio:1/);
+});
+
+test('each roster color draws a 16×16 food on the tile face', () => {
+  const art = html.slice(html.indexOf('const FOOD_ART'), html.indexOf('function foodSvg'));
+  for (let i = 1; i <= 10; i++) {
+    assert.match(art, new RegExp(`\\n  ${i}: \\{`));
+  }
+  const rows = [...art.matchAll(/'([.A-Z]{16})'/g)].map((m) => m[1]);
+  assert.equal(rows.length, 160);
+  assert.match(html, /function foodMarkup/);
+  const stack = html.slice(html.indexOf('function stackBodyHTML'), html.indexOf('function stackBadgeHTML'));
+  const pool = html.slice(html.indexOf('function renderPool'), html.indexOf('function renderPoolSel'));
+  assert.match(stack, /foodMarkup\(layer\.color\)/);
+  assert.match(pool, /foodMarkup\(c\)/);
+  assert.match(css, /\.tfood\{[^}]*width:16px/);
+  assert.match(css, /\.board\.food-lg \.tile \.tfood\{[^}]*width:32px/);
+  assert.match(css, /\.ttile \.tfood\{[^}]*width:16px/);
 });
 
 test('win and lose use the 96px host cat; skill icons are 26px', () => {
