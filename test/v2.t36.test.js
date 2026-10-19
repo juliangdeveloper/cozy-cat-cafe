@@ -1,4 +1,4 @@
-// Pixel customers, host cat, and skill icons. Version footer is v2.24.19.
+// Pixel customers, host cat, and skill icons. Version footer is v2.24.20.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -18,8 +18,8 @@ function pngSize(buf) {
   return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
 }
 
-test('version footer is v2.24.19', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.19'/);
+test('version footer is v2.24.20', () => {
+  assert.match(html, /GAME_VERSION = 'v2\.24\.20'/);
   assert.match(html, /☕ Cozy Cat Café \$\{GAME_VERSION\}/);
 });
 
@@ -33,8 +33,12 @@ test('order cards use the creature for that color, with idle frames', () => {
   assert.match(css, /image-rendering:\s*pixelated/);
   assert.match(css, /\.px-avatar\{[^}]*width:32px/);
   assert.match(css, /\.px-avatar\{[^}]*height:32px/);
-  assert.match(css, /@media\(max-width:560px\)\{[\s\S]*\.px-avatar\{[^}]*width:28px/);
-  assert.match(css, /@media\(max-width:560px\)\{[\s\S]*\.px28\{[^}]*display:block/);
+  assert.match(css, /\.order-card \.px-avatar\{[^}]*width:96px/);
+  assert.match(css, /\.order-card \.px-avatar\{[^}]*height:96px/);
+  assert.match(css, /\.order-card \.px-avatar \.px32\{[^}]*width:96px!important/);
+  assert.match(css, /\.order-card \.px-avatar \.px32\{[^}]*--fw:96px!important/);
+  assert.match(css, /\.order-card \.px-avatar \.px32\{[^}]*background-size:384px 96px!important/);
+  assert.match(css, /\.order-card \.px-avatar \.px28\{display:none!important\}/);
 });
 
 test('win and lose use the 96px host cat; skill icons are 26px', () => {
