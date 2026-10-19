@@ -3968,11 +3968,28 @@ function boardMetrics(pts, hxN, rot){
   const bevel=Math.ceil(hxN*0.055);
   return { w:(maxX-minX)+cw, h:(maxY-minY)+ch+liftPad+bevel, cw, ch, liftPad, flat, view, minX, minY };
 }
-function fitBoardHx(pts, rot, availW, availH){
+// Distance from the top of the uppermost hex to the bottom of the lowest
+// playable hex. The empty stack reserve (liftPad) and the dormant rows below
+// the core are not part of this span: 180° flips the same pointy box, it does
+// not need the square clearance a 90° turn used.
+function playableDepth(m, pts, playablePts){
+  const src=(playablePts&&playablePts.length)?playablePts:pts;
+  let maxY=-Infinity;
+  for(const p of src){
+    const y=m.view(p.q,p.r).y;
+    if(y>maxY) maxY=y;
+  }
+  if(maxY===-Infinity) maxY=m.minY;
+  return (maxY-m.minY)+m.ch;
+}
+function fitBoardHx(pts, rot, availW, availH, playablePts){
   const slack=1;
   const fits=(n)=>{
     const m=boardMetrics(pts, n, rot);
-    return m.w<=availW-slack && m.h<=availH-slack;
+    // The top point may tuck by the bevel plus a pixel so the integer hex
+    // step is not lost. Playable hexes are placed inside availH.
+    const tuck=Math.ceil(n*0.055)+1;
+    return m.w<=availW-slack && playableDepth(m, pts, playablePts)<=availH+tuck;
   };
   if(!(availW>40) || !(availH>40)) return Math.min(HX_MAX, Math.max(HX_MIN, Math.round(rootHx())));
   if(fits(HX_MAX)) return HX_MAX;
@@ -4111,14 +4128,32 @@ function renderBoard(){
       if(budget>40) availH=budget;
     }
   }
-  const hxN=fitBoardHx(axial, rot, availW, availH);
+  // The tray's top margin is empty. Playable hexes may sit in that gap.
+  // The dormant rows below the core may extend behind the tray (it paints
+  // in front). They must not push the page into a scroll.
+  const poolMargin=poolEl?(parseFloat(getComputedStyle(poolEl).marginTop)||0):0;
+  // The tray margin is empty. Keep playable hexes a pixel clear of its border.
+  const visibleH=availH+Math.max(0, poolMargin-1);
+  const playable=[...occ.values()].filter(v=>v.cell&&!v.cell.dormant).map(v=>v.p);
+  const hxN=fitBoardHx(axial, rot, availW, visibleH, playable);
   if(wrap){ wrap.style.flex=''; wrap.style.height=''; }
   const m=boardMetrics(axial, hxN, rot);
-  const needsScroll=hxN<=HX_MIN && (m.w>availW+0.5 || m.h>availH+0.5);
+  const depth=playableDepth(m, axial, playable);
+  // Drop the empty lift reserve out of the open area. Only shift when the
+  // full lattice is taller than the wrap, and stop before a playable hex
+  // would sit under the tray.
+  let shift=0;
+  if(m.h>availH+0.5) shift=Math.max(0, (depth+m.liftPad)-visibleH);
+  box.style.marginTop=shift?(-shift)+'px':'';
+  const needsScroll=hxN<=HX_MIN && (m.w>availW+0.5 || depth>visibleH+0.5);
   box.style.setProperty('--hx', hxN+'px');
   if(wrap){
-    wrap.style.overflow=needsScroll?'auto':'hidden';
+    wrap.style.overflow=needsScroll?'auto':'visible';
+    // Clip only the top. The lower rows stay painted so the tray can cover
+    // them; the wrap does not grow, so the page does not scroll.
+    wrap.style.clipPath=needsScroll?'':'inset(0px 0px -180px 0px)';
     wrap.dataset.boardHx=String(hxN);
+    wrap.dataset.boardShift=shift.toFixed(1);
     wrap.dataset.boardScroll=needsScroll?'1':'0';
     ui.fitBox=wrap.clientWidth+'x'+wrap.clientHeight;
     watchBoardWrap(wrap);
@@ -5138,7 +5173,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.16';
+const GAME_VERSION = 'v2.24.17';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, get boardHx(){ return boardHx(); } };
