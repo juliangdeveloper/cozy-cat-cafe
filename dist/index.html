@@ -511,35 +511,31 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   .board-wrap{padding:0;align-items:flex-start}
   .cal-row{margin:1px 2px 0}
   .topbar,.cal-row,.orders,.pool,.preview,.powerbar,.foot,.victory-veil{flex:0 0 auto}
-  /* Three square cards, centered. 78px is the largest square that still
-     leaves a full-width board inside the 50/34 safe area. */
-  .orders{gap:4px;padding:0;justify-content:center}
-  .order-card{flex:0 0 78px;width:78px;aspect-ratio:1;height:auto;
-    align-self:flex-start;min-height:0;padding:2px;position:relative;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
-  .order-card .o,.order-card .catimg{width:36px!important;height:36px!important;margin:0 auto}
-  .order-card .bubble{position:absolute;top:2px;right:2px;margin:0;padding:0 3px;gap:2px;font-size:11px}
-  .order-card .bubble .minitile{width:12px;height:10px}
-  .order-card .oname{font-size:10px;line-height:1.1;margin-top:0}
-  .seltag{font-size:11px}
-  /* Fixed short tray. Thin layers so a 7-stack still sits inside the slot. */
-  .pool{gap:3px;padding:1px 2px;margin-top:0;flex:0 0 auto;align-items:flex-end;border-width:2px}
-  .poolslot{height:38px;min-height:38px;max-height:38px}
-  .tray{width:28px} .ttile{width:28px;height:18px}
+  /* pedidos densos: 3 tarjetas, sprite chico; >3 => scroll horizontal */
+  .orders{gap:4px;padding:1px 2px}
+  /* Same width as before (three across). Height matches that width. */
+  .order-card{flex:0 0 calc((100% - 8px)/3);width:calc((100% - 8px)/3);aspect-ratio:1;height:auto;
+    align-self:flex-start;min-height:0;padding:4px 3px;position:relative;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+  .order-card .o,.order-card .catimg{width:48px!important;height:48px!important;margin:0 auto}
+  .order-card .bubble{position:absolute;top:4px;right:4px;margin:0;padding:0 5px;gap:3px;font-size:13px}
+  .order-card .bubble .minitile{width:16px;height:14px}
+  .order-card .oname{font-size:12px;line-height:1.15;margin-top:0}
+  .seltag{font-size:12px}
+  /* Tray is a fixed strip. It does not grow into space the board leaves. */
+  .pool{gap:4px;padding:4px;margin-top:2px;flex:0 0 auto;align-items:flex-end}
+  .poolslot{height:82px;min-height:82px;max-height:82px}
+  .tray{width:40px} .ttile{width:40px;height:34px}
   .preview{gap:8px;padding:6px 8px;margin-top:4px}
   /* Skills stay in flow under the tray. Sticky inside the transformed frame
      covered the pieces on iOS; the bar does not scroll. */
-  .powerbar{position:relative;z-index:15;margin:1px 0 0;flex-shrink:0;gap:2px;
-    padding:1px 2px;
+  .powerbar{position:relative;z-index:15;margin:2px 0 0;flex-shrink:0;
+    padding:3px 2px 2px;
     background:var(--bg-primary);border-top:2px solid var(--wood);overflow:visible}
-  .pow{min-height:32px;min-width:0;padding:0 1px;border-radius:8px;box-shadow:none}
-  .pow-face{min-height:0}
-  .pow-emoji{font-size:16px}
-  .pow .skill-art{width:18px!important;height:16px!important;background-size:contain!important;background-position:center!important}
-  .pow img{width:16px;height:16px}
-  .pow-lvl{min-width:12px;height:12px;font-size:8px;line-height:10px;top:0;right:1px}
+  .pow{min-height:48px;min-width:0}
+  .pow-emoji{font-size:26px}
   .foot{margin:0}
-  .pow-cost{font-size:8px;padding:0 2px;line-height:1.1;margin-top:0}
+  .pow-cost{font-size:9px;padding:0 1px}
   /* colapsables compactos (idle/decor) */
   .collap{margin:4px 0}
   .collap summary{cursor:pointer;font-size:12px;font-weight:800;color:var(--ink-soft);
@@ -3943,7 +3939,7 @@ function hx(){ return boardHx(); }
 // vertical offset between stacked hex tiles. The board uses its fitted hx.
 // The tray keeps rootHx so its piles stay the size the breakpoints chose.
 function stackStep(){ return Math.max(5,Math.round(boardHx()*0.225)); }
-function trayStep(){ return Math.max(3,Math.round(rootHx()*0.1)); }
+function trayStep(){ return Math.max(5,Math.round(rootHx()*0.225)); }
 // Same pixel box renderBoard paints. Pointy: width (maxX-minX)+√3·hx,
 // height (maxY-minY)+2·hx+liftPad. Flat (90/270) swaps the cell box.
 function boardMetrics(pts, hxN, rot){
@@ -4105,7 +4101,7 @@ function renderBoard(){
         if(el===poolEl){
           const ps=getComputedStyle(poolEl);
           const slot=poolEl.querySelector('.poolslot');
-          const slotH=slot?parseFloat(getComputedStyle(slot).height)||slot.offsetHeight:38;
+          const slotH=slot?parseFloat(getComputedStyle(slot).height)||slot.offsetHeight:82;
           used+=slotH+(parseFloat(ps.paddingTop)||0)+(parseFloat(ps.paddingBottom)||0)
             +(parseFloat(ps.borderTopWidth)||0)+(parseFloat(ps.borderBottomWidth)||0)
             +(parseFloat(ps.marginTop)||0)+(parseFloat(ps.marginBottom)||0);
@@ -5142,7 +5138,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.15';
+const GAME_VERSION = 'v2.24.16';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, get boardHx(){ return boardHx(); } };

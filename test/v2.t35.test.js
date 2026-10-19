@@ -12,7 +12,7 @@ const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'i
 const css = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
 
 test('v2.24.9 puts a moving calamity icon on a thin track above the clients', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.15'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.16'/);
   const run = html.slice(html.indexOf('function renderRun'), html.indexOf('function renderCalamity'));
   const top = run.indexOf('class="topbar"');
   const cal = run.indexOf('class="cal-row"');
@@ -35,16 +35,24 @@ test('v2.24.9 puts a moving calamity icon on a thin track above the clients', ()
   assert.match(css, /\.cal-mark\{[^}]*color-mix\(in srgb, var\(--danger\)/);
 });
 
-test('v2.24.15 fills the phone width with a short tray and smaller skills', () => {
+test('v2.24.16 restores the v2.24.14 chrome and fits the board in the leftover height', () => {
   assert.match(html, /Turn the board 180°/);
   assert.doesNotMatch(html, /Turn the board 90°/);
   assert.match(html, /state\.settings\.boardRot = cur===180 \? 0 : 180/);
   assert.doesNotMatch(html, /poolEl\.style\.flex='1 1 auto'/);
-  assert.match(html, /\.poolslot\{height:38px;min-height:38px;max-height:38px\}/);
-  assert.match(html, /\.pool\{gap:3px;padding:1px 2px;margin-top:0;flex:0 0 auto/);
-  assert.match(html, /\.order-card\{flex:0 0 78px;width:78px;aspect-ratio:1/);
-  assert.match(html, /\.pow\{min-height:32px/);
-  assert.match(html, /function trayStep\(\)\{ return Math\.max\(3,Math\.round\(rootHx\(\)\*0\.1\)\); \}/);
+  assert.match(html, /\.orders\{gap:4px;padding:1px 2px\}/);
+  assert.match(html, /\.order-card\{flex:0 0 calc\(\(100% - 8px\)\/3\);width:calc\(\(100% - 8px\)\/3\);aspect-ratio:1/);
+  assert.match(html, /\.pool\{gap:4px;padding:4px;margin-top:2px;flex:0 0 auto;align-items:flex-end\}/);
+  assert.match(html, /\.poolslot\{height:82px;min-height:82px;max-height:82px\}/);
+  assert.match(html, /\.tray\{width:40px\} \.ttile\{width:40px;height:34px\}/);
+  assert.match(html, /\.pow\{min-height:48px;min-width:0\}/);
+  assert.match(html, /\.pow-emoji\{font-size:26px\}/);
+  assert.match(html, /function trayStep\(\)\{ return Math\.max\(5,Math\.round\(rootHx\(\)\*0\.225\)\); \}/);
+  assert.match(html, /const slotH=slot\?parseFloat\(getComputedStyle\(slot\)\.height\)\|\|slot\.offsetHeight:82;/);
+  assert.match(html, /function fitBoardHx/);
+  assert.doesNotMatch(html, /flex:0 0 78px/);
+  assert.doesNotMatch(html, /height:38px;min-height:38px/);
+  assert.doesNotMatch(html, /\.pow\{min-height:32px/);
 });
 
 test('header icons sit on the right and rotate is the last free skill', () => {
