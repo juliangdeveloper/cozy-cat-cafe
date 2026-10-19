@@ -27,12 +27,15 @@
 html,body{margin:0;padding:0;height:100%;overflow:hidden}
 body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
   height:100%;touch-action:manipulation}
-/* v2.24.12 — the café is the 375×812 phone frame, scaled to the viewport. */
-#stage{position:fixed;inset:0;overflow:hidden;background:var(--bg-primary)}
-#frame{position:absolute;left:50%;top:50%;width:375px;height:812px;overflow:hidden;
-  transform-origin:center center;
-  transform:translate(-50%, -50%) scale(min(100vw / 375px, 100dvh / 812px))}
-#app{width:100%;height:100%;max-width:none;margin:0;padding:0 10px calc(12px + env(safe-area-inset-bottom));
+/* v2.24.13 — the stage is the visible viewport. Safe areas sit outside the
+   column. fitFrame() fills that box on a phone and scales one 375×812 frame
+   on a larger screen. Viewport-height units are not used: Safari's large
+   viewport and a transformed 812px frame hid the tray under the skill bar. */
+#stage{position:fixed;left:0;top:0;width:100%;height:100%;overflow:hidden;
+  background:var(--bg-primary);visibility:hidden;
+  padding:env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px)}
+#frame{position:absolute;left:0;top:0;width:100%;height:100%;overflow:hidden}
+#app{width:100%;height:100%;max-width:none;margin:0;padding:0;
   display:flex;flex-direction:column;min-height:0;overflow:hidden}
 
 /* top bar */
@@ -206,7 +209,7 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
    lattice, including the stack lift, fits this box. Scroll only if the
    tappable minimum still cannot. Tray tiles do not inherit this size. */
 .board-wrap{flex:1 1 auto;min-height:0;min-width:0;overflow:hidden;padding:4px 2px;position:relative;z-index:1;
-  display:flex;align-items:center;justify-content:center}
+  display:flex;align-items:flex-start;justify-content:center}
 :root{ --hx:34px; --cw:calc(var(--hx)*1.732); --ch:calc(var(--hx)*2); }
 .board{position:relative;margin:0;flex:0 0 auto;--hexclip:var(--hex-pointy);
   --cw:calc(var(--hx)*1.732);--ch:calc(var(--hx)*2)}
@@ -353,7 +356,7 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 
 /* pool */
 /* v2.24.8: the tray paints above the board so a tall pile is never covered. */
-.pool{position:relative;z-index:12;overflow:visible;display:flex;gap:6px;padding:8px;background:var(--wood);border:3px solid var(--ink);border-radius:14px;margin-top:6px}
+.pool{position:relative;z-index:12;overflow:visible;display:flex;align-items:flex-start;gap:6px;padding:8px;background:var(--wood);border:3px solid var(--ink);border-radius:14px;margin-top:6px;flex-shrink:0}
 .poolslot{flex:1;height:64px;display:flex;align-items:flex-end;justify-content:center;background:rgba(248,241,213,.5);
   border:2px solid transparent;border-radius:10px;cursor:pointer}
 .poolslot.selected{background:var(--highlight);border:2px solid var(--accent)}
@@ -485,7 +488,7 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
    lo primero: idle queda plegado (<details>) por defecto.
    ============================================================ */
 /* Phone chrome. The frame is 375px wide, so this is the only layout. */
-  #app{padding:0 0 calc(2px + env(safe-area-inset-bottom))}
+  #app{padding:0}
   body{font-size:14px}
   /* v2.24.8 — header is one row. Calamity has its own row above the clients. */
   .topbar{padding:2px 2px;flex-wrap:nowrap;gap:3px}
@@ -517,12 +520,13 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   .order-card .oname{font-size:9px}
   .seltag{font-size:10px}
   /* pool / preview: densidad -20% (v2.7) */
-  .pool{gap:4px;padding:4px;margin-top:2px}
-  .poolslot{height:42px}
+  .pool{gap:4px;padding:4px;margin-top:2px;flex-shrink:0;align-items:flex-start}
+  .poolslot{height:42px;min-height:42px}
   .tray{width:40px} .ttile{width:40px;height:34px}
   .preview{gap:8px;padding:6px 8px;margin-top:4px}
-  /* POWERBAR STICKY inferior: 6+5, sin carrusel. Precio dentro del botón. */
-  .powerbar{position:sticky;bottom:0;z-index:15;margin:2px 0 0;
+  /* Skills stay in flow under the tray. Sticky inside the transformed frame
+     covered the pieces on iOS; the bar does not scroll. */
+  .powerbar{position:relative;z-index:15;margin:2px 0 0;flex-shrink:0;
     padding:3px 2px 2px;
     background:var(--bg-primary);border-top:2px solid var(--wood);overflow:visible}
   .pow{min-height:48px;min-width:0}
@@ -3563,21 +3567,74 @@ const COIN_GAIN_MS = 2400;
 // inside the viewport: the counter sits on the top edge, and a cell at the
 // board's side would otherwise lose a 36px "+70 🪙" to overflow.
 const COIN_GAIN_RISE = 28;
+const DESIGN_W = 375;
+const DESIGN_H = 812;
 function frameMetrics(){
   const frame=document.getElementById('frame');
   if(!frame) return {s:1,w:innerWidth,h:innerHeight,l:0,t:0,host:document.body};
   const r=frame.getBoundingClientRect();
-  const s=r.width/(frame.offsetWidth||375)||1;
+  const s=r.width/(frame.offsetWidth||DESIGN_W)||1;
   return {s,w:frame.clientWidth,h:frame.clientHeight,l:r.left,t:r.top,host:frame};
 }
+// The stage tracks the visual viewport (Safari chrome changes its height and
+// offset). Its padding is the notch / home indicator, so the column itself is
+// only the area the player can see. A phone fills that box; a larger screen
+// scales the 375×812 column from the top-left of the same box.
 function fitFrame(){
+  const stage=document.getElementById('stage');
   const frame=document.getElementById('frame');
-  if(!frame) return;
+  if(!stage || !frame) return;
   const vv=window.visualViewport;
   const vw=vv?vv.width:document.documentElement.clientWidth;
   const vh=vv?vv.height:document.documentElement.clientHeight;
-  const scale=Math.min(vw/375, vh/812);
-  frame.style.transform='translate(-50%, -50%) scale('+scale+')';
+  stage.style.left=(vv?vv.offsetLeft:0)+'px';
+  stage.style.top=(vv?vv.offsetTop:0)+'px';
+  stage.style.width=vw+'px';
+  stage.style.height=vh+'px';
+  stage.style.right='auto';
+  stage.style.bottom='auto';
+  // clientWidth includes padding. Absolute children are placed from the
+  // padding edge, so the column has to be inset by the safe area itself.
+  const cs=getComputedStyle(stage);
+  const padL=parseFloat(cs.paddingLeft)||0;
+  const padT=parseFloat(cs.paddingTop)||0;
+  const padR=parseFloat(cs.paddingRight)||0;
+  const padB=parseFloat(cs.paddingBottom)||0;
+  const boxW=stage.clientWidth-padL-padR;
+  const boxH=stage.clientHeight-padT-padB;
+  if(!(boxW>0) || !(boxH>0)) return;
+  const app=document.getElementById('app');
+  // Subpixel visual viewports (375.8×812.7) are still the phone, not a scale-up.
+  const phone=boxW<=DESIGN_W+2 && boxH<=DESIGN_H+2;
+  frame.style.transformOrigin='0 0';
+  if(phone){
+    frame.style.width=boxW+'px';
+    frame.style.height=boxH+'px';
+    frame.style.left=padL+'px';
+    frame.style.top=padT+'px';
+    frame.style.transform='scale(1)';
+  }else{
+    const scale=Math.min(boxW/DESIGN_W, boxH/DESIGN_H);
+    frame.style.width=DESIGN_W+'px';
+    frame.style.height=DESIGN_H+'px';
+    frame.style.left=(padL+(boxW-DESIGN_W*scale)/2)+'px';
+    frame.style.top=(padT+(boxH-DESIGN_H*scale)/2)+'px';
+    frame.style.transform='scale('+scale+')';
+  }
+  if(app){
+    app.style.width=frame.style.width;
+    app.style.height=frame.style.height;
+  }
+  stage.style.visibility='visible';
+  if(!state || !state.run || ui.fitting) return;
+  // The tray is pinned to the board, so the wrap's box does not change when
+  // the viewport shrinks. Refit from the frame size or the column overflows.
+  const sig=Math.round(frame.offsetWidth)+'x'+Math.round(frame.offsetHeight);
+  if(sig===ui.frameBox) return;
+  ui.frameBox=sig;
+  ui.fitting=true;
+  try{ renderBoard(); }
+  finally{ ui.fitting=false; }
 }
 function pinCoinGain(el, e){
   const box=frameMetrics();
@@ -4021,12 +4078,49 @@ function renderBoard(){
   const axial=[...occ.values()].map(v=>v.p);
   const wrap=box.parentElement;
   let availW=0, availH=0;
+  // Width-capped boards used to leave a pink hole under the hexes and pushed
+  // the tray into the skill bar. The wrap hugs the lattice; leftover height
+  // goes to the tray so the pieces stay fully above the skills.
+  const poolEl=document.getElementById('pool');
+  const appEl=document.getElementById('app');
   if(wrap){
     const cs=getComputedStyle(wrap);
     availW=wrap.clientWidth-(parseFloat(cs.paddingLeft)||0)-(parseFloat(cs.paddingRight)||0);
     availH=wrap.clientHeight-(parseFloat(cs.paddingTop)||0)-(parseFloat(cs.paddingBottom)||0);
+    if(appEl && poolEl && wrap.parentElement){
+      const outer=el=>{
+        const s=getComputedStyle(el);
+        return el.offsetHeight+(parseFloat(s.marginTop)||0)+(parseFloat(s.marginBottom)||0);
+      };
+      let used=0;
+      for(const el of wrap.parentElement.children){
+        if(el===wrap || getComputedStyle(el).display==='none') continue;
+        if(el===poolEl){
+          const ps=getComputedStyle(poolEl);
+          const slot=poolEl.querySelector('.poolslot');
+          const slotH=slot?parseFloat(getComputedStyle(slot).height)||slot.offsetHeight:42;
+          used+=slotH+(parseFloat(ps.paddingTop)||0)+(parseFloat(ps.paddingBottom)||0)
+            +(parseFloat(ps.borderTopWidth)||0)+(parseFloat(ps.borderBottomWidth)||0)
+            +(parseFloat(ps.marginTop)||0)+(parseFloat(ps.marginBottom)||0);
+        }else used+=outer(el);
+      }
+      const budget=appEl.clientHeight-used-(parseFloat(cs.paddingTop)||0)-(parseFloat(cs.paddingBottom)||0);
+      if(budget>40) availH=budget;
+    }
   }
-  const hxN=fitBoardHx(axial, rot, availW, availH);
+  const hxWide=fitBoardHx(axial, rot, availW, 100000);
+  const wideH=boardMetrics(axial, hxWide, rot).h;
+  let hxN;
+  if(wrap && wideH+1<availH){
+    hxN=hxWide;
+    wrap.style.flex='0 0 auto';
+    wrap.style.height=Math.ceil(wideH)+'px';
+    if(poolEl){ poolEl.style.flex='1 1 auto'; poolEl.style.height='auto'; }
+  }else{
+    hxN=fitBoardHx(axial, rot, availW, availH);
+    if(wrap){ wrap.style.flex=''; wrap.style.height=''; }
+    if(poolEl){ poolEl.style.flex=''; poolEl.style.height=''; }
+  }
   const m=boardMetrics(axial, hxN, rot);
   const needsScroll=hxN<=HX_MIN && (m.w>availW+0.5 || m.h>availH+0.5);
   box.style.setProperty('--hx', hxN+'px');
@@ -5018,13 +5112,6 @@ function tutNext(){
 window.addEventListener('resize', ()=>{
   fitFrame();
   if(tutActive) showTutStep();
-  const w=document.querySelector('.board-wrap');
-  if(!w || !state || !state.run || ui.fitting) return;
-  const sig=w.clientWidth+'x'+w.clientHeight;
-  if(sig===ui.fitBox) return;
-  ui.fitting=true;
-  try{ renderBoard(); }
-  finally{ ui.fitting=false; }
 });
 window.addEventListener('orientationchange', ()=>{ if(tutActive) setTimeout(showTutStep, 120); });
 
@@ -5056,7 +5143,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.12';
+const GAME_VERSION = 'v2.24.13';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, get boardHx(){ return boardHx(); } };
