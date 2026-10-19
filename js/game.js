@@ -708,6 +708,19 @@ export function runFaceColor(state, logical) {
   return pal[n - 1];
 }
 
+// One lookup for a logical color: the guest who orders it, and that guest's
+// face id. Orders, food, and the unlock announcement all use this. The face
+// id is already resolved — do not pass it through runFaceColor again.
+export function guestForColor(state, logical) {
+  const face = runFaceColor(state, logical);
+  const i = (face | 0) - 1;
+  return {
+    logical: logical | 0,
+    face,
+    name: (i >= 0 && i < ROSTER.length) ? ROSTER[i] : 'Creature',
+  };
+}
+
 // v2 helper: color máximo que genera el pool = min(rosterIndex, colorsOwned).
 // El pedido de una criatura POR ENCIMA del techo (colorsOwned) NO se genera en
 // pool — eso es la presión de compra (R13.5/R13.7). v2.1: pool < roster.
