@@ -280,10 +280,32 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .tface::before{content:"";position:absolute;inset:1.5px;
   background:linear-gradient(180deg,color-mix(in srgb,var(--tc),#fff 16%),var(--tc) 55%);
   clip-path:var(--hexclip)}
-/* top:-16px clears the topmost tile of a full 3-tile stack now that tiles are
-   centered on the hex (the lifted top tile pokes above the hex top) */
-.stack .badge{position:absolute;top:-16px;left:50%;translate:-50% 0;z-index:5;background:var(--highlight);
-  border:2px solid var(--ink);border-radius:999px;font-size:10px;font-weight:800;padding:0 6px;line-height:1.2}
+/* v2.24.19 — run count rides the top tile; the total sits on the front lip.
+   Both are board-level so a front hex cannot cover them. */
+.runbadge,.totalbadge{position:absolute;z-index:80;pointer-events:none;display:inline-flex;
+  align-items:center;justify-content:center;gap:2px;background:var(--highlight);
+  border:2px solid var(--ink);border-radius:999px;color:var(--ink);
+  font-family:var(--font-display);font-weight:800;font-variant-numeric:tabular-nums;
+  font-size:max(9px, min(14px, calc(var(--hx) * 0.32)));line-height:1.15;
+  padding:0 4px;white-space:nowrap}
+.runbadge{translate:-50% -50%}
+.totalbadge{translate:-50% -100%}
+.runbadge i{width:0.72em;height:0.72em;flex:0 0 auto;background:var(--tc);
+  border:1px solid var(--ink);border-radius:2px}
+/* One slab for every tile under the top 6. Planks stay on the wood tokens. */
+.woodbase{position:absolute;left:50%;top:50%;translate:-50% -50%;width:var(--cw);height:var(--ch)}
+.woodside{position:absolute;inset:0;background:var(--wood-dark);clip-path:var(--hexclip);
+  transform:translateY(calc(var(--hx)*0.055))}
+.woodface{position:absolute;inset:0;clip-path:var(--hexclip);
+  transform:translateY(calc(var(--hx)*-0.015));
+  background-color:var(--wood);
+  background-image:
+    repeating-linear-gradient(90deg, transparent 0 3px, color-mix(in srgb, var(--wood-dark) 70%, var(--ink)) 3px 4px),
+    repeating-linear-gradient(180deg,
+      color-mix(in srgb, var(--panel) 26%, var(--wood)) 0 2px,
+      var(--wood) 2px 3px,
+      var(--wood-dark) 3px 4px);
+  image-rendering:pixelated}
 .calmk{position:absolute;top:-9px;right:-3px;z-index:4;width:18px;height:18px;
   clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);background:var(--ink)}
 .calmk::before{content:"";position:absolute;inset:2px;background:var(--danger);
@@ -309,13 +331,15 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 /* v2.19.1 — 90°/270° view: flat-top hexes (pointy lattice rotated 90° = flat lattice).
    Tiles stay upright; only cell placement + hex orientation change. */
 .board.flat .cell{width:var(--ch);height:var(--cw)}
-.board.flat .tile{width:var(--ch);height:var(--cw)}
+.board.flat .tile,.board.flat .woodbase{width:var(--ch);height:var(--cw)}
 .board.flat .hexbg,
 .board.flat .hexbg::before,
 .board.flat .hexbg::after,
 .board.flat .tile::before,
 .board.flat .tface,
 .board.flat .tface::before,
+.board.flat .woodside,
+.board.flat .woodface,
 .board.flat .lockovl,
 .board.flat .lockovl::before,
 .cell.hex-flat .hexbg,
@@ -324,11 +348,13 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .cell.hex-flat .tile::before,
 .cell.hex-flat .tface,
 .cell.hex-flat .tface::before,
+.cell.hex-flat .woodside,
+.cell.hex-flat .woodface,
 .cell.hex-flat .lockovl,
 .cell.hex-flat .lockovl::before{
   clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)}
 .cell.hex-flat{width:var(--ch);height:var(--cw)}
-.cell.hex-flat .tile{width:var(--ch);height:var(--cw)}
+.cell.hex-flat .tile,.cell.hex-flat .woodbase{width:var(--ch);height:var(--cw)}
 
 /* v2 cascada animada (R12.2): anillo + pop en celdas afectadas por eslabón */
 .cell.casc .hexbg{--hb:var(--highlight);--hbw:4px;filter:drop-shadow(0 0 8px var(--highlight))}
@@ -2822,6 +2848,51 @@ function topRunCount(stack) {
   return n;
 }
 
+// How many tiles the board draws. Taller piles stay in the rules; the extra
+// tiles are one wooden base, so the picture never grows past this many steps.
+const STACK_VISUAL_CAP = 6;
+
+function stackStepPx(hx) {
+  const n = Number(hx);
+  if (!Number.isFinite(n)) return 5;
+  return Math.max(5, Math.round(n * 0.225));
+}
+
+// Pixels kept above the top row. A capped pile lifts STACK_VISUAL_CAP steps
+// (wood base + the top 6) and the run badge hangs past that edge. Same pad
+// for pointy and flat boards.
+function stackLiftPadPx(hx) {
+  const n = Number(hx);
+  const hxN = Number.isFinite(n) ? Math.max(0, n) : 0;
+  const face = Math.ceil(hxN * 0.015);
+  // Half of the run badge: font capped at 14px, line-height 1.15, 2px border.
+  const badgeHang = 14;
+  return STACK_VISUAL_CAP * stackStepPx(hxN) + face + badgeHang;
+}
+
+// What the board paints for a pile. `layers` run bottom to top. `lift` is in
+// steps (pixels = lift * stackStepPx). A pile of 7 or more keeps the top 6
+// and parks everything under them on lift 0 as one base.
+function stackVisual(stack) {
+  const tiles = Array.isArray(stack) ? stack : [];
+  const total = tiles.length;
+  const hasBase = total > STACK_VISUAL_CAP;
+  const shown = hasBase ? tiles.slice(total - STACK_VISUAL_CAP) : tiles.slice();
+  const layers = shown.map((color, i) => ({ color, lift: hasBase ? i + 1 : i }));
+  const topLift = layers.length ? layers[layers.length - 1].lift : 0;
+  const run = topRunCount(tiles);
+  return {
+    total,
+    hasBase,
+    layers,
+    topLift,
+    showRun: run > 1,
+    run,
+    runColor: total ? tiles[total - 1] : 0,
+    showTotal: total >= 2,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // isServeReady(state, cellId) — el tope de ESA celda cumple ALGÚN pedido
 // pendiente (R15.2: la celda queda "servible" para el serve manual).
@@ -4023,7 +4094,7 @@ function boardHx(){
 function hx(){ return boardHx(); }
 // vertical offset between stacked hex tiles. The board uses its fitted hx.
 // The tray keeps rootHx so its piles stay the size the breakpoints chose.
-function stackStep(){ return Math.max(5,Math.round(boardHx()*0.225)); }
+function stackStep(){ return stackStepPx(boardHx()); }
 function trayStep(){ return Math.max(5,Math.round(rootHx()*0.225)); }
 // Same pixel box renderBoard paints. Pointy: width (maxX-minX)+√3·hx,
 // height (maxY-minY)+2·hx+liftPad. Flat (90/270) swaps the cell box.
@@ -4048,7 +4119,7 @@ function boardMetrics(pts, hxN, rot){
     if(v.y>maxY) maxY=v.y;
   }
   if(!pts.length){ minX=minY=maxX=maxY=0; }
-  const liftPad=3*Math.max(5,Math.round(hxN*0.225));
+  const liftPad=stackLiftPadPx(hxN);
   // The tile bevel shifts down by 0.055*hx and must stay inside this box.
   const bevel=Math.ceil(hxN*0.055);
   return { w:(maxX-minX)+cw, h:(maxY-minY)+ch+liftPad+bevel, cw, ch, liftPad, flat, view, minX, minY };
@@ -4057,9 +4128,9 @@ function fitBoardHx(pts, rot, availW, availH){
   const slack=1;
   const fits=(n)=>{
     const m=boardMetrics(pts, n, rot);
-    // Every cell of the lattice, dormant rows included. The empty stack
-    // reserve sits above the top hex and does not shrink the tiles.
-    return m.w<=availW-slack && (m.h-m.liftPad)<=availH-slack;
+    // Every cell, plus the reserve a 6-step pile and its run badge need
+    // above the top hex. Flat and pointy share that pad.
+    return m.w<=availW-slack && m.h<=availH-slack;
   };
   if(!(availW>40) || !(availH>40)) return Math.min(HX_MAX, Math.max(HX_MIN, Math.round(rootHx())));
   if(fits(HX_MAX)) return HX_MAX;
@@ -4123,20 +4194,37 @@ function cellHTML(cell, idx){
   const tip = cell.dormant ? 'Activate for this café'
             : cell.blocked ? 'Blocked tile (calamity)' : '';
   let stack='';
-  if(cell.stack&&cell.stack.length){
-    // stacks GROW UPWARD: tile i is centered on the hex and lifted by
-    // --lift:-i*step (a growing `top:Npx` would fill downward from the ceiling).
-    // v2.0: SIN punto decorativo sobre la ficha (se elimina .dot).
-      const step=stackStep();
-      // v2.4: el badge muestra la RUN del tope (fichas contiguas del mismo color),
-      // no la altura de la pila — coincide con lo que se fusiona/sirve.
-      const runN=topRunCount(cell.stack);
-      stack='<div class="stack">'+cell.stack.map((c,ci)=>
-        `<div class="tile" style="--lift:${-ci*step}px;--tc:var(${tileVar(c)})"><i class="tface"></i></div>`).join('')+
-      (runN>1?`<span class="badge">${runN}</span>`:'')+'</div>';
-  }
+  if(cell.stack&&cell.stack.length) stack=stackBodyHTML(cell);
   return `<div class="${cls}" data-id="${idx}"${glowKind?` data-order-glow="${glowKind}"`:''}${tip?` title="${tip}"`:''}><div class="hexbg"></div>${stack}
     ${cell.blocked?'<div class="lockovl"><span>🔒</span></div>':''}</div>`;
+}
+// Top 6 tiles, each one step above the last. A taller pile adds one wood
+// slab under them (lift 0) instead of another tile, so the top stays at
+// STACK_VISUAL_CAP steps. Badges are painted later, on the board.
+function stackBodyHTML(cell){
+  const view=stackVisual(cell.stack);
+  const step=stackStep();
+  const base=view.hasBase
+    ? '<div class="woodbase" aria-hidden="true"><i class="woodside"></i><i class="woodface"></i></div>'
+    : '';
+  const tiles=view.layers.map((layer)=>
+    `<div class="tile" style="--lift:${-layer.lift*step}px;--tc:var(${tileVar(layer.color)})"><i class="tface"></i></div>`).join('');
+  return `<div class="stack">${base}${tiles}</div>`;
+}
+function stackBadgeHTML(cell, idx, left, top, m){
+  const view=stackVisual(cell.stack);
+  if(!view.total) return '';
+  const step=stackStep();
+  const cx=left+m.cw/2;
+  let html='';
+  if(view.showRun){
+    const tileTop=top-view.topLift*step;
+    html+=`<span class="runbadge" data-cell="${idx}" data-run="${view.run}" style="left:${cx}px;top:calc(${tileTop}px - var(--hx) * 0.015);--tc:var(${tileVar(view.runColor)})"><i></i>${view.run}</span>`;
+  }
+  if(view.showTotal){
+    html+=`<span class="totalbadge" data-cell="${idx}" data-total="${view.total}" style="left:${cx}px;top:${top+m.ch}px">${view.total}</span>`;
+  }
+  return html;
 }
 function renderBoard(){
   const box=$('#board'); if(!box) return;
@@ -4205,13 +4293,12 @@ function renderBoard(){
   const hxN=fitBoardHx(axial, rot, availW, availH);
   if(wrap){ wrap.style.flex=''; wrap.style.height=''; }
   const m=boardMetrics(axial, hxN, rot);
-  // Park the empty stack reserve above the wrap. Every cell stays inside it,
-  // so none of the lattice sits behind the tray or the skills.
-  const cellsH=m.h-m.liftPad;
+  // When the lattice fits, the 6-step reserve stays inside the wrap.
+  // At the minimum hex, scroll instead of parking that reserve above the clip.
+  const needsScroll=hxN<=HX_MIN && (m.w>availW+0.5 || m.h>availH+0.5);
   let shift=0;
-  if(m.h>availH+0.5) shift=Math.min(m.liftPad, Math.max(0, m.h-availH));
+  if(!needsScroll && m.h>availH+0.5) shift=Math.min(m.liftPad, Math.max(0, m.h-availH));
   box.style.marginTop=shift?(-shift)+'px':'';
-  const needsScroll=hxN<=HX_MIN && (m.w>availW+0.5 || cellsH>availH+0.5);
   box.style.setProperty('--hx', hxN+'px');
   if(wrap){
     wrap.style.overflow=needsScroll?'auto':'hidden';
@@ -4228,6 +4315,7 @@ function renderBoard(){
   });
   placed.sort((a,b)=>a.y-b.y||a.x-b.x);
   let html='';
+  let badges='';
   placed.forEach((v,zi)=>{
     const left=(v.x-m.minX);
     const top=(v.y-m.minY)+m.liftPad;
@@ -4238,6 +4326,7 @@ function renderBoard(){
     } else {
       html+=cellHTML(v.cell, v.idx)
         .replace('<div class="cell', `<div style="${cellBox}" class="cell${flatCls}`);
+      if(v.cell&&v.cell.stack&&v.cell.stack.length) badges+=stackBadgeHTML(v.cell, v.idx, left, top, m);
     }
   });
   box.classList.toggle('actmode', ui.mode==='activate');
@@ -4246,7 +4335,7 @@ function renderBoard(){
   box.style.height=m.h+'px';
   box.style.position='relative';
   box.style.left=''; box.style.top=''; box.style.transform='';
-  box.innerHTML=html;
+  box.innerHTML=html+badges;
   $$('#board .cell').forEach(c=>c.addEventListener('click',()=>{
     if(c.dataset.pos){ placeTileFlow(c.dataset.pos); return; }
     tapTile(+c.dataset.id);
@@ -5241,10 +5330,10 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.18';
+const GAME_VERSION = 'v2.24.19';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
-window.__dbg = { get state(){ return state; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, get boardHx(){ return boardHx(); } };
+window.__dbg = { get state(){ return state; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, stackVisual, stackLiftPadPx, get boardHx(){ return boardHx(); } };
 fitFrame();
 window.addEventListener('load', boot);
 
