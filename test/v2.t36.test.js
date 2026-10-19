@@ -49,21 +49,28 @@ test('order cards use the creature for that color, with idle frames', () => {
   assert.match(css, /\.order-card\{flex:0 0 calc\(\(100% - 8px\)\/3\);width:calc\(\(100% - 8px\)\/3\);aspect-ratio:1/);
 });
 
-test('each roster color draws a 16×16 food on the tile face', () => {
+test('each roster color draws the approved 19×19 food on the tile face', () => {
   assert.match(html, /function foodMarkup/);
   const stack = html.slice(html.indexOf('function stackBodyHTML'), html.indexOf('function stackBadgeHTML'));
   const pool = html.slice(html.indexOf('function renderPool'), html.indexOf('function renderPoolSel'));
+  const markup = html.slice(html.indexOf('function foodMarkup'), html.indexOf('function stackBodyHTML'));
   assert.match(stack, /foodMarkup\(layer\.color\)/);
   assert.match(pool, /foodMarkup\(c\)/);
-  assert.match(css, /\.tfood\{[^}]*width:16px/);
+  assert.match(markup, /class="ttex"/);
+  assert.match(markup, /class="tfood"/);
+  assert.match(css, /\.tfood\{[^}]*width:19px/);
   assert.match(css, /\.tfood\{[^}]*image-rendering:\s*pixelated/);
-  assert.match(css, /\.board\.food-lg \.tile \.tfood\{[^}]*width:32px/);
-  assert.match(css, /\.board\.food-lg \.tile \.tfood\{[^}]*background-size:32px 32px/);
-  assert.match(css, /\.ttile \.tfood\{[^}]*width:16px/);
+  assert.match(css, /\.ttex\{[^}]*image-rendering:\s*pixelated/);
+  assert.match(css, /\.board\.food-lg \.tile \.tfood\{[^}]*width:38px/);
+  assert.match(css, /\.board\.food-lg \.tile \.tfood\{[^}]*background-size:38px 38px/);
+  assert.match(css, /\.ttile \.tfood\{[^}]*width:19px/);
   for (let i = 1; i <= 10; i++) {
     assert.match(css, new RegExp(`\\.tfood\\[data-food="${i}"\\]\\{background-image:url\\('\\./assets/pixel/foods/${i}\\.png'\\)\\}`));
+    assert.match(css, new RegExp(`\\.ttex\\[data-food="${i}"\\]\\{background-image:url\\('\\./assets/pixel/foods/t${i}\\.png'\\)\\}`));
     const buf = readFileSync(join(root, 'assets/pixel/foods', `${i}.png`));
-    assert.deepEqual(pngSize(buf), { w: 16, h: 16 });
+    assert.deepEqual(pngSize(buf), { w: 19, h: 19 });
+    const tex = readFileSync(join(root, 'assets/pixel/foods', `t${i}.png`));
+    assert.deepEqual(pngSize(tex), { w: 28, h: 32 });
   }
 });
 

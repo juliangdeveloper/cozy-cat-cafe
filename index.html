@@ -280,11 +280,25 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .tface::before{content:"";position:absolute;inset:1.5px;
   background:linear-gradient(180deg,color-mix(in srgb,var(--tc),#fff 16%),var(--tc) 55%);
   clip-path:var(--hexclip)}
-/* Guest food on the top face. The drawing is a native 16×16 PNG.
-   Hexes of 28 and up show it at 32px, nearest-neighbor only. */
-.tfood{position:absolute;left:50%;top:50%;width:16px;height:16px;transform:translate(-50%,-56%);
+/* Guest food on the top face. The drawing is the approved 19×19 sprite
+   (16px grid plus the outline). Hexes of 28 and up show it at 38px, exactly 2×,
+   nearest-neighbor only. The soft tile texture is the same sheet's marks. */
+.ttex{position:absolute;inset:1.5px;z-index:1;pointer-events:none;display:block;
+  background-repeat:no-repeat;background-position:center;background-size:100% 100%;
+  image-rendering:crisp-edges;image-rendering:pixelated}
+.ttex[data-food="1"]{background-image:url('./assets/pixel/foods/t1.png')}
+.ttex[data-food="2"]{background-image:url('./assets/pixel/foods/t2.png')}
+.ttex[data-food="3"]{background-image:url('./assets/pixel/foods/t3.png')}
+.ttex[data-food="4"]{background-image:url('./assets/pixel/foods/t4.png')}
+.ttex[data-food="5"]{background-image:url('./assets/pixel/foods/t5.png')}
+.ttex[data-food="6"]{background-image:url('./assets/pixel/foods/t6.png')}
+.ttex[data-food="7"]{background-image:url('./assets/pixel/foods/t7.png')}
+.ttex[data-food="8"]{background-image:url('./assets/pixel/foods/t8.png')}
+.ttex[data-food="9"]{background-image:url('./assets/pixel/foods/t9.png')}
+.ttex[data-food="10"]{background-image:url('./assets/pixel/foods/t10.png')}
+.tfood{position:absolute;left:50%;top:50%;width:19px;height:19px;transform:translate(-50%,-56%);
   z-index:2;pointer-events:none;display:block;
-  background-repeat:no-repeat;background-position:center;background-size:16px 16px;
+  background-repeat:no-repeat;background-position:center;background-size:19px 19px;
   image-rendering:crisp-edges;image-rendering:pixelated}
 .tfood[data-food="1"]{background-image:url('./assets/pixel/foods/1.png')}
 .tfood[data-food="2"]{background-image:url('./assets/pixel/foods/2.png')}
@@ -296,8 +310,8 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .tfood[data-food="8"]{background-image:url('./assets/pixel/foods/8.png')}
 .tfood[data-food="9"]{background-image:url('./assets/pixel/foods/9.png')}
 .tfood[data-food="10"]{background-image:url('./assets/pixel/foods/10.png')}
-.board.food-lg .tile .tfood{width:32px;height:32px;background-size:32px 32px}
-.ttile .tfood{width:16px;height:16px;background-size:16px 16px;transform:translate(-50%,-60%)}
+.board.food-lg .tile .tfood{width:38px;height:38px;background-size:38px 38px}
+.ttile .tfood{width:19px;height:19px;background-size:19px 19px;transform:translate(-50%,-60%)}
 /* Run count rides the top tile; the total sits on the front lip.
    Both are board-level so a front hex cannot cover them. */
 .runbadge,.totalbadge{position:absolute;z-index:80;pointer-events:none;display:inline-flex;
@@ -1414,10 +1428,10 @@ function cellHTML(cell, idx){
     ${cell.blocked?'<div class="lockovl"><span>🔒</span></div>':''}</div>`;
 }
 // One food per roster color (colorIndex = ROSTER position + 1).
-// Native 16×16 PNGs. A hex of 28 or more shows the same pixels at 32, nearest neighbor.
+// Native 19×19 PNGs from the approved sheet. A hex of 28 or more shows the same pixels at 38, nearest neighbor.
 function foodMarkup(color){
   const face = faceColor(color);
-  return `<i class="tfood" data-food="${face}"></i>`;
+  return `<i class="ttex" data-food="${face}"></i><i class="tfood" data-food="${face}"></i>`;
 }
 
 // Top 6 tiles, each one step above the last. A taller pile adds one wood
