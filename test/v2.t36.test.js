@@ -34,8 +34,8 @@ test('order cards use the creature for that color, with idle frames', () => {
   assert.match(css, /\.px-avatar\{[^}]*width:32px/);
   assert.match(css, /\.px-avatar\{[^}]*height:32px/);
   assert.doesNotMatch(orders, /class="oname"/);
-  assert.match(css, /\.order-card \.px-avatar\{[^}]*width:100%/);
   assert.match(css, /\.order-card \.px-avatar\{[^}]*height:100%/);
+  assert.match(css, /\.order-card \.px-avatar\{[^}]*aspect-ratio:1/);
   assert.match(css, /\.order-card \.px-avatar \.px32\{[^}]*width:100%!important/);
   assert.match(css, /\.order-card \.px-avatar \.px32\{[^}]*--fw:100%!important/);
   assert.match(css, /\.order-card \.px-avatar \.px32\{[^}]*background-size:400% 100%!important/);
