@@ -1,5 +1,5 @@
-// v2.24.26 — tall top-row stacks must not move the board, and tray stacks
-// sit on the visual center of their slot.
+// v2.24.27 — tall top-row stacks must not move the board. A tray stack is
+// centered by its base hex, and taller stacks grow upward.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync, unlinkSync } from 'node:fs';
@@ -11,30 +11,28 @@ import { trayStackShiftPx, stackStepPx } from '../js/game.js';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(root, 'index.html'), 'utf8');
 
-test('a tray stack is centered on the slot, and a tall one may overflow', () => {
+test('a tray stack is centered by its base, and a tall one overflows upward', () => {
   const step = stackStepPx(31);
   const tileH = 34;
   const slotH = 82;
-  const bevel = 31 * 0.055;
-  const face = 31 * 0.015;
-  assert.equal(trayStackShiftPx(0, step, tileH, slotH, bevel, face), 0);
-  const one = trayStackShiftPx(1, step, tileH, slotH, bevel, face);
-  const oneCenter = (-bevel + tileH + face) / 2;
-  assert.ok(Math.abs(oneCenter + one - slotH / 2) < 1e-9);
-  assert.ok(one > 10);
-  const tall = trayStackShiftPx(8, step, tileH, slotH, bevel, face);
-  const span = (7 * step + tileH + face) - (-bevel);
-  assert.ok(span > slotH);
-  assert.ok(tall < one);
+  assert.equal(trayStackShiftPx(0, tileH, slotH), 0);
+  const one = trayStackShiftPx(1, tileH, slotH);
+  const mid = trayStackShiftPx(3, tileH, slotH);
+  const tall = trayStackShiftPx(8, tileH, slotH);
+  assert.equal(one, mid);
+  assert.equal(mid, tall);
+  assert.ok(Math.abs(tileH / 2 + one - slotH / 2) < 1e-9);
+  const top = (8 - 1) * step + tileH + tall;
+  assert.ok(top > slotH);
   assert.match(html, /\.poolslot\{[^}]*overflow:visible/);
-  assert.match(html, /\.ttile\{[^}]*left:50%[^}]*translate:-50% 0/);
+  assert.match(html, /\.ttile\{[^}]*left:50%[^}]*bottom:0[^}]*translate:-50% 0/);
   assert.match(html, /function centerTrayStacks/);
-  assert.match(html, /trayStackShiftPx\(n, step, tileH, slotH, bevel, face\)/);
+  assert.match(html, /trayStackShiftPx\(n, tileH, slotH\)/);
   assert.match(html, /\.pool\{[^}]*overflow:visible/);
 });
 
 test('tall top-row stacks do not move the 36-cell board', async () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.26'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.27'/);
   const boardFn = html.slice(html.indexOf('function renderBoard'), html.indexOf('function renderPool'));
   const shift = boardFn.slice(boardFn.indexOf('const cellsH'), boardFn.indexOf('box.style.setProperty'));
   assert.doesNotMatch(shift, /stack/);

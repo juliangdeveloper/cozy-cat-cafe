@@ -1892,10 +1892,6 @@ function renderPool(){
   centerTrayStacks();
 }
 function centerTrayStacks(){
-  const hxN=rootHx();
-  const bevel=hxN*0.055;
-  const face=hxN*0.015;
-  const step=trayStep();
   $$('#pool .poolslot').forEach(slot=>{
     const tray=slot.querySelector('.tray');
     if(!tray) return;
@@ -1905,7 +1901,7 @@ function centerTrayStacks(){
     const tileH=tiles[0].offsetHeight||parseFloat(getComputedStyle(tiles[0]).height)||0;
     const slotH=slot.clientHeight||parseFloat(getComputedStyle(slot).height)||0;
     if(!(tileH>0)||!(slotH>0)) return;
-    const up=trayStackShiftPx(n, step, tileH, slotH, bevel, face);
+    const up=trayStackShiftPx(n, tileH, slotH);
     tray.style.transform=`translateY(${(-up).toFixed(2)}px)`;
     tray.dataset.shift=up.toFixed(2);
   });
@@ -2996,7 +2992,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.26';
+const GAME_VERSION = 'v2.24.27';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, set state(v){ state=v; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, maybeBoardShuffle, applyBoardShuffle, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, stackVisual, stackLiftPadPx, get boardHx(){ return boardHx(); } };

@@ -1705,19 +1705,16 @@ export function stackLiftPadPx(hx) {
   return STACK_VISUAL_CAP * stackStepPx(hxN) + face + badgeHang;
 }
 
-// Pixels to move a tray stack UP so its painted center sits on the slot center.
-// `step`/`tileH`/`slotH` are CSS pixels. `bevel` hangs below the lowest tile
-// and `face` rises above the highest. A tall stack may return a small or
-// negative shift; the overflow is allowed and must not be clipped.
-export function trayStackShiftPx(count, step, tileH, slotH, bevel, face) {
+// Pixels to move a tray stack UP so the bottom tile's center sits on the
+// slot center. Every height uses the same shift, so the bases line up.
+// Tiles above the base grow upward and may leave the slot; that overflow
+// is not clipped.
+export function trayStackShiftPx(count, tileH, slotH) {
   const n = count | 0;
-  if (n <= 0) return 0;
-  const b = Number(bevel) || 0;
-  const f = Number(face) || 0;
-  const visualBottom = -b;
-  const visualTop = (n - 1) * step + tileH + f;
-  const center = (visualBottom + visualTop) / 2;
-  return slotH / 2 - center;
+  const h = Number(tileH) || 0;
+  const slot = Number(slotH) || 0;
+  if (n <= 0 || !(h > 0) || !(slot > 0)) return 0;
+  return slot / 2 - h / 2;
 }
 
 // What the board paints for a pile. `layers` run bottom to top. `lift` is in
