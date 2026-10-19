@@ -18,7 +18,7 @@ function sliceFn(name, next) {
 }
 
 test('version footer stays and reads v2.22.4', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.28'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.29'/);
   assert.match(html, /☕ Cozy Cat Café \$\{GAME_VERSION\}/);
   assert.match(html, /Hold 3s to restart/);
 });
@@ -93,9 +93,12 @@ test('v2.24.5: Peek and queue skip are gone from the power bar', () => {
 test('buying a color names the creature and shows its swatch', () => {
   const powers = sliceFn('renderPowers', 'refreshFlow');
   assert.match(powers, /Unlocked: '/);
-  assert.match(powers, /creatureName\(n\)/);
+  assert.match(powers, /guestForColor\(state, n\)/);
   assert.match(powers, /\(color '/);
-  assert.match(powers, /toast\('Unlocked: '\+who\+' \(color '\+n\+'\)', faceColor\(n\)\)/);
+  assert.match(powers, /toast\('Unlocked: '\+guest\.name\+' \(color '\+n\+'\)', guest\.face\)/);
+  assert.match(html, /function faceToken\(face\)/);
+  assert.match(html, /faceToken\(colorId\)/);
+  assert.doesNotMatch(html, /tileVar\(colorId\)/);
   assert.match(powers, /colorLockedLine\(\)/);
   assert.match(powers, /d\.skill==='color' && colorLocked\(\)/);
   assert.match(html, /All '\+colorRunCap\(state\)\+' colors unlocked/);

@@ -858,7 +858,7 @@ import {
   // v2.21 — meta efímera, pedidos, oleada 2, victoria
   restartRun, beginVictory, clearTables, calamityForecast,
   maybeBoardShuffle, applyBoardShuffle,
-  tipLevel, tipPayTable, runFaceColor, topRuns,
+  tipLevel, tipPayTable, runFaceColor, guestForColor, topRuns,
   undoStackOf, undoTopCoins,
 } from './js/game.js';
 import {
@@ -889,9 +889,11 @@ const TILE_CSS = {1:'--tile-mint',2:'--tile-blue',3:'--tile-pink',4:'--tile-blus
   7:'--tile-denim',8:'--tile-teal',9:'--tile-pine',10:'--tile-orchid'}; // v2.6.1: 7..10 existian en game.js pero caian al fallback mint
 function faceColor(logical){ return runFaceColor(state, logical); }
 const tileVar = c => TILE_CSS[faceColor(c)]||'--tile-mint';
+// A face id's own swatch. Logical colors go through tileVar; a face that was
+// already resolved must not be looked up in the run palette a second time.
+function faceToken(face){ return TILE_CSS[face]||'--tile-mint'; }
 function creatureName(logical){
-  const face = faceColor(logical);
-  return ROSTER[(face||1)-1] || 'Creature';
+  return guestForColor(state, logical).name;
 }
 
 // ---------------- sprite registry + placeholder fallback --------------------
@@ -1001,7 +1003,7 @@ function pxMarkup(pack, cls){
   return `<span class="px${pack.idle?' px-idle':''} ${cls}" style="${style}" aria-hidden="true"></span>`;
 }
 function customerAvatar(logical){
-  const face = faceColor(logical);
+  const face = guestForColor(state, logical).face;
   const c = PIXEL.customers[face];
   if(!c || !c.s32) return spr('cat_client_'+(((face||1)-1)%3+1), 32);
   return `<span class="px-avatar" data-creature="${c.id}" data-color="${face}">${pxMarkup(c.s32,'px32')}${pxMarkup(c.s28,'px28')}</span>`;
@@ -1031,7 +1033,7 @@ function toast(msg, colorId){
   if(colorId){
     const chip=document.createElement('i');
     chip.className='toast-swatch';
-    chip.style.setProperty('--tc','var('+tileVar(colorId)+')');
+    chip.style.setProperty('--tc','var('+faceToken(colorId)+')');
     chip.setAttribute('aria-hidden','true');
     t.appendChild(chip);
   }
@@ -1451,13 +1453,17 @@ function renderOrders(){
     cnt.setAttribute('aria-label', 'Guests ' + label);
   }
   box.innerHTML = vis.map((o)=>{
-    // v2 R13.2: nombre del ROSTER — el pedido de una criatura usa SOLO su color
+    // v2 R13.2: nombre del ROSTER — el pedido de una criatura usa SOLO su color.
+    // Guest and hex both come from guestForColor, the same lookup as the
+    // unlock announcement. The face id is not passed through the palette again.
     const ready = !o.served && orderIsReady(o);
     const sel = ui.servingOrder===o.id;
+    const guest = guestForColor(state, o.color||1);
+    const token = faceToken(guest.face);
     return `<div class="order-card ${o.served?'served':''} ${ready?'ready':''} ${sel?'selected':''} ${o.legendary?'legendary':''}" data-oid="${o.id}"
-      style="border-top:4px solid var(${tileVar(o.color)})">
+      style="border-top:4px solid var(${token})">
       ${customerAvatar(o.color||1)}
-      <div class="bubble">${o.qty}<span class="minitile" style="--mc:var(${tileVar(o.color)})"></span></div>
+      <div class="bubble">${o.qty}<span class="minitile" style="--mc:var(${token})"></span></div>
       ${sel?'<div class="seltag">▼</div>':''}</div>`;
   }).join('');
   $$('#orders .order-card').forEach(c=>c.addEventListener('click',()=>{
@@ -2073,8 +2079,8 @@ function renderPowers(){
       if(r.error){ err(r); return; }
       state=r;
       const n=state.progress.colorsOwned;
-      const who=creatureName(n);
-      toast('Unlocked: '+who+' (color '+n+')', faceColor(n));
+      const guest=guestForColor(state, n);
+      toast('Unlocked: '+guest.name+' (color '+n+')', guest.face);
       renderAll(); return;
     }
     if(mode==='tips'){
@@ -2488,8 +2494,19 @@ function peekStack(id){
   }, 4000);
   ui.peek[id]=rec;
 }
-// v2.20 R14.3 — activar UNA baldosa dormant por partida (paga runTilePrice)
-function activateFlow(id){
+// Same resolution a tray placement uses: merge, serve, pay, and chain.
+// One pass sees every pile revealed in `base`, so several unlocks at once
+// each join their matching neighbors.
+async function cascadeAfterReveal(base){
+  const fin=resolveCascade(base);
+  if(fin.steps===0){ state=fin.state; renderAll(); checkFull(); checkServedAll(); return; }
+  await playCascade(base,fin.state);
+  await settlePasses();
+  renderAll(); checkFull(); checkServedAll();
+}
+// v2.20 R14.3 — activar UNA baldosa dormant por partida (paga runTilePrice).
+// A hidden calamity pile is revealed here; the cascade starts from that cell.
+async function activateFlow(id){
   const cell=state.run.board[id];
   if(!cell||!cell.dormant){ toast('That tile is already active'); return; }
   const paid=runTilePrice(state);
@@ -2499,7 +2516,7 @@ function activateFlow(id){
   state=res; ui.mode=null;
   const el=$(`#board .cell[data-id="${id}"]`); if(el) floatOn(el,'🪧');
   toast(`Table activated ✨ (${fmt(paid)}🪙)`);
-  renderAll();
+  await cascadeAfterReveal(res);
 }
 // v2.8 R7.8 — Unlock: desbloquea UN candado y revela su pila oculta; la cascada
 // se dispara aquí (mutación de topes, R12.2) igual que place/swap.
@@ -2510,11 +2527,7 @@ async function unlockFlow(id){
   state=res;
   const el=$(`[data-id="${id}"]`); if(el) floatOn(el,'🔓');
   toast('Lock removed!');
-  const fin=resolveCascade(state);
-  if(fin.steps===0){ state=fin.state; renderAll(); checkFull(); checkServedAll(); return; }
-  await playCascade(res,fin.state);
-  await settlePasses();
-  renderAll(); checkFull(); checkServedAll();
+  await cascadeAfterReveal(res);
 }
 function destroyFlow(id){ const r=useDestroyPile(state,id);
   if(r.error){ err(r); } else { const el=$(`[data-id="${id}"]`); if(el) floatOn(el,'💥'); state=r; toast('Stack cleared!'); }
@@ -3015,7 +3028,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.28';
+const GAME_VERSION = 'v2.24.29';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, set state(v){ state=v; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, maybeBoardShuffle, applyBoardShuffle, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, stackVisual, stackLiftPadPx, get boardHx(){ return boardHx(); } };
