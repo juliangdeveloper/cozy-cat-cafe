@@ -280,13 +280,24 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .tface::before{content:"";position:absolute;inset:1.5px;
   background:linear-gradient(180deg,color-mix(in srgb,var(--tc),#fff 16%),var(--tc) 55%);
   clip-path:var(--hexclip)}
-/* Guest food on the top face. 16px keeps a 1:1 pixel grid on hex 22 and in
-   the tray. Hexes at 28 and up use 32px, a clean 2× of the same drawing. */
+/* Guest food on the top face. The drawing is a native 16×16 PNG.
+   Hexes of 28 and up show it at 32px, nearest-neighbor only. */
 .tfood{position:absolute;left:50%;top:50%;width:16px;height:16px;transform:translate(-50%,-56%);
-  z-index:2;pointer-events:none;display:block;line-height:0}
-.tfood svg{display:block;width:100%;height:100%}
-.board.food-lg .tile .tfood{width:32px;height:32px}
-.ttile .tfood{width:16px;height:16px;transform:translate(-50%,-60%)}
+  z-index:2;pointer-events:none;display:block;
+  background-repeat:no-repeat;background-position:center;background-size:16px 16px;
+  image-rendering:crisp-edges;image-rendering:pixelated}
+.tfood[data-food="1"]{background-image:url('./assets/pixel/foods/1.png')}
+.tfood[data-food="2"]{background-image:url('./assets/pixel/foods/2.png')}
+.tfood[data-food="3"]{background-image:url('./assets/pixel/foods/3.png')}
+.tfood[data-food="4"]{background-image:url('./assets/pixel/foods/4.png')}
+.tfood[data-food="5"]{background-image:url('./assets/pixel/foods/5.png')}
+.tfood[data-food="6"]{background-image:url('./assets/pixel/foods/6.png')}
+.tfood[data-food="7"]{background-image:url('./assets/pixel/foods/7.png')}
+.tfood[data-food="8"]{background-image:url('./assets/pixel/foods/8.png')}
+.tfood[data-food="9"]{background-image:url('./assets/pixel/foods/9.png')}
+.tfood[data-food="10"]{background-image:url('./assets/pixel/foods/10.png')}
+.board.food-lg .tile .tfood{width:32px;height:32px;background-size:32px 32px}
+.ttile .tfood{width:16px;height:16px;background-size:16px 16px;transform:translate(-50%,-60%)}
 /* Run count rides the top tile; the total sits on the front lip.
    Both are board-level so a front hex cannot cover them. */
 .runbadge,.totalbadge{position:absolute;z-index:80;pointer-events:none;display:inline-flex;
@@ -1394,280 +1405,10 @@ function cellHTML(cell, idx){
     ${cell.blocked?'<div class="lockovl"><span>🔒</span></div>':''}</div>`;
 }
 // One food per roster color (colorIndex = ROSTER position + 1).
-// Drawn as 16×16 pixels so hex 22 and the tray stay 1:1, and hex 32 is 2×.
-const FOOD_ART = {
-  1: { // Host cat matcha taiyaki
-    X:'#3a2418',
-    C:'#f3d09a',
-    D:'#d4924a',
-    M:'#176b3c',
-    W:'#fffaf0',
-    B:'#241c14',
-    rows:[
-      '................',
-      '................',
-      '.......XXXX.....',
-      '......XCCCCX....',
-      '.....XCCDDCCX...',
-      '....XCCMMMMCCX..',
-      '...XCCMCCCCMCCX.',
-      '..XXCCMWWWWMCCX.',
-      '..XCCCCMBBMCCCC.',
-      '...XCCMMMMCCCCX.',
-      '....XCCCCCCCCX..',
-      '.....XCCCCCCX...',
-      '......XXXXXX....',
-      '.....XX....XX...',
-      '................',
-      '................',
-    ],
-  },
-  2: { // Fox kit blueberry tart
-    X:'#3a2418',
-    O:'#f3d09a',
-    D:'#c9843c',
-    B:'#24306e',
-    H:'#fff8e0',
-    S:'#9aafef',
-    rows:[
-      '................',
-      '....XXXXXXXX....',
-      '...XOOOOOOOOX...',
-      '..XODDDDDDDDOX..',
-      '.XXOBBBBBBBBOXX.',
-      '.XBBBHBBBHBBBBX.',
-      '.XBBBBSBBBSBBBX.',
-      '.XBBBHBBBHBBBBX.',
-      '.XBBBBBBBBBBBBX.',
-      '.XOOOOOOOOOOOOX.',
-      '.XDDDDDDDDDDDDX.',
-      '..XXXXXXXXXXXX..',
-      '................',
-      '................',
-      '................',
-      '................',
-    ],
-  },
-  3: { // Frog lily-pad cake
-    X:'#2a2118',
-    G:'#1f7a3c',
-    V:'#8ed87a',
-    R:'#c4162e',
-    S:'#ffe08a',
-    C:'#fffaf0',
-    rows:[
-      '................',
-      '......XXXX......',
-      '.....XRRRRX.....',
-      '....XRRSSRRX....',
-      '....XRRCRRRX....',
-      '.....XRRRRX.....',
-      '....XX....XX....',
-      '..XXXXXXXXXXXX..',
-      '.XGGGGGGGGGGGGX.',
-      '.XGVGGGGGGGVGGX.',
-      '.XGGGGGGGGGGGGX.',
-      '.XGGGVGGGGVGGGX.',
-      '.XGGGGGGGGGGGGX.',
-      '..XXXXXXXXXXXX..',
-      '................',
-      '................',
-    ],
-  },
-  4: { // Dragonling creme brulee
-    X:'#3a2418',
-    K:'#6a3010',
-    C:'#fff6dc',
-    E:'#ffe4ae',
-    R:'#fffdf8',
-    rows:[
-      '................',
-      '..XXXXXXXXXXXX..',
-      '.XKKKKKKKKKKKKX.',
-      '.XKKCKKCKKCKKKX.',
-      '.XKCKKKCKKKCKKX.',
-      '.XXXXXXXXXXXXXX.',
-      '.XEEEEEEEEEEEEEX',
-      '.XEEEEEEEEEEEEEX',
-      '.XEEEEEEEEEEEEEX',
-      '.XRRRRRRRRRRRRRX',
-      '.XRRRRRRRRRRRRRX',
-      '..XXXXXXXXXXXX..',
-      '................',
-      '................',
-      '................',
-      '................',
-    ],
-  },
-  5: { // Sweeper bot broom cookie
-    X:'#3a2418',
-    C:'#f3d09a',
-    H:'#6b3e22',
-    L:'#fff8ea',
-    rows:[
-      '................',
-      '.XXXXXXXXXXXXXX.',
-      'XCCCCCCCCCCCCCCX',
-      'XCLCLCLCLCLCLCLX',
-      'XCCCCCCCCCCCCCCX',
-      'XCLCLCLCLCLCLCLX',
-      '.XXXXXXXXXXXXXX.',
-      '.....XXHHXX.....',
-      '......XHX.......',
-      '......XHX.......',
-      '......XHX.......',
-      '......XHX.......',
-      '.....XXXXX......',
-      '................',
-      '................',
-      '................',
-    ],
-  },
-  6: { // Barista bot vanilla latte
-    X:'#3a2418',
-    U:'#fffaf0',
-    F:'#fffdf8',
-    K:'#6b3a22',
-    rows:[
-      '................',
-      '...XXXXXXXXXX...',
-      '..XFFFFFFFFFFX..',
-      '..XFFFXKKXFFFX..',
-      '..XFFXKKKKXFFX.X',
-      '..XFFFXKKXFFFX.X',
-      '..XFFFFFFFFFFX..',
-      '...XXXXXXXXXX...',
-      '....XUUUUUUX....',
-      '....XUUUUUUX....',
-      '....XUUUUUUX....',
-      '....XUUUUUUX....',
-      '...XXUUUUUUXX...',
-      '...XUUUUUUUUX...',
-      '....XXXXXXXX....',
-      '................',
-    ],
-  },
-  7: { // Delivery bot boxed sandwich
-    X:'#140e0a',
-    P:'#f7e7c6',
-    T:'#d5e4f8',
-    B:'#f3d29a',
-    L:'#348a40',
-    M:'#d4654a',
-    rows:[
-      '................',
-      '.XXXXXXXXXXXXXX.',
-      'XPXPPPPPPPPPPXP.',
-      'XPPTTTTTTTTTTPPX',
-      'XPXPPPPPPPPPPXP.',
-      '.XXXXXXXXXXXXXX.',
-      '.XBBBBBBBBBBBBX.',
-      '.XBBBBBBBBBBBBX.',
-      '.XLLLLLLLLLLLLX.',
-      '.XMMMMMMMMMMMMX.',
-      '.XBBBBBBBBBBBBX.',
-      '.XXXXXXXXXXXXXX.',
-      '................',
-      '................',
-      '................',
-      '................',
-    ],
-  },
-  8: { // DJ bot vinyl cookie
-    X:'#1a120c',
-    O:'#ffe7b0',
-    V:'#1c1c1c',
-    G:'#d8d8d8',
-    L:'#ffd24a',
-    H:'#1c1c1c',
-    rows:[
-      '................',
-      '....XXXXXXXX....',
-      '...XOOOOOOOOX...',
-      '..XOOXVVVVVXOOX.',
-      '.XOOXVGVGVGVXOOX',
-      '.XOXVVVVVVVVVXOX',
-      '.XOXVVVLLLVVVXOX',
-      '.XOXVVVLHLVVVXOX',
-      '.XOXVVVLLLVVVXOX',
-      '.XOXVVVVVVVVVXOX',
-      '.XOOXVGVGVGVXOOX',
-      '..XOOXVVVVVXOOX.',
-      '...XOOOOOOOOX...',
-      '....XXXXXXXX....',
-      '................',
-      '................',
-    ],
-  },
-  9: { // Human twin A green-tea dango
-    X:'#24180f',
-    G:'#e4fad4',
-    W:'#ffffff',
-    H:'#e8c48a',
-    rows:[
-      '................',
-      '.....XXXXX......',
-      '....XGGGGGX.....',
-      '....XGGWGGX.....',
-      '....XGGGGGX.....',
-      '.....XXHXX......',
-      '......XHX.......',
-      '....XGGGGGX.....',
-      '....XGGWGGX.....',
-      '....XGGGGGX.....',
-      '.....XXHXX......',
-      '......XHX.......',
-      '....XGGGGGX.....',
-      '....XGGWGGX.....',
-      '....XGGGGGX.....',
-      '.....XXXXX......',
-    ],
-  },
-  10: { // Human twin B ube dango
-    X:'#24180f',
-    U:'#f8e8ff',
-    W:'#ffffff',
-    H:'#e8c48a',
-    F:'#ff9ec4',
-    Y:'#ffe08a',
-    rows:[
-      '......F.F.......',
-      '.....XXXXX......',
-      '....XUUUUUX.....',
-      '....XUUWUUXY....',
-      '....XUUUUUX.....',
-      '.....XXHXX......',
-      '......XHX.......',
-      '....XUUUUUX.....',
-      '....XUUWUUXX....',
-      '....XUUUUUX.....',
-      '.....XXHXX......',
-      '......XHX.......',
-      '....XUUUUUX.....',
-      '....XUUWUUXX....',
-      '....XUUUUUX.....',
-      '.....XXXXX......',
-    ],
-  },
-};
-function foodSvg(face){
-  const art = FOOD_ART[face];
-  if(!art) return '';
-  let rects = '';
-  const rows = art.rows;
-  for(let y=0;y<rows.length;y++){
-    const row = rows[y];
-    for(let x=0;x<row.length;x++){
-      const fill = art[row[x]];
-      if(!fill) continue;
-      rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="${fill}"/>`;
-    }
-  }
-  return `<svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true">${rects}</svg>`;
-}
+// Native 16×16 PNGs. A hex of 28 or more shows the same pixels at 32, nearest neighbor.
 function foodMarkup(color){
   const face = faceColor(color);
-  return `<i class="tfood" data-food="${face}">${foodSvg(face)}</i>`;
+  return `<i class="tfood" data-food="${face}"></i>`;
 }
 
 // Top 6 tiles, each one step above the last. A taller pile adds one wood

@@ -44,20 +44,21 @@ test('order cards use the creature for that color, with idle frames', () => {
 });
 
 test('each roster color draws a 16×16 food on the tile face', () => {
-  const art = html.slice(html.indexOf('const FOOD_ART'), html.indexOf('function foodSvg'));
-  for (let i = 1; i <= 10; i++) {
-    assert.match(art, new RegExp(`\\n  ${i}: \\{`));
-  }
-  const rows = [...art.matchAll(/'([.A-Z]{16})'/g)].map((m) => m[1]);
-  assert.equal(rows.length, 160);
   assert.match(html, /function foodMarkup/);
   const stack = html.slice(html.indexOf('function stackBodyHTML'), html.indexOf('function stackBadgeHTML'));
   const pool = html.slice(html.indexOf('function renderPool'), html.indexOf('function renderPoolSel'));
   assert.match(stack, /foodMarkup\(layer\.color\)/);
   assert.match(pool, /foodMarkup\(c\)/);
   assert.match(css, /\.tfood\{[^}]*width:16px/);
+  assert.match(css, /\.tfood\{[^}]*image-rendering:\s*pixelated/);
   assert.match(css, /\.board\.food-lg \.tile \.tfood\{[^}]*width:32px/);
+  assert.match(css, /\.board\.food-lg \.tile \.tfood\{[^}]*background-size:32px 32px/);
   assert.match(css, /\.ttile \.tfood\{[^}]*width:16px/);
+  for (let i = 1; i <= 10; i++) {
+    assert.match(css, new RegExp(`\\.tfood\\[data-food="${i}"\\]\\{background-image:url\\('\\./assets/pixel/foods/${i}\\.png'\\)\\}`));
+    const buf = readFileSync(join(root, 'assets/pixel/foods', `${i}.png`));
+    assert.deepEqual(pngSize(buf), { w: 16, h: 16 });
+  }
 });
 
 test('win and lose use the 96px host cat; skill icons are 26px', () => {
