@@ -1,4 +1,4 @@
-// Pixel customers, host cat, and skill icons. Version footer is v2.24.21.
+// Pixel customers, host cat, and skill icons. Version footer is v2.24.25.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -18,8 +18,8 @@ function pngSize(buf) {
   return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
 }
 
-test('version footer is v2.24.21', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.21'/);
+test('version footer is v2.24.25', () => {
+  assert.match(html, /GAME_VERSION = 'v2\.24\.25'/);
   assert.match(html, /☕ Cozy Cat Café \$\{GAME_VERSION\}/);
 });
 
@@ -33,12 +33,45 @@ test('order cards use the creature for that color, with idle frames', () => {
   assert.match(css, /image-rendering:\s*pixelated/);
   assert.match(css, /\.px-avatar\{[^}]*width:32px/);
   assert.match(css, /\.px-avatar\{[^}]*height:32px/);
-  assert.match(css, /\.order-card \.px-avatar\{[^}]*width:96px/);
-  assert.match(css, /\.order-card \.px-avatar\{[^}]*height:96px/);
-  assert.match(css, /\.order-card \.px-avatar \.px32\{[^}]*width:96px!important/);
-  assert.match(css, /\.order-card \.px-avatar \.px32\{[^}]*--fw:96px!important/);
-  assert.match(css, /\.order-card \.px-avatar \.px32\{[^}]*background-size:384px 96px!important/);
+  assert.doesNotMatch(orders, /class="oname"/);
+  assert.match(css, /\.order-card \.px-avatar\{[^}]*height:100%/);
+  assert.match(css, /\.order-card \.px-avatar\{[^}]*aspect-ratio:1/);
+  assert.match(css, /\.order-card \.px-avatar \.px32\{[^}]*width:100%!important/);
+  assert.match(css, /\.order-card \.px-avatar \.px32\{[^}]*background-size:400% 100%!important/);
+  assert.match(css, /\.order-card \.px-avatar \.px32\{[^}]*animation-name:px-idle-fill/);
+  assert.doesNotMatch(css, /\.order-card \.px-avatar \.px32\{[^}]*--fw:100%/);
+  const fill = css.slice(css.indexOf('@keyframes px-idle-fill'), css.indexOf('@keyframes px-idle-fill') + 400);
+  assert.match(fill, /background-position-x:0%/);
+  assert.match(fill, /background-position-x:calc\(100% \/ 3\)/);
+  assert.match(fill, /background-position-x:calc\(200% \/ 3\)/);
+  assert.match(fill, /background-position-x:100%/);
   assert.match(css, /\.order-card \.px-avatar \.px28\{display:none!important\}/);
+  assert.match(css, /\.order-card\{flex:0 0 calc\(\(100% - 8px\)\/3\);width:calc\(\(100% - 8px\)\/3\);aspect-ratio:1/);
+});
+
+test('each roster color draws the approved 19×19 food on the tile face', () => {
+  assert.match(html, /function foodMarkup/);
+  const stack = html.slice(html.indexOf('function stackBodyHTML'), html.indexOf('function stackBadgeHTML'));
+  const pool = html.slice(html.indexOf('function renderPool'), html.indexOf('function renderPoolSel'));
+  const markup = html.slice(html.indexOf('function foodMarkup'), html.indexOf('function stackBodyHTML'));
+  assert.match(stack, /foodMarkup\(layer\.color\)/);
+  assert.match(pool, /foodMarkup\(c\)/);
+  assert.match(markup, /class="ttex"/);
+  assert.match(markup, /class="tfood"/);
+  assert.match(css, /\.tfood\{[^}]*width:19px/);
+  assert.match(css, /\.tfood\{[^}]*image-rendering:\s*pixelated/);
+  assert.match(css, /\.ttex\{[^}]*image-rendering:\s*pixelated/);
+  assert.match(css, /\.board\.food-lg \.tile \.tfood\{[^}]*width:38px/);
+  assert.match(css, /\.board\.food-lg \.tile \.tfood\{[^}]*background-size:38px 38px/);
+  assert.match(css, /\.ttile \.tfood\{[^}]*width:19px/);
+  for (let i = 1; i <= 10; i++) {
+    assert.match(css, new RegExp(`\\.tfood\\[data-food="${i}"\\]\\{background-image:url\\('\\./assets/pixel/foods/${i}\\.png'\\)\\}`));
+    assert.match(css, new RegExp(`\\.ttex\\[data-food="${i}"\\]\\{background-image:url\\('\\./assets/pixel/foods/t${i}\\.png'\\)\\}`));
+    const buf = readFileSync(join(root, 'assets/pixel/foods', `${i}.png`));
+    assert.deepEqual(pngSize(buf), { w: 19, h: 19 });
+    const tex = readFileSync(join(root, 'assets/pixel/foods', `t${i}.png`));
+    assert.deepEqual(pngSize(tex), { w: 28, h: 32 });
+  }
 });
 
 test('win and lose use the 96px host cat; skill icons are 26px', () => {

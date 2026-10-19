@@ -74,6 +74,7 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
 .cal-track[data-tone="warn"] .cal-mark{background:color-mix(in srgb, var(--danger) calc(var(--cal-p) * 100%), var(--highlight))}
 .cal-track[data-tone="critical"] .cal-mark{color:#fff8ec}
 .cal-track[data-tone="clear"] .cal-mark{background:var(--success);color:var(--ink)}
+.cal-mark .cal-shuffle{width:12px;height:12px;display:block;image-rendering:pixelated;image-rendering:crisp-edges}
 .cal-meta{font-size:12px;font-weight:800;color:var(--ink-soft);text-align:center}
 .topbar .queuecount{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;
   min-height:40px;font-size:11px;line-height:1.1;font-weight:800;
@@ -124,11 +125,33 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
 .victory-veil .host-line{margin:0;font-family:var(--font-display);font-weight:800;font-size:22px;line-height:1.2}
 .victory-veil .host-hint{margin:0;font-size:13px;font-weight:800;color:var(--ink-soft)}
 .victory-veil.defeat-veil{cursor:default}
-.run-history{margin:0 0 12px;padding:10px;background:var(--wood);border:2px solid var(--ink);border-radius:12px}
+.run-history{margin:0 0 12px;padding:8px;background:var(--wood);border:2px solid var(--ink);border-radius:12px;overflow:hidden;max-width:100%}
 .run-history h4{margin:0 0 6px;font-family:var(--font-display);font-size:16px;text-align:center}
 .run-history p{margin:0 0 6px;font-size:13px;font-weight:700;text-align:center}
-.run-history ol{margin:0 0 6px;padding:0 0 0 1.4em;text-align:left}
-.run-history li{font-size:12px;font-weight:700;line-height:1.25;margin:0 0 2px}
+.run-history ol{margin:0 0 6px;padding:0;list-style:none;text-align:left;max-height:min(28vh,220px);overflow-x:hidden;overflow-y:auto}
+.run-history li{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;max-width:100%;font-size:12px;font-weight:800;line-height:1;margin:0;padding:4px 0;border-top:1px solid rgba(121,72,53,.28)}
+.run-history li:first-child{border-top:0}
+.run-history .rh-rank{flex:0 0 1.1em;color:var(--ink-soft);text-align:right}
+.run-history .rh-stat,.run-history .rh-skill{display:inline-flex;align-items:center;gap:2px;flex:0 0 auto;white-space:nowrap}
+.run-history .rh-skills{display:flex;flex-wrap:wrap;align-items:center;gap:3px 4px;flex:1 0 100%;min-width:0;max-width:100%}
+.run-history .rh-none{font-weight:800}
+.run-history .rh-ico{display:block;width:16px;height:16px;flex:0 0 16px;background:center/16px 16px no-repeat;image-rendering:pixelated}
+.run-history .rh-sk{width:26px;height:26px;flex-basis:26px;background-size:26px 26px}
+.run-history .rh-guest{background-image:url(./assets/pixel/customers/host_cat/32.png)}
+.run-history .rh-stacks{background-image:url(./assets/pixel/history/stacks.png)}
+.run-history .rh-tray{background-image:url(./assets/pixel/history/tray.png)}
+.run-history .rh-coin{background-image:url(./assets/pixel/history/coin.png)}
+.run-history .rh-win{background-image:url(./assets/pixel/history/win.png)}
+.run-history .rh-sk-destroyPile{background-image:url(./assets/pixel/skills/destroyPile/26.png)}
+.run-history .rh-sk-swapPiles{background-image:url(./assets/pixel/skills/swapPiles/26.png)}
+.run-history .rh-sk-refreshPool{background-image:url(./assets/pixel/skills/refreshPool/26.png)}
+.run-history .rh-sk-tables{background-image:url(./assets/pixel/skills/tables/26.png)}
+.run-history .rh-sk-unlockLocks{background-image:url(./assets/pixel/skills/unlockLocks/26.png)}
+.run-history .rh-sk-color{background-image:url(./assets/pixel/skills/color/26.png)}
+.run-history .rh-sk-tips{background-image:url(./assets/pixel/skills/tips/26.png)}
+.run-history .rh-sk-clearBoard{background-image:url(./assets/pixel/skills/clearBoard/26.png)}
+.run-history .rh-sk-undoMove{background-image:url(./assets/pixel/skills/undoMove/26.png)}
+.run-history .rh-sk-rotateBoard{background-image:url(./assets/pixel/history/rotate.png)}
 .run-history .rh-note{font-size:11px;color:var(--ink-soft);font-weight:700;line-height:1.35}
 .foot{text-align:center;font-size:11px;color:var(--ink-soft);font-weight:700;margin:4px 0 2px;flex-shrink:0}
 .order-card.legendary{box-shadow:0 0 0 3px var(--highlight),0 3px 0 var(--shadow)}
@@ -141,6 +164,9 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
 .btn-primary{background:var(--accent);font-family:var(--font-display);font-weight:800;font-size:22px;
   width:100%;min-height:64px;padding:0 24px}
 .btn-sec{background:var(--panel);font-weight:800;font-size:14px;min-height:46px;padding:0 14px}
+/* Import is a file label. Its text matches Export; the button box stays .btn-sec. */
+#saveModal label.btn{display:flex;align-items:center;justify-content:center;text-align:center;
+  font-family:var(--font-display);font-weight:800;font-size:19px;color:var(--ink)}
 .btn-sm{min-height:38px;font-size:13px;padding:0 10px;border-radius:12px}
 button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 
@@ -280,6 +306,38 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .tface::before{content:"";position:absolute;inset:1.5px;
   background:linear-gradient(180deg,color-mix(in srgb,var(--tc),#fff 16%),var(--tc) 55%);
   clip-path:var(--hexclip)}
+/* Guest food on the top face. The drawing is the approved 19×19 sprite
+   (16px grid plus the outline). Hexes of 28 and up show it at 38px, exactly 2×,
+   nearest-neighbor only. The soft tile texture is the same sheet's marks. */
+.ttex{position:absolute;inset:1.5px;z-index:1;pointer-events:none;display:block;
+  background-repeat:no-repeat;background-position:center;background-size:100% 100%;
+  image-rendering:crisp-edges;image-rendering:pixelated}
+.ttex[data-food="1"]{background-image:url('./assets/pixel/foods/t1.png')}
+.ttex[data-food="2"]{background-image:url('./assets/pixel/foods/t2.png')}
+.ttex[data-food="3"]{background-image:url('./assets/pixel/foods/t3.png')}
+.ttex[data-food="4"]{background-image:url('./assets/pixel/foods/t4.png')}
+.ttex[data-food="5"]{background-image:url('./assets/pixel/foods/t5.png')}
+.ttex[data-food="6"]{background-image:url('./assets/pixel/foods/t6.png')}
+.ttex[data-food="7"]{background-image:url('./assets/pixel/foods/t7.png')}
+.ttex[data-food="8"]{background-image:url('./assets/pixel/foods/t8.png')}
+.ttex[data-food="9"]{background-image:url('./assets/pixel/foods/t9.png')}
+.ttex[data-food="10"]{background-image:url('./assets/pixel/foods/t10.png')}
+.tfood{position:absolute;left:50%;top:50%;width:19px;height:19px;transform:translate(-50%,-56%);
+  z-index:2;pointer-events:none;display:block;
+  background-repeat:no-repeat;background-position:center;background-size:19px 19px;
+  image-rendering:crisp-edges;image-rendering:pixelated}
+.tfood[data-food="1"]{background-image:url('./assets/pixel/foods/1.png')}
+.tfood[data-food="2"]{background-image:url('./assets/pixel/foods/2.png')}
+.tfood[data-food="3"]{background-image:url('./assets/pixel/foods/3.png')}
+.tfood[data-food="4"]{background-image:url('./assets/pixel/foods/4.png')}
+.tfood[data-food="5"]{background-image:url('./assets/pixel/foods/5.png')}
+.tfood[data-food="6"]{background-image:url('./assets/pixel/foods/6.png')}
+.tfood[data-food="7"]{background-image:url('./assets/pixel/foods/7.png')}
+.tfood[data-food="8"]{background-image:url('./assets/pixel/foods/8.png')}
+.tfood[data-food="9"]{background-image:url('./assets/pixel/foods/9.png')}
+.tfood[data-food="10"]{background-image:url('./assets/pixel/foods/10.png')}
+.board.food-lg .tile .tfood{width:38px;height:38px;background-size:38px 38px}
+.ttile .tfood{width:19px;height:19px;background-size:19px 19px;transform:translate(-50%,-60%)}
 /* Run count rides the top tile; the total sits on the front lip.
    Both are board-level so a front hex cannot cover them. */
 .runbadge,.totalbadge{position:absolute;z-index:80;pointer-events:none;display:inline-flex;
@@ -359,6 +417,8 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 /* v2 cascada animada (R12.2): anillo + pop en celdas afectadas por eslabón */
 .cell.casc .hexbg{--hb:var(--highlight);--hbw:4px;filter:drop-shadow(0 0 8px var(--highlight))}
 .cell.casc .stack{animation:cascPop .9s cubic-bezier(.4,0,.2,1)}
+.cell.peeking{z-index:80!important}
+.board-wrap.peek-live{overflow:visible!important;z-index:30}
 @keyframes cascPop{0%{transform:scale(1)}40%{transform:scale(1.14)}100%{transform:scale(1)}}
 /* v2.0 merge paso a paso: origen (from) y destino (to) del tirón visible */
 .cell.mergesrc .hexbg{--hb:var(--tile-blue);--hbw:4px;filter:drop-shadow(0 0 8px var(--tile-blue))}
@@ -588,12 +648,21 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 @media(hover:none){.btn:hover{transform:none;filter:none}}
 @media(prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01s!important;transition:none!important}}
 @media(prefers-reduced-motion: reduce){.px-idle{animation:none!important;background-position:0 0!important}}
-/* 32px guest sheet drawn at 3× so it fills the square card. Whole pixels only.
-   The order badge stays in the corner and the name stays under the picture. */
-.order-card .px-avatar{width:96px;height:96px;flex:0 0 96px;overflow:hidden}
-.order-card .px-avatar .px32{display:block!important;width:96px!important;height:96px!important;
-  --fw:96px!important;background-size:384px 96px!important;image-rendering:pixelated}
+/* The name is gone, so the guest art fills the card. The card box stays the
+   same size. The count badge stays in the corner.
+   The idle sheet is four frames (400% of the portrait). Percentage
+   background-position is (box − image) × p, so frame n sits at n/3 — not at
+   calc(100% * -n), which walks the sheet off the card. */
+.order-card .px-avatar{width:auto;height:100%;aspect-ratio:1;flex:1 1 auto;min-height:0;max-width:100%;max-height:100%;overflow:hidden}
+.order-card .px-avatar .px32{display:block!important;width:100%!important;height:100%!important;
+  background-size:400% 100%!important;image-rendering:pixelated;animation-name:px-idle-fill}
 .order-card .px-avatar .px28{display:none!important}
+@keyframes px-idle-fill{
+  0%,29.7619%{background-position-x:0%}
+  29.762%,50%{background-position-x:calc(100% / 3)}
+  50.001%,79.7619%{background-position-x:calc(200% / 3)}
+  79.762%,100%{background-position-x:100%}
+}
 
 /* v2.18 — first-run spotlight tutorial.
    The dim (#tutOverlay, z-index 80) sits under the playable board and trays
@@ -625,6 +694,60 @@ body.tut-on .powerbar.tut-spot{z-index:90}
 .tut-actions{display:flex;gap:10px;justify-content:center}
 .tut-actions .btn{flex:1;min-height:44px}
 .tut-step{display:block;text-align:center;font-size:11px;font-weight:700;color:var(--ink-soft);margin-bottom:6px}
+
+/* Board and tray skin. Paint only: no width, height, padding, margin, gap, or border-width.
+   1 art px = 2 CSS px. Every image uses image-rendering: pixelated. */
+.board-wrap{
+  background:url(./assets/board-tray/img/board_wood_tile.png) 0 0/192px 88px repeat;
+  image-rendering:pixelated;
+  box-shadow:inset 0 0 0 2px #794835;
+  border-radius:6px;
+}
+.board:not(.flat) .cell:not(.dormant):not(.blocked):not(.hex-flat) .hexbg{
+  background:url(./assets/board-tray/img/cell_lace_open.png) 0 0/100% 100% no-repeat;
+  clip-path:none;
+  image-rendering:pixelated;
+}
+.board:not(.flat) .cell.dormant:not(.hex-flat) .hexbg{
+  background:url(./assets/board-tray/img/cell_lace_locked.png) 0 0/100% 100% no-repeat;
+  clip-path:none;
+  image-rendering:pixelated;
+}
+.board:not(.flat) .cell.dormant:not(.hex-flat){opacity:1}
+.board:not(.flat) .cell.blocked:not(.hex-flat){opacity:1}
+.board.actmode:not(.flat) .cell.dormant:not(.act-eligible){opacity:.55}
+.board-decor{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.board-decor>i{position:absolute;display:block;image-rendering:pixelated;background-repeat:no-repeat}
+.board-decor .bd-cat{width:68px;height:44px;background-image:url(./assets/board-tray/img/decor_cat_sleep_sheet.png);background-size:272px 44px;
+  animation:bd-cat 2.1s steps(4) infinite}
+.board-decor .bd-cup{width:36px;height:48px;background-image:url(./assets/board-tray/img/decor_cup_steam_sheet.png);background-size:144px 48px;
+  animation:bd-cup .72s steps(4) infinite}
+.board-decor .bd-petal{width:18px;height:16px;background-image:url(./assets/board-tray/img/decor_petal_sheet.png);background-size:72px 16px;
+  animation:bd-petal .88s steps(4) infinite,bd-drift 3.2s steps(4) infinite alternate}
+@keyframes bd-cat{to{background-position:-272px 0}}
+@keyframes bd-cup{to{background-position:-144px 0}}
+@keyframes bd-petal{to{background-position:-72px 0}}
+@keyframes bd-drift{to{transform:translate(2px,8px)}}
+@media (prefers-reduced-motion: reduce){
+  .board-decor>i{animation:none!important;background-position:0 0!important}
+}
+.pool{
+  background:url(./assets/board-tray/img/tray_wall_tile.png) 0 0/32px 16px repeat;
+  image-rendering:pixelated;
+}
+.poolslot,.poolslot.selected{
+  border-radius:0;
+  image-rendering:pixelated;
+  background:
+    url(./assets/board-tray/img/slot_curtain_paw.png) 50% 6px/14px 12px no-repeat,
+    url(./assets/board-tray/img/slot_sill_strip.png) 0 100%/16px 10px repeat-x,
+    url(./assets/board-tray/img/slot_post_left.png) 0 0/6px 16px repeat-y,
+    url(./assets/board-tray/img/slot_post_right.png) 100% 0/6px 16px repeat-y,
+    url(./assets/board-tray/img/slot_curtain_strip.png) 0 0/24px 26px repeat-x,
+    url(./assets/board-tray/img/slot_backplate_tile.png) 0 0/24px 24px repeat;
+  background-origin:border-box;
+}
+.poolslot.selected{box-shadow:inset 0 0 0 3px var(--accent),inset 0 0 0 999px rgba(255,226,140,.28)}
 
 </style>
 </head>
@@ -664,6 +787,7 @@ body.tut-on .powerbar.tut-spot{z-index:90}
   <p>A hidden pile sleeps on a dark table until you unlock it.</p>
   <p>A locked table hides a pile — Unlock reveals it.</p>
   <p>A pile is already sitting on a table.</p>
+  <p>At 100,000 coins every table trades places. Stacks and locks move with their table.</p>
   <div class="cal-meta" id="calPopMeta" style="margin-bottom:8px"></div>
   <button type="button" class="btn btn-sec" id="calPopClose" style="width:100%">Close</button>
 </div></div>
@@ -685,7 +809,7 @@ body.tut-on .powerbar.tut-spot{z-index:90}
   <p style="font-size:13px;text-align:center">Export or import your café save as JSON. It stays on this device.</p>
   <div style="display:flex;flex-direction:column;gap:10px">
     <button class="btn btn-primary" id="exportBtn">Export save (.json)</button>
-    <label class="btn btn-sec" style="text-align:center;display:block;cursor:pointer">
+    <label class="btn btn-sec">
       Import save… <input type="file" id="importFile" accept=".json,application/json" style="display:none">
     </label>
     <button class="btn btn-sec" id="resetBtn" style="background:var(--danger);color:#fff8ec">🔄 New game (reset)</button>
@@ -717,7 +841,7 @@ import {
   createGame, CONFIG, placeStack, serveOrder, closeRun, openRun, buySkill,
   buyMultiplier, useDestroyPile, useSwapPiles, useRefreshPool, buyExpansion,
   useUnlockLocks,                    // v2.8 R7.8: Unlock 🔓 (candados de calamidad)
-  useClearBoard, useUndoMove,        // v2.24 Clear board + Undo
+  useClearBoard, useUndoMove, useRotateBoard, // v2.24 Clear board + Undo + free rotate
   buyIdleUpgrade, tickIdle, applyOffline, colorsUnlocked,
   buyColor, colorPrice, colorRunCap, tipPrice, previewPrice, skillUsePrice, skillUseCount, // v2.22 pay-per-use
   SKILL_BAR_ORDER, // v2.24.7: fixed bar, sorted once by starting price
@@ -733,6 +857,7 @@ import {
   totalClients, runVictory, useQueueSkip,
   // v2.21 — meta efímera, pedidos, oleada 2, victoria
   restartRun, beginVictory, clearTables, calamityForecast,
+  maybeBoardShuffle, applyBoardShuffle,
   tipLevel, tipPayTable, runFaceColor, topRuns,
   undoStackOf, undoTopCoins,
 } from './js/game.js';
@@ -983,7 +1108,7 @@ function fitFrame(){
   // The tray is pinned to the board, so the wrap's box does not change when
   // the viewport shrinks. Refit from the frame size or the column overflows.
   const sig=Math.round(frame.offsetWidth)+'x'+Math.round(frame.offsetHeight);
-  if(sig===ui.frameBox) return;
+  if(sig===ui.frameBox){ placeBoardDecor(); return; }
   ui.frameBox=sig;
   ui.fitting=true;
   try{ renderBoard(); }
@@ -1057,10 +1182,104 @@ async function settlePasses(){
   renderAll(); checkServedAll();
 }
 function persist(){ state.meta.lastSavedAt = Date.now(); localStorage.setItem(KEY, serializeState(state)); }
+function captureCellPos(){
+  const map=new Map();
+  document.querySelectorAll('#board .cell[data-id]').forEach(el=>{
+    map.set(+el.dataset.id, {x:el.offsetLeft, y:el.offsetTop});
+  });
+  return map;
+}
+function cancelPeeks(){
+  if(!ui.peek) return;
+  for(const id of Object.keys(ui.peek)){
+    clearTimeout(ui.peek[id].hold);
+    clearTimeout(ui.peek[id].end);
+  }
+  ui.peek={};
+  const wrap=document.querySelector('.board-wrap');
+  if(wrap) wrap.classList.remove('peek-live');
+}
+function shuffleDeltas(from, oldPos){
+  const moves=[];
+  if(!from || !oldPos) return moves;
+  for(let i=0;i<from.length;i++){
+    const src=from[i];
+    if(src==null || src===i) continue;
+    const a=oldPos.get(src), b=oldPos.get(i);
+    if(!a || !b) continue;
+    const dx=a.x-b.x, dy=a.y-b.y;
+    if(!dx && !dy) continue;
+    moves.push({i, dx, dy});
+  }
+  return moves;
+}
+function parkShuffle(from, oldPos){
+  for(const m of shuffleDeltas(from, oldPos)){
+    const el=document.querySelector(`#board .cell[data-id="${m.i}"]`);
+    if(!el) continue;
+    el.style.zIndex='60';
+    el.style.transform=`translate(${m.dx}px,${m.dy}px)`;
+    document.querySelectorAll(`#board .runbadge[data-cell="${m.i}"], #board .totalbadge[data-cell="${m.i}"]`).forEach(badge=>{
+      badge.style.transform=`translate(${m.dx}px,${m.dy}px)`;
+    });
+  }
+}
 function renderAll(){
   if(!state.run) state = openRun(state, Math.random);
+  cancelPeeks();
+  const shuffleFrom=state.run && state.run.boardShuffleFrom;
+  if(shuffleFrom){
+    delete state.run.boardShuffleFrom;
+    ui.pendingShuffle=shuffleFrom;
+    ui.pendingShufflePos=captureCellPos();
+    ui.anim=true;
+    ui.shuffleUntil=performance.now()+2000;
+  }
   persist();
   renderRun();
+  if(ui.pendingShuffle){
+    parkShuffle(ui.pendingShuffle, ui.pendingShufflePos);
+    const token=(ui.shuffleToken|0)+1;
+    ui.shuffleToken=token;
+    requestAnimationFrame(()=>{
+      if(token!==ui.shuffleToken) return;
+      const from=ui.pendingShuffle;
+      const pos=ui.pendingShufflePos;
+      ui.pendingShuffle=null;
+      glideBoard(from, pos);
+    });
+  }
+}
+function glideBoard(from, oldPos){
+  const moves=shuffleDeltas(from, oldPos);
+  if(!moves.length){
+    ui.anim=false;
+    ui.shuffleUntil=0;
+    renderCalamity();
+    return;
+  }
+  const ease='cubic-bezier(.4,0,.2,1)';
+  for(const m of moves){
+    const frames=[{transform:`translate(${m.dx}px,${m.dy}px)`},{transform:'translate(0,0)'}];
+    const el=document.querySelector(`#board .cell[data-id="${m.i}"]`);
+    if(el) el.animate(frames, {duration:2000, easing:ease, fill:'both'});
+    document.querySelectorAll(`#board .runbadge[data-cell="${m.i}"], #board .totalbadge[data-cell="${m.i}"]`).forEach(badge=>{
+      badge.animate(frames, {duration:2000, easing:ease, fill:'both'});
+    });
+  }
+  toast('Board shuffle');
+  ui.anim=true;
+  ui.shuffleUntil=performance.now()+2000;
+  setTimeout(()=>{
+    document.querySelectorAll('#board .cell[data-id]').forEach(el=>{
+      el.style.transform='';
+      el.style.zIndex='';
+    });
+    document.querySelectorAll('#board .runbadge, #board .totalbadge').forEach(b=>{ b.style.transform=''; });
+    ui.anim=false;
+    ui.shuffleUntil=0;
+    renderCalamity();
+  }, 2000);
 }
 
 // ============================================================================
@@ -1130,11 +1349,21 @@ function renderCalamity(){
   } else if(f.wave === 2){
     mark = 'II'; meta = 'Guests';
     tone = p >= 0.66 ? 'critical' : p >= 0.33 ? 'warn' : 'calm';
+  } else if(f.wave === 3){
+    mark = ''; meta = 'Board shuffle';
+    tone = p >= 0.66 ? 'critical' : p >= 0.33 ? 'warn' : 'calm';
   } else {
     mark = 'I'; meta = 'Tables';
     tone = p >= 0.66 ? 'critical' : p >= 0.33 ? 'warn' : 'calm';
   }
-  ico.textContent = mark;
+  const shuffling = (ui.shuffleUntil && performance.now() < ui.shuffleUntil) || !!ui.pendingShuffle;
+  if(shuffling) meta = 'Board shuffle';
+  const showShuffle = shuffling || f.wave === 3;
+  if(showShuffle){
+    ico.innerHTML = '<img class="cal-shuffle" alt="" src="./assets/pixel/calamity/shuffle.png">';
+  } else {
+    ico.textContent = mark;
+  }
   // The line runs under the icon. 0 sits on the left end, 1 on the right.
   ico.style.left = `calc(11px + (100% - 22px) * ${p.toFixed(3)})`;
   btn.dataset.tone = tone;
@@ -1209,14 +1438,12 @@ function renderOrders(){
   }
   box.innerHTML = vis.map((o)=>{
     // v2 R13.2: nombre del ROSTER — el pedido de una criatura usa SOLO su color
-    const name = creatureName(o.color||1);
     const ready = !o.served && orderIsReady(o);
     const sel = ui.servingOrder===o.id;
     return `<div class="order-card ${o.served?'served':''} ${ready?'ready':''} ${sel?'selected':''} ${o.legendary?'legendary':''}" data-oid="${o.id}"
       style="border-top:4px solid var(${tileVar(o.color)})">
       ${customerAvatar(o.color||1)}
       <div class="bubble">${o.qty}<span class="minitile" style="--mc:var(${tileVar(o.color)})"></span></div>
-      <div class="oname">${o.served?'✔ ':''}${name}</div>
       ${sel?'<div class="seltag">▼</div>':''}</div>`;
   }).join('');
   $$('#orders .order-card').forEach(c=>c.addEventListener('click',()=>{
@@ -1340,6 +1567,8 @@ function watchBoardWrap(wrap){
     boardObserver=new ResizeObserver(()=>{
       const w=document.querySelector('.board-wrap');
       if(!w || !state || !state.run || ui.fitting) return;
+      if(ui.pendingShuffle || (ui.shuffleUntil && performance.now() < ui.shuffleUntil)) return;
+      if(ui.peek && Object.keys(ui.peek).length) return;
       const sig=w.clientWidth+'x'+w.clientHeight;
       if(sig===ui.fitBox) return;
       ui.fitting=true;
@@ -1388,6 +1617,13 @@ function cellHTML(cell, idx){
   return `<div class="${cls}" data-id="${idx}"${glowKind?` data-order-glow="${glowKind}"`:''}${tip?` title="${tip}"`:''}><div class="hexbg"></div>${stack}
     ${cell.blocked?'<div class="lockovl"><span>🔒</span></div>':''}</div>`;
 }
+// One food per roster color (colorIndex = ROSTER position + 1).
+// Native 19×19 PNGs from the approved sheet. A hex of 28 or more shows the same pixels at 38, nearest neighbor.
+function foodMarkup(color){
+  const face = faceColor(color);
+  return `<i class="ttex" data-food="${face}"></i><i class="tfood" data-food="${face}"></i>`;
+}
+
 // Top 6 tiles, each one step above the last. A taller pile adds one wood
 // slab under them (lift 0) instead of another tile, so the top stays at
 // STACK_VISUAL_CAP steps. Badges are painted later, on the board.
@@ -1398,7 +1634,7 @@ function stackBodyHTML(cell){
     ? '<div class="woodbase" aria-hidden="true"><i class="woodside"></i><i class="woodface"></i></div>'
     : '';
   const tiles=view.layers.map((layer)=>
-    `<div class="tile" style="--lift:${-layer.lift*step}px;--tc:var(${tileVar(layer.color)})"><i class="tface"></i></div>`).join('');
+    `<div class="tile" style="--lift:${-layer.lift*step}px;--tc:var(${tileVar(layer.color)})"><i class="tface">${foodMarkup(layer.color)}</i></div>`).join('');
   return `<div class="stack">${base}${tiles}</div>`;
 }
 function stackBadgeHTML(cell, idx, left, top, m){
@@ -1415,6 +1651,97 @@ function stackBadgeHTML(cell, idx, left, top, m){
     html+=`<span class="totalbadge" data-cell="${idx}" data-total="${view.total}" style="left:${cx}px;top:${top+m.ch}px">${view.total}</span>`;
   }
   return html;
+}
+// Edge details sit on free wood around the cells. Every candidate is tested
+// against the real hexes, and measured rects are converted back through the
+// frame's CSS scale.
+function placeBoardDecor(opts){
+  opts = opts || {};
+  var SIZE = { cat: [68, 44], cup: [36, 48], petal: [18, 16] };
+  function even(v){ return Math.round(v / 2) * 2; }
+  function inHex(c, x, y){
+    var u = (x - c.x) / c.w, v = (y - c.y) / c.h;
+    if (u < 0 || u > 1 || v < 0 || v > 1) return false;
+    var dx = Math.abs(u - 0.5) * 2;
+    if (v >= 0.25 && v <= 0.75) return true;
+    var t = v < 0.25 ? v / 0.25 : (1 - v) / 0.25;
+    return dx <= t;
+  }
+  function hits(cells, b, pad){
+    pad = pad || 2;
+    for (var y = b.y - pad; y <= b.y + b.h + pad; y += 2)
+      for (var x = b.x - pad; x <= b.x + b.w + pad; x += 2)
+        for (var i = 0; i < cells.length; i++) if (inHex(cells[i], x, y)) return true;
+    return false;
+  }
+  function overlaps(a, b){ return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h; }
+  var wrap = document.querySelector(opts.wrap || '.board-wrap');
+  var board = document.querySelector(opts.board || '#board');
+  if (!wrap || !board || board.classList.contains('flat')) return;
+  var layer = wrap.querySelector('.board-decor');
+  if (!layer){
+    layer = document.createElement('div');
+    layer.className = 'board-decor';
+    layer.setAttribute('aria-hidden', 'true');
+    wrap.insertBefore(layer, wrap.firstChild);
+  }
+  layer.innerHTML = '';
+  var wr = wrap.getBoundingClientRect();
+  var k = wr.width / wrap.offsetWidth || 1;
+  var cells = [].map.call(board.querySelectorAll('.cell'), function (el) {
+    var r = el.getBoundingClientRect();
+    return { x: (r.left - wr.left) / k - wrap.clientLeft, y: (r.top - wr.top) / k - wrap.clientTop, w: r.width / k, h: r.height / k };
+  });
+  if (!cells.length) return;
+  var L = { x: 1e9, y: 1e9, r: -1e9, b: -1e9 };
+  cells.forEach(function (c) { L.x = Math.min(L.x, c.x); L.y = Math.min(L.y, c.y); L.r = Math.max(L.r, c.x + c.w); L.b = Math.max(L.b, c.y + c.h); });
+  var W = wrap.clientWidth, H = wrap.clientHeight, taken = [];
+  function free(b){
+    if (b.x < 2 || b.y < 2 || b.x + b.w > W - 2 || b.y + b.h > H - 2) return false;
+    for (var i = 0; i < taken.length; i++) if (overlaps(b, taken[i])) return false;
+    return !hits(cells, b);
+  }
+  function put(kind, b, delay){
+    var el = document.createElement('i'); el.className = 'bd-' + kind;
+    el.style.left = b.x + 'px'; el.style.top = b.y + 'px';
+    if (delay) el.style.animationDelay = delay;
+    layer.appendChild(el); taken.push({ x: b.x - 4, y: b.y - 4, w: b.w + 8, h: b.h + 8 });
+  }
+  function first(kind, cands){
+    var s = SIZE[kind];
+    for (var i = 0; i < cands.length; i++) {
+      var b = { x: even(cands[i][0]), y: even(cands[i][1]), w: s[0], h: s[1] };
+      if (free(b)) { put(kind, b); return true; }
+    }
+    return false;
+  }
+  var i, d, cands;
+  cands = [];
+  for (d = 0; d <= 60; d += 6) cands.push([L.r - SIZE.cat[0] - d, L.y - SIZE.cat[1] - 6]);
+  for (d = 0; d <= 60; d += 6) cands.push([L.r - SIZE.cat[0] - d, L.y - SIZE.cat[1] - 10]);
+  first('cat', cands);
+  cands = [];
+  for (d = 0; d <= 24; d += 2) cands.push([L.x + 2, L.b - SIZE.cup[1] - d]);
+  for (d = 0; d <= 24; d += 2) cands.push([L.r - SIZE.cup[0] - 2, L.b - SIZE.cup[1] - d]);
+  for (d = 0; d <= 40; d += 8) cands.push([L.x + 6 + d, L.y - SIZE.cup[1] - 6]);
+  for (d = 0; d <= 40; d += 8) cands.push([L.x + 6 + d, L.y - SIZE.cup[1] - 2]);
+  first('cup', cands);
+  var rows = {};
+  cells.forEach(function (c) { var key = Math.round(c.y); (rows[key] = rows[key] || []).push(c); });
+  var spots = [];
+  Object.keys(rows).sort(function (a, b) { return a - b; }).forEach(function (key) {
+    var r = rows[key], lx = 1e9, rx = -1e9, ch = r[0].h;
+    r.forEach(function (c) { lx = Math.min(lx, c.x); rx = Math.max(rx, c.x + c.w); });
+    if (lx - L.x > SIZE.petal[0] + 4) spots.push([L.x + (lx - L.x - SIZE.petal[0]) / 2, +key + ch * 0.38]);
+    if (L.r - rx > SIZE.petal[0] + 4) spots.push([rx + (L.r - rx - SIZE.petal[0]) / 2, +key + ch * 0.38]);
+  });
+  var cw = cells[0].w;
+  for (i = 0; i < 8; i++) spots.push([L.x + cw * (0.35 + i * 0.9), L.y - 24 - (i % 2) * 14]);
+  var n = 0, max = opts.petals == null ? 9 : opts.petals;
+  for (i = 0; i < spots.length && n < max; i++) {
+    var s = SIZE.petal, b = { x: even(spots[i][0]), y: even(spots[i][1]), w: s[0], h: s[1] };
+    if (free(b)) { put('petal', b, (-(i * 0.37) % 3.2).toFixed(2) + 's'); n++; }
+  }
 }
 function renderBoard(){
   const box=$('#board'); if(!box) return;
@@ -1491,6 +1818,7 @@ function renderBoard(){
   box.style.marginTop=shift?(-shift)+'px':'';
   const needsScroll=hxN<=HX_MIN && (m.w>availW+0.5 || cellsH>availH+0.5);
   box.style.setProperty('--hx', hxN+'px');
+  box.classList.toggle('food-lg', hxN >= 28);
   if(wrap){
     wrap.style.overflow=needsScroll?'auto':'hidden';
     wrap.style.clipPath='';
@@ -1531,6 +1859,8 @@ function renderBoard(){
     if(c.dataset.pos){ placeTileFlow(c.dataset.pos); return; }
     tapTile(+c.dataset.id);
   }));
+  if(ui.pendingShuffle) parkShuffle(ui.pendingShuffle, ui.pendingShufflePos);
+  placeBoardDecor();
 }
 function renderPool(){
   const box=$('#pool'); if(!box) return;
@@ -1540,7 +1870,7 @@ function renderPool(){
   // (data-slot === posición); al colocar una, las demás NO se corren.
   box.innerHTML = r.pool.map((pile,i)=>{
     let inner = pile&&pile.length ? '<div class="tray">'+pile.map((c,ci)=>
-      `<div class="ttile" style="bottom:${ci*step}px;--tc:var(${tileVar(c)})"><i class="tface"></i></div>`).join('')+'</div>'
+      `<div class="ttile" style="bottom:${ci*step}px;--tc:var(${tileVar(c)})"><i class="tface">${foodMarkup(c)}</i></div>`).join('')+'</div>'
       : '<div class="poolempty">empty</div>';
     return `<div class="poolslot ${ui.slot===i?'selected':''} ${(!pile||!pile.length)?'drop':''}" data-slot="${i}">${inner}</div>`;
   }).join('');
@@ -2034,8 +2364,91 @@ function tapTile(id){
     if(cell.blocked){ toast('Blocked'); return; }
     serveOrderFlow(ui.servingOrder, id); return;
   }
+  if(cell && cell.stack && cell.stack.length && !cell.blocked && !cell.dormant){
+    peekStack(id);
+    return;
+  }
   if(cell.blocked){ toast('Blocked'); return; }
   if(r.orders.some(o=>!o.served)) toast('Tap a client in the queue first, then a stack.');
+}
+function peekLiftPx(stack, fanned, el){
+  const step=stackStep();
+  const n=stack.length;
+  const view=stackVisual(stack);
+  const start=new Array(n).fill(0);
+  if(!view.hasBase){
+    for(let i=0;i<n;i++) start[i]=-i*step;
+  } else {
+    const hidden=n-view.layers.length;
+    for(let i=0;i<view.layers.length;i++) start[hidden+i]=-(i+1)*step;
+  }
+  if(!fanned) return start;
+  const hx=boardHx();
+  let spread=Math.max(step, Math.round(hx*1.05));
+  const rise=Math.round(hx*0.35);
+  if(el && n>1){
+    const frame=document.getElementById('frame');
+    if(frame){
+      const room=el.getBoundingClientRect().top-frame.getBoundingClientRect().top-rise-8;
+      const fit=Math.floor(room/(n-1));
+      if(fit>0) spread=Math.max(6, Math.min(spread, fit));
+    }
+  }
+  return stack.map((_, i)=>-(rise+i*spread));
+}
+function peekTiles(el, stack, from, to){
+  let box=el.querySelector('.stack');
+  if(!box){
+    box=document.createElement('div');
+    box.className='stack';
+    el.appendChild(box);
+  }
+  box.innerHTML=stack.map((color,i)=>
+    `<div class="tile" style="--lift:${from[i]}px;--tc:var(${tileVar(color)})"><i class="tface">${foodMarkup(color)}</i></div>`
+  ).join('');
+  const tiles=[...box.querySelectorAll('.tile')];
+  tiles.forEach((t,i)=>{ t.style.translate=`-50% calc(-50% + ${from[i]}px)`; });
+  const frames=tiles.map((t,i)=>[
+    { translate:`-50% calc(-50% + ${from[i]}px)` },
+    { translate:`-50% calc(-50% + ${to[i]}px)` },
+  ]);
+  requestAnimationFrame(()=>{
+    tiles.forEach((t,i)=>{
+      t.animate(frames[i], {duration:1000, easing:'linear', fill:'forwards'});
+    });
+  });
+}
+function peekStack(id){
+  const cell=state.run.board[id];
+  if(!cell || !cell.stack || !cell.stack.length || cell.blocked || cell.dormant) return;
+  const el=document.querySelector(`#board .cell[data-id="${id}"]`);
+  if(!el) return;
+  if(!ui.peek) ui.peek={};
+  if(ui.peek[id]){ clearTimeout(ui.peek[id].hold); clearTimeout(ui.peek[id].end); }
+  const wrap=document.querySelector('.board-wrap');
+  if(wrap) wrap.classList.add('peek-live');
+  el.classList.add('peeking');
+  document.querySelectorAll(`#board .runbadge[data-cell="${id}"], #board .totalbadge[data-cell="${id}"]`).forEach(b=>{ b.style.visibility='hidden'; });
+  const stack=cell.stack.slice();
+  peekTiles(el, stack, peekLiftPx(stack, false), peekLiftPx(stack, true, el));
+  const rec={};
+  rec.hold=setTimeout(()=>{
+    if(!ui.peek || ui.peek[id]!==rec) return;
+    const live=document.querySelector(`#board .cell[data-id="${id}"]`);
+    const cur=state.run && state.run.board[id];
+    if(!live || !cur || !cur.stack || !cur.stack.length) return;
+    peekTiles(live, cur.stack, peekLiftPx(cur.stack, true, live), peekLiftPx(cur.stack, false));
+  }, 3000);
+  rec.end=setTimeout(()=>{
+    if(!ui.peek || ui.peek[id]!==rec) return;
+    delete ui.peek[id];
+    if(ui.peek && !Object.keys(ui.peek).length){
+      const w=document.querySelector('.board-wrap');
+      if(w) w.classList.remove('peek-live');
+      renderBoard();
+    }
+  }, 4000);
+  ui.peek[id]=rec;
 }
 // v2.20 R14.3 — activar UNA baldosa dormant por partida (paga runTilePrice)
 function activateFlow(id){
@@ -2165,6 +2578,9 @@ function openTheCafe(){
   maybeStartTutorial(); // v2.18: first-run overlay after café is open
 }
 function rotateBoard(){
+  const r = useRotateBoard(state);
+  if(r && r.error){ err(r); return; }
+  state = r;
   if(!state.settings) state.settings={ reducedMotion:false, seenTutorial:true, boardRot:0 };
   // Free rotate toggles the pointy view between 0° and 180°. A saved 90°/270°
   // still draws (flat-top) until the next tap, which lands on 180°.
@@ -2298,18 +2714,49 @@ async function playVictory(){
 // ============================================================================
 // MODALS
 // ============================================================================
+const RH_NAME = {
+  destroyPile:'Destroy', swapPiles:'Swap', refreshPool:'Refresh', tables:'Tables',
+  unlockLocks:'Unlock', color:'Color', tips:'Tips', clearBoard:'Clear',
+  undoMove:'Undo', rotateBoard:'Rotate',
+};
+function rhStat(icon, label, value){
+  return `<span class="rh-stat" title="${label}" aria-label="${label} ${value}"><i class="rh-ico rh-${icon}" aria-hidden="true"></i><b>${value}</b></span>`;
+}
+function rhSkills(rec){
+  const uses = rec && rec.skillUses;
+  if(!uses || typeof uses !== 'object' || Array.isArray(uses)){
+    return '<span class="rh-skills rh-none" aria-label="Skill uses unknown">—</span>';
+  }
+  const bits = SKILL_BAR_ORDER.filter(id => (uses[id]|0) > 0).map(id => {
+    const n = uses[id]|0;
+    const label = RH_NAME[id] || id;
+    return `<span class="rh-skill" title="${label}" aria-label="${label} ${n}"><i class="rh-ico rh-sk rh-sk-${id}" aria-hidden="true"></i><b>${fmt(n)}</b></span>`;
+  });
+  return `<span class="rh-skills">${bits.join('')}</span>`;
+}
 function renderRunHistory(){
   const box=$('#runHistory'); if(!box) return;
   const hist=Array.isArray(state.runHistory)?state.runHistory:[];
   const top=topRuns(hist, CONFIG.TOP_RUNS||10);
   const coins=(rec)=> rec && Number.isFinite(rec.coins) ? fmt(rec.coins) : '—';
-  const line=(rec)=> (rec.clientsServed|0)+' guests · '+(rec.moneyStacks|0)+' paid stacks · '+(rec.pilesDealt|0)+' trays · '+coins(rec);
   const note='Top 10 runs, best first. Ranked by guests served. Ties break on paid stacks, then trays dealt, then the later run.';
   if(!top.length){
     box.innerHTML='<h4>Run history</h4><p>No finished runs yet.</p><p class="rh-note">'+note+'</p>';
     return;
   }
-  const rows=top.map((rec)=>'<li>'+line(rec)+'</li>').join('');
+  const rows=top.map((rec,i)=>{
+    const win = rec.victory
+      ? '<span class="rh-stat" title="Victory" aria-label="Victory"><i class="rh-ico rh-win" aria-hidden="true"></i></span>'
+      : '';
+    return '<li><b class="rh-rank">'+(i+1)+'</b>'
+      +rhStat('guest','Guests served', rec.clientsServed|0)
+      +rhStat('stacks','Paid stacks', rec.moneyStacks|0)
+      +rhStat('tray','Trays dealt', rec.pilesDealt|0)
+      +rhStat('coin','Coins left', coins(rec))
+      +win
+      +rhSkills(rec)
+      +'</li>';
+  }).join('');
   box.innerHTML='<h4>Run history</h4><ol>'+rows+'</ol><p class="rh-note">'+note+'</p>';
 }
 function showSave(){ renderRunHistory(); $('#saveModal').classList.add('show'); }
@@ -2488,6 +2935,7 @@ function tutNext(){
 }
 window.addEventListener('resize', ()=>{
   fitFrame();
+  placeBoardDecor();
   if(tutActive) showTutStep();
 });
 window.addEventListener('orientationchange', ()=>{ if(tutActive) setTimeout(showTutStep, 120); });
@@ -2521,10 +2969,10 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.21';
+const GAME_VERSION = 'v2.24.25';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
-window.__dbg = { get state(){ return state; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, stackVisual, stackLiftPadPx, get boardHx(){ return boardHx(); } };
+window.__dbg = { get state(){ return state; }, set state(v){ state=v; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, maybeBoardShuffle, applyBoardShuffle, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, stackVisual, stackLiftPadPx, get boardHx(){ return boardHx(); } };
 fitFrame();
 window.addEventListener('load', boot);
 </script>

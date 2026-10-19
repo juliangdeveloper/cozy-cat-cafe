@@ -92,6 +92,7 @@ export const CONFIG = {
   // Segunda oleada de calamidades cuando quedan ~estos clientes (una vez por run).
   CALAMITY_WAVE2_REMAINING: 20,
   CALAMITY_PLAYABLE_GOAL: 16,       // la barra de la 1ª oleada llena hacia 16 jugables (dispara al pasar de 15)
+  BOARD_SHUFFLE_COINS: 100000,      // v2.24.24: tercera calamidad, una vez al llegar a este saldo
   USES_UP_BASE: 60,                 // R17.2 mejora de usos: precio = BASE * RATIO^compras
   USES_UP_RATIO: 1.6,               // R17.2 (exponencial auto-limita, sin tope)
   CAP_PRICE_BASE: 60,               // v2.5 R17.3 capacidad: precio = BASE * RATIO^level (antes 120×1.35 — 9.16e12 coins, imposible)
@@ -521,7 +522,85 @@ export function calamityForecast(state) {
   if (!run.calamityWave2Applied) {
     return { wave: 2, progress: Math.min(1, served / wave2At), current: served, goal: wave2At, done: false };
   }
+  if (!run.boardShuffleApplied) {
+    const coins = (state.progress && state.progress.coins) || 0;
+    const goal = CONFIG.BOARD_SHUFFLE_COINS;
+    return { wave: 3, progress: Math.min(1, coins / goal), current: coins, goal, done: false };
+  }
   return { wave: 0, progress: 1, current: served, goal: wave2At, done: true };
+}
+
+// Payload that travels with a table when the board shuffles. The slot
+// (id, q, r) stays put so the 6×6 lattice does not change shape.
+function tileCarry(cell) {
+  return {
+    stack: Array.isArray(cell.stack) ? cell.stack.slice() : [],
+    blocked: !!cell.blocked,
+    dormant: !!cell.dormant,
+    calamity: !!cell.calamity,
+    calamityStack: !!cell.calamityStack,
+    hiddenStack: Array.isArray(cell.hiddenStack) ? cell.hiddenStack.slice() : null,
+  };
+}
+
+function writeTileCarry(cell, src) {
+  cell.stack = src.stack;
+  cell.blocked = src.blocked;
+  cell.dormant = src.dormant;
+  cell.calamity = src.calamity;
+  cell.calamityStack = src.calamityStack;
+  if (src.hiddenStack) cell.hiddenStack = src.hiddenStack;
+  else delete cell.hiddenStack;
+}
+
+// v2.24.24 — permute every table's payload. `from[dest]` is the slot whose
+// stack, lock, and dormant state land on dest. Coordinates stay on the slot.
+// A seeded rng makes the same run shuffle the same way. The result is never
+// the identity, so the glide is visible.
+export function shuffleBoardTiles(board, rng) {
+  const r = rng || Math.random;
+  const n = board.length;
+  const from = board.map((_, i) => i);
+  for (let i = n - 1; i > 0; i--) {
+    const j = rngInt(r, 0, i);
+    const tmp = from[i];
+    from[i] = from[j];
+    from[j] = tmp;
+  }
+  if (n > 1 && from.every((v, i) => v === i)) {
+    const tmp = from[0];
+    from[0] = from[1];
+    from[1] = tmp;
+  }
+  const carried = board.map(tileCarry);
+  for (let i = 0; i < n; i++) writeTileCarry(board[i], carried[from[i]]);
+  return from;
+}
+
+// Applies the shuffle once. Caller decides whether the coin line was crossed.
+// `boardShuffleFrom` is transient: serializeState strips it so a reload does
+// not play the glide again. Undo of the crossing action restores the flag
+// because that snapshot is taken before the shuffle, same as the other waves.
+export function applyBoardShuffle(state, rng) {
+  const s = clone(state);
+  if (!s.run || !Array.isArray(s.run.board)) return s;
+  if (s.run.boardShuffleApplied) return s;
+  s.run.boardShuffleFrom = shuffleBoardTiles(s.run.board, rng || Math.random);
+  s.run.boardShuffleApplied = true;
+  s.run.calamities = (s.run.calamities || 0) + 1;
+  return s;
+}
+
+// First time this run's purse reaches BOARD_SHUFFLE_COINS. `coinsBefore` is
+// the purse before the gain that produced `state`. Already at or above the
+// line does not fire; a later gain does not fire again.
+export function maybeBoardShuffle(state, coinsBefore, rng) {
+  if (!state || !state.run || !Array.isArray(state.run.board)) return state;
+  if (state.run.boardShuffleApplied) return state;
+  const before = Number(coinsBefore) || 0;
+  const now = (state.progress && state.progress.coins) || 0;
+  if (!(before < CONFIG.BOARD_SHUFFLE_COINS && now >= CONFIG.BOARD_SHUFFLE_COINS)) return state;
+  return applyBoardShuffle(state, rng);
 }
 
 // ---------------------------------------------------------------------------
@@ -812,6 +891,7 @@ export function openRun(state, rng) {
     poolPlaced: 0, calamities: 0,
     calamitiesApplied: false,                                      // R14.5 oleada 1, una vez por partida
     calamityWave2Applied: false,                                   // v2.21 oleada 2, una vez por partida
+    boardShuffleApplied: false,                                    // v2.24.24 oleada 3, una vez al llegar a 100000
     legendaries: {},                                               // v2.21 cupo de pedidos de 10 por color
     rosterIndex: rosterIdx,
     palette,                                                       // v2.24.3: 8 criaturas de esta run, orden de desbloqueo
@@ -1413,6 +1493,7 @@ export function serveOrder(state, orderId, cellId) {
     return { error: 'notEnough' };
   }
   rememberUndo(s);
+  const coinsBefore = s.progress.coins || 0;
   // consume exactly order.qty pieces from the top (they are all order.color)
   cell.stack.splice(cell.stack.length - order.qty, order.qty);            // R4.3 v2
   order.served = true;
@@ -1426,7 +1507,7 @@ export function serveOrder(state, orderId, cellId) {
     run.activeClients = run.activeClients.filter((o) => o !== order);
     refillClients(s, rngFallback());
   }
-  return applyCalamityWave2(s, rngFallback());
+  return maybeBoardShuffle(applyCalamityWave2(s, rngFallback()), coinsBefore, rngFallback());
 }
 
 // v2.1: rng de refill — serveOrder no recibe rng (firma v1/v2 estable); el
@@ -1481,6 +1562,7 @@ export function sweepDebrisRuns(board, progress) {
 // ---------------------------------------------------------------------------
 export function resolveCascade(state) {
   const s = clone(state);
+  const coinsBefore = (s.progress && s.progress.coins) || 0;
   let steps = 0;
   // received: celdas que ya RECIBIERON fichas en esta cascada (tie-break cozy
   // de R2: preferir candidato que NO haya recibido — pedido del usuario)
@@ -1590,7 +1672,7 @@ export function resolveCascade(state) {
   // v2.21: la 2ª oleada entra en el mismo momento en que el servicio cruza
   // el umbral de clientes restantes (una vez; no-op si aún no toca).
   const waved = applyCalamityWave2(s, rngFallback());
-  return { state: waved, steps };
+  return { state: maybeBoardShuffle(waved, coinsBefore, rngFallback()), steps };
 }
 
 export function topRunCount(stack) {
@@ -1933,6 +2015,16 @@ export function undoTopCoins(state) {
   return top && top.progress ? (top.progress.coins || 0) : null;
 }
 
+// Free 180° turn. Snapshot first, then count the use. The page turns the
+// board after this returns, so Undo restores the previous facing too.
+export function useRotateBoard(state) {
+  const s = clone(state);
+  if (!s.run) return { error: 'noRun' };
+  const bill = chargeUndoable(s, 'rotateBoard');
+  if (bill) return bill;
+  return s;
+}
+
 // v2.24.6: unlimited depth. Each tap pops one snapshot. The fee is also
 // taken from every older snapshot still in the stack, so a later Undo
 // never refunds an Undo fee already paid.
@@ -2012,12 +2104,13 @@ export function buyIdleUpgrade(state, system) {
 // ---------------------------------------------------------------------------
 export function tickIdle(state, dt) {
   const s = clone(state);
+  const coinsBefore = s.progress.coins || 0;
   let total = 0;
   for (const k of ['workers', 'fame', 'machines']) {
     total += s.idle[k].ratePerSec * (dt || 0);                            // R9.1/R9.2 sum everything
   }
   s.progress.coins += total;
-  return s;
+  return maybeBoardShuffle(s, coinsBefore, rngFallback());
 }
 
 // v2.21 — el idle offline no acumula. La función sigue existiendo para que
@@ -2030,6 +2123,14 @@ export function applyOffline(state, now) {
   s.meta.lastSeenAt = now ?? s.meta.lastSeenAt;
   s.meta.offlineReport = { workers: 0, fame: 0, machines: 0, total: 0 };
   return s;
+}
+
+// Counts for the skill bar, including the free rotate. Color, tips, and
+// tables read their own counters; the rest read the use bag.
+function snapshotSkillUses(state) {
+  const uses = {};
+  for (const skill of SKILL_BAR_ORDER) uses[skill] = skillUseCount(state, skill);
+  return uses;
 }
 
 // v2.23 — ficha compacta de una run que termina (reinicio o victoria).
@@ -2045,6 +2146,7 @@ export function finishedRunRecord(state) {
     victory: run.phase === 'victory' || served >= totalClients(state),
     // Purse when the run finished. Missing on older records; 0 is a real balance.
     coins: Math.max(0, Math.floor(purse || 0)),
+    skillUses: snapshotSkillUses(state),
   };
 }
 
@@ -2171,6 +2273,11 @@ export function idleCap(state, system) { return state.idle[system].cap; }
 // Persistence (pure — no localStorage here). R1
 // ---------------------------------------------------------------------------
 export function serializeState(state) {
+  if (state && state.run && state.run.boardShuffleFrom) {
+    const copy = clone(state);
+    delete copy.run.boardShuffleFrom;
+    return JSON.stringify(copy);
+  }
   return JSON.stringify(state);
 }
 
@@ -2229,6 +2336,8 @@ export function deserializeState(json) {
         }
         if (s.run.orderSeq == null) s.run.orderSeq = (s.run.orders || []).length;
         if (s.run.rosterIndex == null) s.run.rosterIndex = 5;   // R13.3 v2.1
+        if (s.run.boardShuffleApplied == null) s.run.boardShuffleApplied = false;
+        delete s.run.boardShuffleFrom;
       }
       // v2.18 — first-run tutorial flag. Old saves (v2.16/v2.17) lack the key;
       // treat missing as TRUE so existing players never see the overlay.
