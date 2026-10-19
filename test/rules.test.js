@@ -188,25 +188,59 @@ test('REDESIGN (b) pila insuficiente o color distinto => error sin consumir ni s
   assert.equal(b.run.orders[0].served, false);
 });
 
-test('REDESIGN (c) tablero v2.14 = 36 celdas: núcleo 2-3-2 jugable + 29 dormant', () => {
-  // v2.14-shape: R14.1/R14.2 rectángulo 6×6 pointy = 36 celdas; el núcleo
-  // 2-3-2 (7 celdas, coords de initialHexCells centradas) nace jugable
-  // (dormant:false) y las otras 29 quedan dormant (visibles apagadas).
+test('REDESIGN (c) tablero v2.24.14 = 35 celdas: núcleo 2-3-2 jugable + 28 dormant', () => {
+  // v2.24.14: rectángulo 7×5 pointy = 35 celdas; el núcleo 2-3-2
+  // (7 celdas, coords de initialHexCells) nace jugable y centrado.
+  // Las otras 28 quedan dormant.
   const s = openRun(createGame(), rng(1));
-  assert.equal(s.run.board.length, 36); // v2.14-shape: 35 → 36
+  assert.equal(s.run.board.length, 35);
   const playable = s.run.board.filter((c) => !c.dormant);
   const dormant = s.run.board.filter((c) => c.dormant);
   assert.equal(playable.length, 7);
-  assert.equal(dormant.length, 29); // v2.14-shape: 28 → 29
+  assert.equal(dormant.length, 28);
   const byCol = {};
   for (const c of playable) byCol[c.q] = (byCol[c.q] || 0) + 1;
   assert.deepEqual({ '-1': 2, '0': 3, '1': 2 }, { '-1': byCol[-1], '0': byCol[0], '1': byCol[1] });
-  // coordenadas axiales únicas en TODO el tablero (36) // v2.14-shape: 35 → 36
   const keys = new Set(s.run.board.map((c) => `${c.q},${c.r}`));
   assert.equal(keys.size, s.run.board.length);
-  assert.equal(keys.size, 36);
-  // orders NO llevan `cell` (v2: pedidos flotantes)
+  assert.equal(keys.size, 35);
+  const rows = new Map();
+  for (const c of s.run.board) rows.set(c.r, (rows.get(c.r) || 0) + 1);
+  const ordered = [...rows.keys()].sort((a, b) => a - b).map((r) => rows.get(r));
+  assert.deepEqual(ordered, [5, 5, 5, 5, 5, 5, 5]);
+  const patterns = [...rows.keys()].sort((a, b) => a - b).map((r) => (
+    s.run.board.filter((c) => c.r === r).map((c) => c.q + Math.floor(r / 2)).sort((a, b) => a - b)
+  ));
+  for (const p of patterns) assert.deepEqual(p, [-2, -1, 0, 1, 2]);
+  for (const c of playable) {
+    const col = c.q + Math.floor(c.r / 2);
+    assert.ok(col >= -1 && col <= 1 && c.r >= -1 && c.r <= 1);
+  }
   for (const o of s.run.orders) assert.equal(o.cell, undefined);
+});
+
+test('v2.24.14 a saved 36-cell board still loads', () => {
+  const old = createGame();
+  old.settings.epoch = 21;
+  old.settings.seenTutorial = true;
+  old.settings.boardRot = 90;
+  old.run = {
+    phase: 'open',
+    board: Array.from({ length: 36 }, (_, i) => ({
+      id: `old${i}`, q: i % 6, r: Math.floor(i / 6) - 2,
+      stack: i === 3 ? [1, 1] : [], blocked: false, calamity: false, dormant: i >= 7,
+    })),
+    orders: [], activeClients: [], pool: [[1]], bag: [],
+  };
+  const back = deserializeState(serializeState(old));
+  assert.equal(back.run.board.length, 36);
+  assert.equal(back.run.board[3].id, 'old3');
+  assert.deepEqual(back.run.board[3].stack, [1, 1]);
+  assert.equal(back.run.board[35].q, 5);
+  assert.equal(back.settings.boardRot, 90);
+  assert.equal(back.settings.epoch, 21);
+  const fresh = openRun(createGame(), rng(1));
+  assert.equal(fresh.run.board.length, 35);
 });
 
 test('REDESIGN (d) expandTile: slot vecino válido funciona; no-vecino/ocupado dan error', () => {

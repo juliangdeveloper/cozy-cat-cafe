@@ -12,7 +12,7 @@ const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'i
 const css = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
 
 test('v2.24.9 puts a moving calamity icon on a thin track above the clients', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.13'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.14'/);
   const run = html.slice(html.indexOf('function renderRun'), html.indexOf('function renderCalamity'));
   const top = run.indexOf('class="topbar"');
   const cal = run.indexOf('class="cal-row"');
@@ -33,6 +33,16 @@ test('v2.24.9 puts a moving calamity icon on a thin track above the clients', ()
   assert.doesNotMatch(paint, /calRowLabel/);
   assert.match(css, /\.cal-line\{[^}]*height:3px/);
   assert.match(css, /\.cal-mark\{[^}]*color-mix\(in srgb, var\(--danger\)/);
+});
+
+test('v2.24.14 rotates 180, keeps a fixed tray, and squares the client cards', () => {
+  assert.match(html, /Turn the board 180°/);
+  assert.doesNotMatch(html, /Turn the board 90°/);
+  assert.match(html, /state\.settings\.boardRot = cur===180 \? 0 : 180/);
+  assert.doesNotMatch(html, /poolEl\.style\.flex='1 1 auto'/);
+  assert.match(html, /\.poolslot\{height:82px;min-height:82px;max-height:82px\}/);
+  assert.match(html, /\.pool\{gap:4px;padding:4px;margin-top:2px;flex:0 0 auto/);
+  assert.match(html, /\.order-card\{flex:0 0 calc\(\(100% - 8px\)\/3\);width:calc\(\(100% - 8px\)\/3\);aspect-ratio:1/);
 });
 
 test('header icons sit on the right and rotate is the last free skill', () => {
