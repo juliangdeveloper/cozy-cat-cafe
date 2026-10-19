@@ -1,4 +1,4 @@
-// v2.24.23 — a finished run remembers how many times each skill was used.
+// v2.24.24 — a finished run remembers how many times each skill was used.
 // Undo puts that count back, including the free 180° rotate.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -104,7 +104,7 @@ test('finished runs store a count for every skill, and undo removes that use', (
 });
 
 test('history rows use icons, and a run without skill counts shows a dash', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.23'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.24'/);
   assert.match(html, /useRotateBoard\(state\)/);
   assert.match(game, /skillUses: snapshotSkillUses\(state\)/);
   assert.match(html, /Skill uses unknown/);

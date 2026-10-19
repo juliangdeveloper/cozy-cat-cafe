@@ -74,6 +74,7 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
 .cal-track[data-tone="warn"] .cal-mark{background:color-mix(in srgb, var(--danger) calc(var(--cal-p) * 100%), var(--highlight))}
 .cal-track[data-tone="critical"] .cal-mark{color:#fff8ec}
 .cal-track[data-tone="clear"] .cal-mark{background:var(--success);color:var(--ink)}
+.cal-mark .cal-shuffle{width:12px;height:12px;display:block;image-rendering:pixelated;image-rendering:crisp-edges}
 .cal-meta{font-size:12px;font-weight:800;color:var(--ink-soft);text-align:center}
 .topbar .queuecount{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;
   min-height:40px;font-size:11px;line-height:1.1;font-weight:800;
@@ -416,6 +417,8 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 /* v2 cascada animada (R12.2): anillo + pop en celdas afectadas por eslabón */
 .cell.casc .hexbg{--hb:var(--highlight);--hbw:4px;filter:drop-shadow(0 0 8px var(--highlight))}
 .cell.casc .stack{animation:cascPop .9s cubic-bezier(.4,0,.2,1)}
+.cell.peeking{z-index:80!important}
+.board-wrap.peek-live{overflow:visible!important;z-index:30}
 @keyframes cascPop{0%{transform:scale(1)}40%{transform:scale(1.14)}100%{transform:scale(1)}}
 /* v2.0 merge paso a paso: origen (from) y destino (to) del tirón visible */
 .cell.mergesrc .hexbg{--hb:var(--tile-blue);--hbw:4px;filter:drop-shadow(0 0 8px var(--tile-blue))}
@@ -784,6 +787,7 @@ body.tut-on .powerbar.tut-spot{z-index:90}
   <p>A hidden pile sleeps on a dark table until you unlock it.</p>
   <p>A locked table hides a pile — Unlock reveals it.</p>
   <p>A pile is already sitting on a table.</p>
+  <p>At 100,000 coins every table trades places. Stacks and locks move with their table.</p>
   <div class="cal-meta" id="calPopMeta" style="margin-bottom:8px"></div>
   <button type="button" class="btn btn-sec" id="calPopClose" style="width:100%">Close</button>
 </div></div>
@@ -1461,6 +1465,7 @@ const CONFIG = {
   // Segunda oleada de calamidades cuando quedan ~estos clientes (una vez por run).
   CALAMITY_WAVE2_REMAINING: 20,
   CALAMITY_PLAYABLE_GOAL: 16,       // la barra de la 1ª oleada llena hacia 16 jugables (dispara al pasar de 15)
+  BOARD_SHUFFLE_COINS: 100000,      // v2.24.24: tercera calamidad, una vez al llegar a este saldo
   USES_UP_BASE: 60,                 // R17.2 mejora de usos: precio = BASE * RATIO^compras
   USES_UP_RATIO: 1.6,               // R17.2 (exponencial auto-limita, sin tope)
   CAP_PRICE_BASE: 60,               // v2.5 R17.3 capacidad: precio = BASE * RATIO^level (antes 120×1.35 — 9.16e12 coins, imposible)
@@ -1890,7 +1895,85 @@ function calamityForecast(state) {
   if (!run.calamityWave2Applied) {
     return { wave: 2, progress: Math.min(1, served / wave2At), current: served, goal: wave2At, done: false };
   }
+  if (!run.boardShuffleApplied) {
+    const coins = (state.progress && state.progress.coins) || 0;
+    const goal = CONFIG.BOARD_SHUFFLE_COINS;
+    return { wave: 3, progress: Math.min(1, coins / goal), current: coins, goal, done: false };
+  }
   return { wave: 0, progress: 1, current: served, goal: wave2At, done: true };
+}
+
+// Payload that travels with a table when the board shuffles. The slot
+// (id, q, r) stays put so the 6×6 lattice does not change shape.
+function tileCarry(cell) {
+  return {
+    stack: Array.isArray(cell.stack) ? cell.stack.slice() : [],
+    blocked: !!cell.blocked,
+    dormant: !!cell.dormant,
+    calamity: !!cell.calamity,
+    calamityStack: !!cell.calamityStack,
+    hiddenStack: Array.isArray(cell.hiddenStack) ? cell.hiddenStack.slice() : null,
+  };
+}
+
+function writeTileCarry(cell, src) {
+  cell.stack = src.stack;
+  cell.blocked = src.blocked;
+  cell.dormant = src.dormant;
+  cell.calamity = src.calamity;
+  cell.calamityStack = src.calamityStack;
+  if (src.hiddenStack) cell.hiddenStack = src.hiddenStack;
+  else delete cell.hiddenStack;
+}
+
+// v2.24.24 — permute every table's payload. `from[dest]` is the slot whose
+// stack, lock, and dormant state land on dest. Coordinates stay on the slot.
+// A seeded rng makes the same run shuffle the same way. The result is never
+// the identity, so the glide is visible.
+function shuffleBoardTiles(board, rng) {
+  const r = rng || Math.random;
+  const n = board.length;
+  const from = board.map((_, i) => i);
+  for (let i = n - 1; i > 0; i--) {
+    const j = rngInt(r, 0, i);
+    const tmp = from[i];
+    from[i] = from[j];
+    from[j] = tmp;
+  }
+  if (n > 1 && from.every((v, i) => v === i)) {
+    const tmp = from[0];
+    from[0] = from[1];
+    from[1] = tmp;
+  }
+  const carried = board.map(tileCarry);
+  for (let i = 0; i < n; i++) writeTileCarry(board[i], carried[from[i]]);
+  return from;
+}
+
+// Applies the shuffle once. Caller decides whether the coin line was crossed.
+// `boardShuffleFrom` is transient: serializeState strips it so a reload does
+// not play the glide again. Undo of the crossing action restores the flag
+// because that snapshot is taken before the shuffle, same as the other waves.
+function applyBoardShuffle(state, rng) {
+  const s = clone(state);
+  if (!s.run || !Array.isArray(s.run.board)) return s;
+  if (s.run.boardShuffleApplied) return s;
+  s.run.boardShuffleFrom = shuffleBoardTiles(s.run.board, rng || Math.random);
+  s.run.boardShuffleApplied = true;
+  s.run.calamities = (s.run.calamities || 0) + 1;
+  return s;
+}
+
+// First time this run's purse reaches BOARD_SHUFFLE_COINS. `coinsBefore` is
+// the purse before the gain that produced `state`. Already at or above the
+// line does not fire; a later gain does not fire again.
+function maybeBoardShuffle(state, coinsBefore, rng) {
+  if (!state || !state.run || !Array.isArray(state.run.board)) return state;
+  if (state.run.boardShuffleApplied) return state;
+  const before = Number(coinsBefore) || 0;
+  const now = (state.progress && state.progress.coins) || 0;
+  if (!(before < CONFIG.BOARD_SHUFFLE_COINS && now >= CONFIG.BOARD_SHUFFLE_COINS)) return state;
+  return applyBoardShuffle(state, rng);
 }
 
 // ---------------------------------------------------------------------------
@@ -2181,6 +2264,7 @@ function openRun(state, rng) {
     poolPlaced: 0, calamities: 0,
     calamitiesApplied: false,                                      // R14.5 oleada 1, una vez por partida
     calamityWave2Applied: false,                                   // v2.21 oleada 2, una vez por partida
+    boardShuffleApplied: false,                                    // v2.24.24 oleada 3, una vez al llegar a 100000
     legendaries: {},                                               // v2.21 cupo de pedidos de 10 por color
     rosterIndex: rosterIdx,
     palette,                                                       // v2.24.3: 8 criaturas de esta run, orden de desbloqueo
@@ -2782,6 +2866,7 @@ function serveOrder(state, orderId, cellId) {
     return { error: 'notEnough' };
   }
   rememberUndo(s);
+  const coinsBefore = s.progress.coins || 0;
   // consume exactly order.qty pieces from the top (they are all order.color)
   cell.stack.splice(cell.stack.length - order.qty, order.qty);            // R4.3 v2
   order.served = true;
@@ -2795,7 +2880,7 @@ function serveOrder(state, orderId, cellId) {
     run.activeClients = run.activeClients.filter((o) => o !== order);
     refillClients(s, rngFallback());
   }
-  return applyCalamityWave2(s, rngFallback());
+  return maybeBoardShuffle(applyCalamityWave2(s, rngFallback()), coinsBefore, rngFallback());
 }
 
 // v2.1: rng de refill — serveOrder no recibe rng (firma v1/v2 estable); el
@@ -2850,6 +2935,7 @@ function sweepDebrisRuns(board, progress) {
 // ---------------------------------------------------------------------------
 function resolveCascade(state) {
   const s = clone(state);
+  const coinsBefore = (s.progress && s.progress.coins) || 0;
   let steps = 0;
   // received: celdas que ya RECIBIERON fichas en esta cascada (tie-break cozy
   // de R2: preferir candidato que NO haya recibido — pedido del usuario)
@@ -2959,7 +3045,7 @@ function resolveCascade(state) {
   // v2.21: la 2ª oleada entra en el mismo momento en que el servicio cruza
   // el umbral de clientes restantes (una vez; no-op si aún no toca).
   const waved = applyCalamityWave2(s, rngFallback());
-  return { state: waved, steps };
+  return { state: maybeBoardShuffle(waved, coinsBefore, rngFallback()), steps };
 }
 
 function topRunCount(stack) {
@@ -3391,12 +3477,13 @@ function buyIdleUpgrade(state, system) {
 // ---------------------------------------------------------------------------
 function tickIdle(state, dt) {
   const s = clone(state);
+  const coinsBefore = s.progress.coins || 0;
   let total = 0;
   for (const k of ['workers', 'fame', 'machines']) {
     total += s.idle[k].ratePerSec * (dt || 0);                            // R9.1/R9.2 sum everything
   }
   s.progress.coins += total;
-  return s;
+  return maybeBoardShuffle(s, coinsBefore, rngFallback());
 }
 
 // v2.21 — el idle offline no acumula. La función sigue existiendo para que
@@ -3559,6 +3646,11 @@ function idleCap(state, system) { return state.idle[system].cap; }
 // Persistence (pure — no localStorage here). R1
 // ---------------------------------------------------------------------------
 function serializeState(state) {
+  if (state && state.run && state.run.boardShuffleFrom) {
+    const copy = clone(state);
+    delete copy.run.boardShuffleFrom;
+    return JSON.stringify(copy);
+  }
   return JSON.stringify(state);
 }
 
@@ -3617,6 +3709,8 @@ function deserializeState(json) {
         }
         if (s.run.orderSeq == null) s.run.orderSeq = (s.run.orders || []).length;
         if (s.run.rosterIndex == null) s.run.rosterIndex = 5;   // R13.3 v2.1
+        if (s.run.boardShuffleApplied == null) s.run.boardShuffleApplied = false;
+        delete s.run.boardShuffleFrom;
       }
       // v2.18 — first-run tutorial flag. Old saves (v2.16/v2.17) lack the key;
       // treat missing as TRUE so existing players never see the overlay.
@@ -4003,10 +4097,104 @@ async function settlePasses(){
   renderAll(); checkServedAll();
 }
 function persist(){ state.meta.lastSavedAt = Date.now(); localStorage.setItem(KEY, serializeState(state)); }
+function captureCellPos(){
+  const map=new Map();
+  document.querySelectorAll('#board .cell[data-id]').forEach(el=>{
+    map.set(+el.dataset.id, {x:el.offsetLeft, y:el.offsetTop});
+  });
+  return map;
+}
+function cancelPeeks(){
+  if(!ui.peek) return;
+  for(const id of Object.keys(ui.peek)){
+    clearTimeout(ui.peek[id].hold);
+    clearTimeout(ui.peek[id].end);
+  }
+  ui.peek={};
+  const wrap=document.querySelector('.board-wrap');
+  if(wrap) wrap.classList.remove('peek-live');
+}
+function shuffleDeltas(from, oldPos){
+  const moves=[];
+  if(!from || !oldPos) return moves;
+  for(let i=0;i<from.length;i++){
+    const src=from[i];
+    if(src==null || src===i) continue;
+    const a=oldPos.get(src), b=oldPos.get(i);
+    if(!a || !b) continue;
+    const dx=a.x-b.x, dy=a.y-b.y;
+    if(!dx && !dy) continue;
+    moves.push({i, dx, dy});
+  }
+  return moves;
+}
+function parkShuffle(from, oldPos){
+  for(const m of shuffleDeltas(from, oldPos)){
+    const el=document.querySelector(`#board .cell[data-id="${m.i}"]`);
+    if(!el) continue;
+    el.style.zIndex='60';
+    el.style.transform=`translate(${m.dx}px,${m.dy}px)`;
+    document.querySelectorAll(`#board .runbadge[data-cell="${m.i}"], #board .totalbadge[data-cell="${m.i}"]`).forEach(badge=>{
+      badge.style.transform=`translate(${m.dx}px,${m.dy}px)`;
+    });
+  }
+}
 function renderAll(){
   if(!state.run) state = openRun(state, Math.random);
+  cancelPeeks();
+  const shuffleFrom=state.run && state.run.boardShuffleFrom;
+  if(shuffleFrom){
+    delete state.run.boardShuffleFrom;
+    ui.pendingShuffle=shuffleFrom;
+    ui.pendingShufflePos=captureCellPos();
+    ui.anim=true;
+    ui.shuffleUntil=performance.now()+2000;
+  }
   persist();
   renderRun();
+  if(ui.pendingShuffle){
+    parkShuffle(ui.pendingShuffle, ui.pendingShufflePos);
+    const token=(ui.shuffleToken|0)+1;
+    ui.shuffleToken=token;
+    requestAnimationFrame(()=>{
+      if(token!==ui.shuffleToken) return;
+      const from=ui.pendingShuffle;
+      const pos=ui.pendingShufflePos;
+      ui.pendingShuffle=null;
+      glideBoard(from, pos);
+    });
+  }
+}
+function glideBoard(from, oldPos){
+  const moves=shuffleDeltas(from, oldPos);
+  if(!moves.length){
+    ui.anim=false;
+    ui.shuffleUntil=0;
+    renderCalamity();
+    return;
+  }
+  const ease='cubic-bezier(.4,0,.2,1)';
+  for(const m of moves){
+    const frames=[{transform:`translate(${m.dx}px,${m.dy}px)`},{transform:'translate(0,0)'}];
+    const el=document.querySelector(`#board .cell[data-id="${m.i}"]`);
+    if(el) el.animate(frames, {duration:2000, easing:ease, fill:'both'});
+    document.querySelectorAll(`#board .runbadge[data-cell="${m.i}"], #board .totalbadge[data-cell="${m.i}"]`).forEach(badge=>{
+      badge.animate(frames, {duration:2000, easing:ease, fill:'both'});
+    });
+  }
+  toast('Board shuffle');
+  ui.anim=true;
+  ui.shuffleUntil=performance.now()+2000;
+  setTimeout(()=>{
+    document.querySelectorAll('#board .cell[data-id]').forEach(el=>{
+      el.style.transform='';
+      el.style.zIndex='';
+    });
+    document.querySelectorAll('#board .runbadge, #board .totalbadge').forEach(b=>{ b.style.transform=''; });
+    ui.anim=false;
+    ui.shuffleUntil=0;
+    renderCalamity();
+  }, 2000);
 }
 
 // ============================================================================
@@ -4076,11 +4264,21 @@ function renderCalamity(){
   } else if(f.wave === 2){
     mark = 'II'; meta = 'Guests';
     tone = p >= 0.66 ? 'critical' : p >= 0.33 ? 'warn' : 'calm';
+  } else if(f.wave === 3){
+    mark = ''; meta = 'Board shuffle';
+    tone = p >= 0.66 ? 'critical' : p >= 0.33 ? 'warn' : 'calm';
   } else {
     mark = 'I'; meta = 'Tables';
     tone = p >= 0.66 ? 'critical' : p >= 0.33 ? 'warn' : 'calm';
   }
-  ico.textContent = mark;
+  const shuffling = (ui.shuffleUntil && performance.now() < ui.shuffleUntil) || !!ui.pendingShuffle;
+  if(shuffling) meta = 'Board shuffle';
+  const showShuffle = shuffling || f.wave === 3;
+  if(showShuffle){
+    ico.innerHTML = '<img class="cal-shuffle" alt="" src="./assets/pixel/calamity/shuffle.png">';
+  } else {
+    ico.textContent = mark;
+  }
   // The line runs under the icon. 0 sits on the left end, 1 on the right.
   ico.style.left = `calc(11px + (100% - 22px) * ${p.toFixed(3)})`;
   btn.dataset.tone = tone;
@@ -4284,6 +4482,8 @@ function watchBoardWrap(wrap){
     boardObserver=new ResizeObserver(()=>{
       const w=document.querySelector('.board-wrap');
       if(!w || !state || !state.run || ui.fitting) return;
+      if(ui.pendingShuffle || (ui.shuffleUntil && performance.now() < ui.shuffleUntil)) return;
+      if(ui.peek && Object.keys(ui.peek).length) return;
       const sig=w.clientWidth+'x'+w.clientHeight;
       if(sig===ui.fitBox) return;
       ui.fitting=true;
@@ -4574,6 +4774,7 @@ function renderBoard(){
     if(c.dataset.pos){ placeTileFlow(c.dataset.pos); return; }
     tapTile(+c.dataset.id);
   }));
+  if(ui.pendingShuffle) parkShuffle(ui.pendingShuffle, ui.pendingShufflePos);
   placeBoardDecor();
 }
 function renderPool(){
@@ -5078,8 +5279,91 @@ function tapTile(id){
     if(cell.blocked){ toast('Blocked'); return; }
     serveOrderFlow(ui.servingOrder, id); return;
   }
+  if(cell && cell.stack && cell.stack.length && !cell.blocked && !cell.dormant){
+    peekStack(id);
+    return;
+  }
   if(cell.blocked){ toast('Blocked'); return; }
   if(r.orders.some(o=>!o.served)) toast('Tap a client in the queue first, then a stack.');
+}
+function peekLiftPx(stack, fanned, el){
+  const step=stackStep();
+  const n=stack.length;
+  const view=stackVisual(stack);
+  const start=new Array(n).fill(0);
+  if(!view.hasBase){
+    for(let i=0;i<n;i++) start[i]=-i*step;
+  } else {
+    const hidden=n-view.layers.length;
+    for(let i=0;i<view.layers.length;i++) start[hidden+i]=-(i+1)*step;
+  }
+  if(!fanned) return start;
+  const hx=boardHx();
+  let spread=Math.max(step, Math.round(hx*1.05));
+  const rise=Math.round(hx*0.35);
+  if(el && n>1){
+    const frame=document.getElementById('frame');
+    if(frame){
+      const room=el.getBoundingClientRect().top-frame.getBoundingClientRect().top-rise-8;
+      const fit=Math.floor(room/(n-1));
+      if(fit>0) spread=Math.max(6, Math.min(spread, fit));
+    }
+  }
+  return stack.map((_, i)=>-(rise+i*spread));
+}
+function peekTiles(el, stack, from, to){
+  let box=el.querySelector('.stack');
+  if(!box){
+    box=document.createElement('div');
+    box.className='stack';
+    el.appendChild(box);
+  }
+  box.innerHTML=stack.map((color,i)=>
+    `<div class="tile" style="--lift:${from[i]}px;--tc:var(${tileVar(color)})"><i class="tface">${foodMarkup(color)}</i></div>`
+  ).join('');
+  const tiles=[...box.querySelectorAll('.tile')];
+  tiles.forEach((t,i)=>{ t.style.translate=`-50% calc(-50% + ${from[i]}px)`; });
+  const frames=tiles.map((t,i)=>[
+    { translate:`-50% calc(-50% + ${from[i]}px)` },
+    { translate:`-50% calc(-50% + ${to[i]}px)` },
+  ]);
+  requestAnimationFrame(()=>{
+    tiles.forEach((t,i)=>{
+      t.animate(frames[i], {duration:1000, easing:'linear', fill:'forwards'});
+    });
+  });
+}
+function peekStack(id){
+  const cell=state.run.board[id];
+  if(!cell || !cell.stack || !cell.stack.length || cell.blocked || cell.dormant) return;
+  const el=document.querySelector(`#board .cell[data-id="${id}"]`);
+  if(!el) return;
+  if(!ui.peek) ui.peek={};
+  if(ui.peek[id]){ clearTimeout(ui.peek[id].hold); clearTimeout(ui.peek[id].end); }
+  const wrap=document.querySelector('.board-wrap');
+  if(wrap) wrap.classList.add('peek-live');
+  el.classList.add('peeking');
+  document.querySelectorAll(`#board .runbadge[data-cell="${id}"], #board .totalbadge[data-cell="${id}"]`).forEach(b=>{ b.style.visibility='hidden'; });
+  const stack=cell.stack.slice();
+  peekTiles(el, stack, peekLiftPx(stack, false), peekLiftPx(stack, true, el));
+  const rec={};
+  rec.hold=setTimeout(()=>{
+    if(!ui.peek || ui.peek[id]!==rec) return;
+    const live=document.querySelector(`#board .cell[data-id="${id}"]`);
+    const cur=state.run && state.run.board[id];
+    if(!live || !cur || !cur.stack || !cur.stack.length) return;
+    peekTiles(live, cur.stack, peekLiftPx(cur.stack, true, live), peekLiftPx(cur.stack, false));
+  }, 3000);
+  rec.end=setTimeout(()=>{
+    if(!ui.peek || ui.peek[id]!==rec) return;
+    delete ui.peek[id];
+    if(ui.peek && !Object.keys(ui.peek).length){
+      const w=document.querySelector('.board-wrap');
+      if(w) w.classList.remove('peek-live');
+      renderBoard();
+    }
+  }, 4000);
+  ui.peek[id]=rec;
 }
 // v2.20 R14.3 — activar UNA baldosa dormant por partida (paga runTilePrice)
 function activateFlow(id){
@@ -5600,10 +5884,10 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.23';
+const GAME_VERSION = 'v2.24.24';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
-window.__dbg = { get state(){ return state; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, stackVisual, stackLiftPadPx, get boardHx(){ return boardHx(); } };
+window.__dbg = { get state(){ return state; }, set state(v){ state=v; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, maybeBoardShuffle, applyBoardShuffle, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, stackVisual, stackLiftPadPx, get boardHx(){ return boardHx(); } };
 fitFrame();
 window.addEventListener('load', boot);
 
