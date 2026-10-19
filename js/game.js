@@ -369,9 +369,9 @@ function expandTileCheck(s, q, r) {
 // ---------------------------------------------------------------------------
 // Board / pool generation — v2.1 (R14.1/R14.2; reemplaza el board v1 de 7).
 // Firma elegida: generateBoard(n, rng) -> array de celdas axiales
-// { id, q, r, stack, blocked, calamity, dormant }. Desde v2.24.14 el tablero
-// nuevo es SIEMPRE el rectángulo 7×5 pointy (7 filas de 5 = 35 celdas). `n`
-// se conserva en la firma y no cambia la forma. Un save viejo de 36 celdas
+// { id, q, r, stack, blocked, calamity, dormant }. Desde v2.24.18 el tablero
+// nuevo es SIEMPRE el rectángulo 6×6 pointy (6 filas de 6 = 36 celdas). `n`
+// se conserva en la firma y no cambia la forma. Un save con otro tamaño
 // no pasa por aquí: deserializeState devuelve el board guardado tal cual.
 // Las celdas nacen dormant:true (visibles pero apagadas) salvo el núcleo 2-3-2
 // (7 celdas, mismas coords que initialHexCells) que queda jugable (dormant:false).
@@ -380,20 +380,18 @@ export function generateBoard(n, rng) {
   const core = new Set(initialHexCells().map((c) => `${c.q},${c.r}`));
   const board = [];
   let id = 0;
-  // RECTÁNGULO 7×5 pointy (v2.24.14): 7 filas axiales de 5 = 35 celdas,
-  // mismo panal pointy con offset de marco. En columna plegada
-  // col = q + floor(r/2) las 7 filas cubren el MISMO tramo -2..2
-  // (qStart + floor(r/2) = -2), así el núcleo 2-3-2 (cols -1..1, filas -1..1)
-  // queda centrado:
-  //   r=-3: q 0..4    r=-2/-1: q -1..3    r=0/1: q -2..2    r=2/3: q -3..1
-  const ROWS = [ // [r, qStart, width] — RECTÁNGULO 7×5 pointy (35 celdas)
-    [-3, 0, 5],
-    [-2, -1, 5],
-    [-1, -1, 5],
-    [0, -2, 5],
-    [1, -2, 5],
-    [2, -3, 5],
-    [3, -3, 5],
+  // RECTÁNGULO 6×6 pointy: 6 filas axiales de 6 = 36 celdas, el mismo marco
+  // que las versiones 6×6 anteriores. En columna plegada col = q + floor(r/2)
+  // las 6 filas cubren el tramo -3..2 (qStart + floor(r/2) = -3), y el núcleo
+  // 2-3-2 (cols -1..1, filas -1..1) queda dentro:
+  //   r=-2/-1: q -2..3    r=0/1: q -3..2    r=2/3: q -4..1
+  const ROWS = [ // [r, qStart, width] — RECTÁNGULO 6×6 pointy (36 celdas)
+    [-2, -2, 6],
+    [-1, -2, 6],
+    [0, -3, 6],
+    [1, -3, 6],
+    [2, -4, 6],
+    [3, -4, 6],
   ];
   for (const [r, qStart, w] of ROWS) {
     for (let q = qStart; q < qStart + w; q++) {
@@ -798,7 +796,7 @@ function refillClients(s, rng) {
 export function openRun(state, rng) {
   let s = clone(state);
   const r = rng || Math.random;
-  const board = generateBoard(35, r);                            // v2.24.14 rectángulo 7×5 pointy (35 celdas)
+  const board = generateBoard(36, r);                            // v2.24.18 rectángulo 6×6 pointy (36 celdas)
   // v2.24.3: 8 de las 10 criaturas, fijas para esta run. El arranque sigue
   // en 5 activos / pool de colorsOwned (no se vuelcan las 8 de golpe).
   const palette = pickRunPalette(r);
