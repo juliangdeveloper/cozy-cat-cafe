@@ -217,14 +217,19 @@ test('finished runs keep best and worst, capped, across a restart', () => {
 });
 
 test('save modal, skill level, coin float, and defeat are in the page', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.21'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.22'/);
   assert.match(html, /id="runHistory"/);
   assert.match(html, /function renderRunHistory/);
   assert.match(html, /topRuns\(hist/);
   assert.match(html, /Top 10 runs, best first/);
-  assert.match(html, /guests · /);
-  assert.match(html, /paid stacks/);
-  assert.match(html, /trays · /);
+  assert.match(html, /rhStat\('guest','Guests served'/);
+  assert.match(html, /rhStat\('stacks','Paid stacks'/);
+  assert.match(html, /rhStat\('tray','Trays dealt'/);
+  assert.match(html, /rhStat\('coin','Coins left'/);
+  assert.match(html, /class="rh-ico rh-win"/);
+  assert.match(html, /Skill uses unknown/);
+  assert.doesNotMatch(html, /guests · /);
+  assert.doesNotMatch(html, /trays · /);
   assert.match(html, /Number\.isFinite\(rec\.coins\) \? fmt\(rec\.coins\) : '—'/);
   assert.match(html, /class="pow-lvl"/);
   assert.match(html, /skillUseCount\(state, d\.skill\)/);

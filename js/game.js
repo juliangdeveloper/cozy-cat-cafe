@@ -1933,6 +1933,16 @@ export function undoTopCoins(state) {
   return top && top.progress ? (top.progress.coins || 0) : null;
 }
 
+// Free 180° turn. Snapshot first, then count the use. The page turns the
+// board after this returns, so Undo restores the previous facing too.
+export function useRotateBoard(state) {
+  const s = clone(state);
+  if (!s.run) return { error: 'noRun' };
+  const bill = chargeUndoable(s, 'rotateBoard');
+  if (bill) return bill;
+  return s;
+}
+
 // v2.24.6: unlimited depth. Each tap pops one snapshot. The fee is also
 // taken from every older snapshot still in the stack, so a later Undo
 // never refunds an Undo fee already paid.
@@ -2032,6 +2042,14 @@ export function applyOffline(state, now) {
   return s;
 }
 
+// Counts for the skill bar, including the free rotate. Color, tips, and
+// tables read their own counters; the rest read the use bag.
+function snapshotSkillUses(state) {
+  const uses = {};
+  for (const skill of SKILL_BAR_ORDER) uses[skill] = skillUseCount(state, skill);
+  return uses;
+}
+
 // v2.23 — ficha compacta de una run que termina (reinicio o victoria).
 export function finishedRunRecord(state) {
   const run = state && state.run;
@@ -2045,6 +2063,7 @@ export function finishedRunRecord(state) {
     victory: run.phase === 'victory' || served >= totalClients(state),
     // Purse when the run finished. Missing on older records; 0 is a real balance.
     coins: Math.max(0, Math.floor(purse || 0)),
+    skillUses: snapshotSkillUses(state),
   };
 }
 
