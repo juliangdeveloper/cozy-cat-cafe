@@ -37,8 +37,14 @@ test('order cards use the creature for that color, with idle frames', () => {
   assert.match(css, /\.order-card \.px-avatar\{[^}]*height:100%/);
   assert.match(css, /\.order-card \.px-avatar\{[^}]*aspect-ratio:1/);
   assert.match(css, /\.order-card \.px-avatar \.px32\{[^}]*width:100%!important/);
-  assert.match(css, /\.order-card \.px-avatar \.px32\{[^}]*--fw:100%!important/);
   assert.match(css, /\.order-card \.px-avatar \.px32\{[^}]*background-size:400% 100%!important/);
+  assert.match(css, /\.order-card \.px-avatar \.px32\{[^}]*animation-name:px-idle-fill/);
+  assert.doesNotMatch(css, /\.order-card \.px-avatar \.px32\{[^}]*--fw:100%/);
+  const fill = css.slice(css.indexOf('@keyframes px-idle-fill'), css.indexOf('@keyframes px-idle-fill') + 400);
+  assert.match(fill, /background-position-x:0%/);
+  assert.match(fill, /background-position-x:calc\(100% \/ 3\)/);
+  assert.match(fill, /background-position-x:calc\(200% \/ 3\)/);
+  assert.match(fill, /background-position-x:100%/);
   assert.match(css, /\.order-card \.px-avatar \.px28\{display:none!important\}/);
   assert.match(css, /\.order-card\{flex:0 0 calc\(\(100% - 8px\)\/3\);width:calc\(\(100% - 8px\)\/3\);aspect-ratio:1/);
 });

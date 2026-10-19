@@ -607,11 +607,20 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 @media(prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01s!important;transition:none!important}}
 @media(prefers-reduced-motion: reduce){.px-idle{animation:none!important;background-position:0 0!important}}
 /* The name is gone, so the guest art fills the card. The card box stays the
-   same size. The count badge stays in the corner. */
+   same size. The count badge stays in the corner.
+   The idle sheet is four frames (400% of the portrait). Percentage
+   background-position is (box − image) × p, so frame n sits at n/3 — not at
+   calc(100% * -n), which walks the sheet off the card. */
 .order-card .px-avatar{width:auto;height:100%;aspect-ratio:1;flex:1 1 auto;min-height:0;max-width:100%;max-height:100%;overflow:hidden}
 .order-card .px-avatar .px32{display:block!important;width:100%!important;height:100%!important;
-  --fw:100%!important;background-size:400% 100%!important;image-rendering:pixelated}
+  background-size:400% 100%!important;image-rendering:pixelated;animation-name:px-idle-fill}
 .order-card .px-avatar .px28{display:none!important}
+@keyframes px-idle-fill{
+  0%,29.7619%{background-position-x:0%}
+  29.762%,50%{background-position-x:calc(100% / 3)}
+  50.001%,79.7619%{background-position-x:calc(200% / 3)}
+  79.762%,100%{background-position-x:100%}
+}
 
 /* v2.18 — first-run spotlight tutorial.
    The dim (#tutOverlay, z-index 80) sits under the playable board and trays
