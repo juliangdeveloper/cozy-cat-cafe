@@ -1,4 +1,4 @@
-// v2.24.27 — tall top-row stacks must not move the board. A tray stack is
+// v2.24.28 — tall top-row stacks must not move the board. A tray stack is
 // centered by its base hex, and taller stacks grow upward.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -32,7 +32,7 @@ test('a tray stack is centered by its base, and a tall one overflows upward', ()
 });
 
 test('tall top-row stacks do not move the 36-cell board', async () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.27'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.28'/);
   const boardFn = html.slice(html.indexOf('function renderBoard'), html.indexOf('function renderPool'));
   const shift = boardFn.slice(boardFn.indexOf('const cellsH'), boardFn.indexOf('box.style.setProperty'));
   assert.doesNotMatch(shift, /stack/);
