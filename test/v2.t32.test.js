@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'index.html'), 'utf8');
 
 test('the board fits its wrap and the tray keeps the width breakpoints', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.17'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.18'/);
   assert.match(html, /const HX_MAX = 60/);
   assert.match(html, /const HX_MIN = 16/);
   assert.match(html, /function boardMetrics/);
@@ -27,5 +27,5 @@ test('the board fits its wrap and the tray keeps the width breakpoints', () => {
   assert.doesNotMatch(html, /@media\(min-width:761px\)/);
   assert.match(html, /\.board-wrap\{flex:1 1 auto;min-height:0;min-width:0;overflow:hidden/);
   assert.doesNotMatch(html, /\.board-wrap\{[^}]*overflow:\s*auto/);
-  assert.match(html, /wrap\.style\.overflow=needsScroll\?'auto':'visible'/);
+  assert.match(html, /wrap\.style\.overflow=needsScroll\?'auto':'hidden'/);
 });

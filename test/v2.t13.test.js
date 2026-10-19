@@ -100,9 +100,9 @@ test('T13a [R13.3] openRun: rosterIndex 5, pool 1..colorsOwned, board 35, 7 juga
   assert.ok(tiles.length > 0, 'RED: run.pool debe tener fichas al abrir la run');
   assert.ok(tiles.every(t => t >= 1 && t <= state.progress.colorsOwned),
     `RED: pool de arranque solo 1..colorsOwned [R13.5], hay ${JSON.stringify([...new Set(tiles)])}`);
-  // tablero 7×5 (35 celdas, v2.24.14) — núcleo 2-3-2 jugable (R14.2)
+  // tablero 6×6 (36 celdas, v2.24.18) — núcleo 2-3-2 jugable (R14.2)
   assert.ok(Array.isArray(run.board), 'RED: run.board debe ser array');
-  assert.equal(run.board.length, 35, 'RED: el board de run v2.24.14 tiene 35 celdas');
+  assert.equal(run.board.length, 36, 'RED: el board de run v2.24.18 tiene 36 celdas');
   const playable = run.board.filter(c => !c.blocked && !c.dormant).length;
   assert.equal(playable, 7, `RED: jugables al arranque = núcleo 2-3-2 (7), hay ${playable} [R13.3,R14.2]`);
   // v2.1: 3 clientes visibles por cola perezosa (no orders pre-generadas)
