@@ -25,3 +25,5 @@ npm test
 ---
 
 Más proyectos: https://juliangdeveloper.github.io/
+
+Hecho con ❤️ y 🐱
