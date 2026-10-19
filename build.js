@@ -18,7 +18,7 @@
 //
 // Determinista (sin timestamps ni Math.random) e idempotente.
 // ============================================================================
-import { readFileSync, writeFileSync, mkdirSync, unlinkSync, copyFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, unlinkSync, copyFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import { dirname, join } from 'node:path';
@@ -31,6 +31,7 @@ const SRC_AMB = join(ROOT, 'js', 'ambience.js');
 const SRC_HOWLER = join(ROOT, 'vendor', 'howler.min.js');
 const SRC_JSON = join(ROOT, 'assets', 'sprites.json');
 const SRC_PNG = join(ROOT, 'assets', 'sprites.png');
+const PIXEL_DIR = join(ROOT, 'assets', 'pixel');
 const AUDIO_DIR = join(ROOT, 'assets', 'audio');
 const OUT_HTML = join(ROOT, 'dist', 'index.html');
 const HOWLER_TAG = '<script src="./vendor/howler.min.js"></script>\n';
@@ -178,6 +179,44 @@ const newLoad =
 }`;
 app = app.replace(loadRe, () => newLoad);
 
+// Pixel customers, host cat, and skill icons. Same rule as the sheet: the
+// dist file embeds every png so file:// does not fetch a path.
+function collectPngPaths(node, out) {
+  if (typeof node === 'string') {
+    if (/^[\w./-]+\.png$/.test(node)) out.add(node);
+    return;
+  }
+  if (Array.isArray(node)) {
+    node.forEach((n) => collectPngPaths(n, out));
+    return;
+  }
+  if (node && typeof node === 'object') {
+    for (const v of Object.values(node)) collectPngPaths(v, out);
+  }
+}
+const pixelManifest = JSON.parse(readFileSync(join(PIXEL_DIR, 'manifest.json'), 'utf8'));
+if (pixelManifest.format !== 'cozy-cat-cafe-sprites' || pixelManifest.version !== 1) {
+  fail('assets/pixel/manifest.json no es cozy-cat-cafe-sprites v1');
+}
+const pixelPaths = new Set();
+collectPngPaths(pixelManifest, pixelPaths);
+const pixelUrls = {};
+for (const rel of pixelPaths) {
+  const abs = join(PIXEL_DIR, rel);
+  if (!existsSync(abs)) fail(`falta el sprite ${rel}`);
+  pixelUrls[rel] = `data:image/png;base64,${readFileSync(abs).toString('base64')}`;
+}
+const pixelLoadRe = /async function loadPixelArt\(\)\{[\s\S]*?\n\}/;
+if (!pixelLoadRe.test(app)) fail('no se encontró loadPixelArt()');
+const pixelLoad =
+  `const PIXEL_MANIFEST = ${JSON.stringify(pixelManifest)};\n` +
+  `const PIXEL_URLS = ${JSON.stringify(pixelUrls)};\n` +
+  `async function loadPixelArt(){
+  const urls = applyPixelManifest(PIXEL_MANIFEST, (p)=>PIXEL_URLS[p]||'');
+  await preloadPixel(urls);
+}`;
+app = app.replace(pixelLoadRe, () => pixelLoad);
+
 // ---------------------------------------------------------------------------
 // 9) Ensamblar y escribir dist/index.html.
 // ---------------------------------------------------------------------------
@@ -232,6 +271,11 @@ if (/\bexport\s+(const|let|function|class)/.test(bundle))
 if (!bundle.includes('data:image/png;base64,'))
   problems.push('el script module inline NO contiene data:image/png;base64');
 if (!bundle.includes('const SPRITES_DATA')) problems.push('falta const SPRITES_DATA en el bundle');
+if (!bundle.includes('const PIXEL_MANIFEST')) problems.push('falta const PIXEL_MANIFEST en el bundle');
+if (!bundle.includes('customers/host_cat/idle_32.png')) problems.push('falta el idle del host cat');
+if (!bundle.includes('skills/previewPool/26.png')) problems.push('falta el icono previewPool');
+if (!bundle.includes('skills/queueSkip/26.png')) problems.push('falta el icono queueSkip');
+if (!bundle.includes('host_cat_96_idle.png')) problems.push('falta el host cat de 96');
 if (!bundle.includes('cozy-cat-cafe.save.v1')) problems.push('falta la clave de localStorage cozy-cat-cafe.save.v1');
 if (/https?:\/\//i.test(outHtml)) problems.push('URL remota http:// o https:// presente');
 if (!bundle.includes('Howler.ctx.resume')) problems.push('falta Howler.ctx.resume() (reanudar Web Audio en iOS)');

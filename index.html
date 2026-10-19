@@ -183,6 +183,21 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .seltag{color:var(--ink);font-weight:900;font-size:14px;line-height:1;animation:breathe 1s ease-in-out infinite}
 @keyframes pulse{0%,100%{box-shadow:0 3px 0 var(--shadow)}50%{box-shadow:0 0 0 4px rgba(255,245,178,.7)}}
 .catimg{width:32px;height:32px;object-fit:contain;margin:0 auto;display:block;animation:breathe 2s ease-in-out infinite}
+/* Pixel sprites sit at native size. The card, button, and veil boxes stay put. */
+.px{display:block;background-repeat:no-repeat;background-position:0 0;overflow:hidden;
+  image-rendering:crisp-edges;image-rendering:pixelated}
+.px-avatar{display:block;width:32px;height:32px;margin:0 auto;line-height:0}
+.px-avatar .px32{width:32px;height:32px}
+.px-avatar .px28{display:none;width:28px;height:28px}
+.px-host{width:96px;height:96px}
+.pow .px-skill{width:26px;height:26px;flex:0 0 26px}
+@keyframes px-idle{
+  0%,29.7619%{background-position-x:0}
+  29.762%,50%{background-position-x:calc(var(--fw) * -1)}
+  50.001%,79.7619%{background-position-x:calc(var(--fw) * -2)}
+  79.762%,100%{background-position-x:calc(var(--fw) * -3)}
+}
+.px-idle{animation:px-idle 840ms linear infinite}
 @keyframes breathe{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.03)}}
 .bubble{display:flex;align-items:center;justify-content:center;gap:4px;background:var(--panel);border:2px solid var(--ink);
   border-radius:999px;padding:1px 6px;margin-top:2px;font-family:var(--font-display);font-weight:800;font-size:14px}
@@ -545,6 +560,12 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   .collap[open] summary::before{content:'▾ '}
 @media(hover:none){.btn:hover{transform:none;filter:none}}
 @media(prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01s!important;transition:none!important}}
+@media(prefers-reduced-motion: reduce){.px-idle{animation:none!important;background-position:0 0!important}}
+@media(max-width:560px){
+  .order-card .px-avatar{width:28px;height:28px}
+  .order-card .px-avatar .px32{display:none}
+  .order-card .px-avatar .px28{display:block;width:28px;height:28px}
+}
 
 /* v2.18 — first-run spotlight tutorial.
    The dim (#tutOverlay, z-index 80) sits under the playable board and trays
@@ -781,6 +802,75 @@ function spr(id, size=44){
 }
 function short(id){ return id.split('_').map(w=>w[0]).join('').toUpperCase(); }
 
+// Pixel roster + skill icons (assets/pixel/manifest.json). Sizes stay 1:1.
+const PIXEL = { customers:{}, skills:{}, host:null };
+function packPixel(size, urlFor){
+  if(!size) return null;
+  const idle = size.idle;
+  const sheet = idle && idle.sheet ? idle.sheet : size.static;
+  if(!sheet) return null;
+  const frames = idle && idle.frames ? idle.frames : 1;
+  const fw = idle && idle.frameWidth ? idle.frameWidth : size.width;
+  return {
+    url: urlFor(sheet),
+    w: size.width, h: size.height, fw, frames,
+    idle: !!(idle && idle.sheet),
+  };
+}
+function applyPixelManifest(manifest, urlFor){
+  PIXEL.customers = {}; PIXEL.skills = {}; PIXEL.host = null;
+  const urls = [];
+  const add = (pack)=>{ if(pack && pack.url) urls.push(pack.url); return pack; };
+  (manifest.customers||[]).forEach(c=>{
+    PIXEL.customers[c.colorIndex] = {
+      id: c.id,
+      s32: add(packPixel(c.sizes && c.sizes['32'], urlFor)),
+      s28: add(packPixel(c.sizes && c.sizes['28'], urlFor)),
+    };
+  });
+  (manifest.skills||[]).forEach(s=>{
+    PIXEL.skills[s.skillKey] = add(packPixel(s.sizes && s.sizes['26'], urlFor));
+  });
+  const host = manifest.winLose && manifest.winLose.sizes && manifest.winLose.sizes['96'];
+  PIXEL.host = add(packPixel(host, urlFor));
+  return urls;
+}
+function preloadPixel(urls){
+  return Promise.all((urls||[]).map(src=>new Promise(ok=>{
+    const im = new Image();
+    im.onload = ()=>ok(); im.onerror = ()=>ok(); im.src = src;
+  })));
+}
+function pxMarkup(pack, cls){
+  if(!pack || !pack.url) return '';
+  const frames = pack.idle ? pack.frames : 1;
+  const style = `width:${pack.w}px;height:${pack.h}px;--fw:${pack.fw}px;background-image:url('${pack.url}');background-size:${pack.fw*frames}px ${pack.h}px`;
+  return `<span class="px${pack.idle?' px-idle':''} ${cls}" style="${style}" aria-hidden="true"></span>`;
+}
+function customerAvatar(logical){
+  const face = faceColor(logical);
+  const c = PIXEL.customers[face];
+  if(!c || !c.s32) return spr('cat_client_'+(((face||1)-1)%3+1), 32);
+  return `<span class="px-avatar" data-creature="${c.id}" data-color="${face}">${pxMarkup(c.s32,'px32')}${pxMarkup(c.s28,'px28')}</span>`;
+}
+function hostCat(){
+  if(!PIXEL.host) return spr('cat_client_1', 96);
+  return pxMarkup(PIXEL.host, 'px-host');
+}
+function skillPixel(skill){
+  const pack = PIXEL.skills[skill];
+  if(!pack) return '';
+  return pxMarkup(pack, 'px-skill');
+}
+async function loadPixelArt(){
+  try{
+    const r = await fetch('./assets/pixel/manifest.json');
+    if(!r.ok) return;
+    const urls = applyPixelManifest(await r.json(), (p)=>'./assets/pixel/'+p);
+    await preloadPixel(urls);
+  }catch(e){}
+}
+
 // ---------------- fx & toast ------------------------------------------------
 function toast(msg, colorId){
   const t=$('#toast');
@@ -978,7 +1068,7 @@ function renderRun(){
       </div>
       <div class="orders" id="orders"></div>
       ${won ? `<div class="victory-veil" id="victoryVeil">
-        ${spr('cat_client_1', 96)}
+        ${hostCat()}
         <p class="host-line">Every guest is fed. The lights can rest.</p>
         ${bonus>0 ? `<span class="bonus">Calamity bonus +${fmt(bonus)}</span>` : ''}
         <p class="host-hint">Tap to open again · or hold restart</p>
@@ -1091,15 +1181,14 @@ function renderOrders(){
     cnt.title = 'Guests ' + label;
     cnt.setAttribute('aria-label', 'Guests ' + label);
   }
-  box.innerHTML = vis.map((o,i)=>{
-    const cat = 'cat_client_'+( (i%3)+1 );
+  box.innerHTML = vis.map((o)=>{
     // v2 R13.2: nombre del ROSTER — el pedido de una criatura usa SOLO su color
     const name = creatureName(o.color||1);
     const ready = !o.served && orderIsReady(o);
     const sel = ui.servingOrder===o.id;
     return `<div class="order-card ${o.served?'served':''} ${ready?'ready':''} ${sel?'selected':''} ${o.legendary?'legendary':''}" data-oid="${o.id}"
       style="border-top:4px solid var(${tileVar(o.color)})">
-      ${spr(cat,32)}
+      ${customerAvatar(o.color||1)}
       <div class="bubble">${o.qty}<span class="minitile" style="--mc:var(${tileVar(o.color)})"></span></div>
       <div class="oname">${o.served?'✔ ':''}${name}</div>
       ${sel?'<div class="seltag">▼</div>':''}</div>`;
@@ -1539,9 +1628,12 @@ function renderPowers(){
     const free = d.skill==='rotateBoard';
     const tip = free ? help+' Free.' : 'Level '+n+'. '+help+' Next '+fmt(priceN)+' coins.';
     const cost = `<span class="pow-cost">🪙${fmt(priceN)}</span>`;
-    const icon = /^[a-z0-9_]+$/.test(d.icon)
-      ? skillArt(d.icon)
-      : `<span class="pow-emoji" aria-hidden="true">${d.icon}</span>`;
+    const drawn = skillPixel(d.skill);
+    const icon = drawn
+      ? drawn
+      : (/^[a-z0-9_]+$/.test(d.icon)
+        ? skillArt(d.icon)
+        : `<span class="pow-emoji" aria-hidden="true">${d.icon}</span>`);
     const lvl = free ? '' : `<span class="pow-lvl">${n}</span>`;
     return `<div class="pow ${broke?'broke':''} ${depleted?'depleted':''} ${ui.mode===d.mode?'selected':''}" data-mode="${d.mode}" data-skill="${d.skill}" data-level="${free?0:n}" role="button" title="${tip}" aria-label="${tip}">
       ${lvl}
@@ -2085,7 +2177,7 @@ async function playDefeat(){
     const veil = document.createElement('div');
     veil.id = 'defeatVeil';
     veil.className = 'victory-veil defeat-veil';
-    veil.innerHTML = `${spr('cat_client_1', 96)}
+    veil.innerHTML = `${hostCat()}
       <p class="host-line">The lights go down. This sitting is over.</p>
       <p class="host-hint">A fresh café opens next.</p>`;
     boardWrap.before(veil);
@@ -2370,6 +2462,7 @@ async function boot(){
   // La run en curso de esta versión se conserva. El mute no se toca.
   if(!state.run) state = openRun(state, Math.random);
   await loadSprites();
+  await loadPixelArt();
   bindCafeAudio();
   renderAll();
   bindGlobal();

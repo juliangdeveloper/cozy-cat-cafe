@@ -13,12 +13,9 @@ No hay botón OPEN SHOP ni pantalla de cierre. La escena de juego es la interfaz
 ## 1. DIRECCIÓN DE ARTE — Declaración
 
 > **Warm Vintage Café.** Interiores de madera cálida, tazas de porcelana y pastelería
-> en vitrinas de cristal, luz acogedora dorada al atardecer, ilustración *hand-drawn*
-> con contornos de chocolate y arabescos de artesanía. El café es cálido y habitable:
-> nada de neón, nada de frío digital. Gatos *cartoon-cálidos* de orejas redondas y cuerpos
-> suaves, ataviados con baberos/gorros de barista. *Hand-drawn cozy*: bordes redondeados,
-> sombras suaves difuminadas, madera warm-latte en marcos y muebles, y un toque vintage
-> (doble raya artesanal, esquinas redondeadas de tarjeta, textura de papel de estraza).
+> en vitrinas de cristal, luz acogedora dorada al atardecer. La UI (marcos, tarjetas,
+> botones) sigue en CSS: bordes redondeados, sombras suaves, madera warm-latte.
+> Criaturas y poderes son **pixel art** (§6), no curvas SVG. Nada de neón.
 
 Reglas de oro (hard rules):
 - **Contorno chocolate `#794835`** en TODOS los elementos interactivos y tiles (legibilidad y estética tinta).
@@ -26,6 +23,7 @@ Reglas de oro (hard rules):
 - **Botones** de tamaño táctil ≥ 44×44 px; esquinas ≥ 14 px.
 - **Textura** wood/paper vía SVG noise sutil + `border-radius`; sin sombras duras tipo neón.
 - **Vintage**: elementos clave llevan doble borde (outline chocolate 2px + interior latte 1px).
+- **Pixel art** (criaturas y poderes): ver §6. No sustituir esos sprites por SVG.
 
 ---
 
@@ -150,7 +148,7 @@ Reglas:
   - *Pendiente* (default): burbuja `--panel`.
   - *Completando* (cuando la celda a tope coincide): burbuja pinta `--highlight` + pulso suave.
   - *Servido*: tarjeta se desvanece → confeti → se marca como ✔ con fade.
-- Tamaño mínimo tarjeta entera **≥ 72×72 px** (gato 44 + burbuja).
+- **Avatar:** sprite de pixel de la criatura del pedido, 32×32 (28×28 bajo `@media (max-width: 560px)`). La tarjeta no cambia de ancho.
 
 ### 4.4 Pool tray — 3 piezas (bandeja de ingredientes)
 - **Bandeja:** `--wood` (#b6947c), borde `--ink` 2px, esquinas 14px, doble raya vintage interior.
@@ -165,13 +163,8 @@ Reglas:
 - **Contador idle:** chip pequeño `--highlight` cuando hay ganancias pasivas pendientes.
 - Al **ganar dinero**: número pops (scale 1.15→1, 180ms, ease-out) y el chip brilla `--highlight`.
 
-### 4.6 Botones de poder (3 poderes comprables)
-Pill apiladas bajo el tablero o en una barra lateral (toggle en móvil). Ícono + etiqueta corta.
-| Poder | Ícono SVG | Color clave |
-|---|---|---|
-| **Destroy stack** (destruir pila) | bomba/tachuela | `--danger` acento |
-| **Swap 2 stacks** (intercambiar) | flechas circulares | `--tile-blue` |
-| **Refresh pool** (descartar pool) | bucle/flecha derecha | `--tile-mint` |
+### 4.6 Botones de poder
+Barra bajo el tablero. Cada poder de la barra usa su icono de pixel **26×26** (§6). Rotate sigue en glifo. Peek y Skip no tienen botón.
 - **Comprado/habilitado:** fondo `--panel`, contorno `--ink` 2px, sombra activa.
 - **No comprado (candado):** fondo `--lock`, contorno `--lock-dark`, icono de candado SVG; precio bajo en `--ink-soft`.
 - **Con usos limitados:** contador de usos restantes en esquina (badge `--highlight`). ≥ **48×48 px** cada uno.
@@ -219,16 +212,23 @@ Pill apiladas bajo el tablero o en una barra lateral (toggle en móvil). Ícono 
 
 ---
 
-## 6. GATOS / ILUSTRACIÓN
+## 6. CRIATURAS Y PODERES — PIXEL ART
 
-- **Estilo:** cartoon-cálido hand-drawn, cuerpos redondeados de 2 cabezas, orejas de triángulo suave, cola en espiral, bigotes finos en `--ink`. Mismo lenguaje que la dirección "fat latte" (cuerpo gordito, patas cortas).
-- **Paleta de pelaje:** caramel / crema / gris-café (derivados de `--wood`/`--panel`/`--bg-primary`), con manchas `--accent`/`--tile-blue`. Nunca blanco puro ni negro.
-- **Contorno:** `--ink` 2px en todo el contorno del gato.
-- **Clientes (en el tablero/café):** sentados junto a su pedido, expectantes; posición idle con respiro (scaleY 1↔1.03, 2s).
-- **Trabajadores (empleado-gato idle):** gato con **babero/gorro de barista** (`--panel` + doble raya vintage); caminando entre bandeja y tablero ("trae ingredientes"), o sirviendo.
-- **Expresiones:** ojos de botón (2 círculos `--ink`), boca simple; mejillas rosa `--accent` al 40%; corazón `--accent` sobre la cabeza al **servir un pedido** (feedback emocional).
-- **Nuevos trabajadores:** al comprar mejora, UN gato nuevo entra por la puerta y ocupa su puesto (reflejo gráfico del idle, ver §8).
-- **Formato:** SVG inline (curvas suaves) para crispado; animación vía CSS/keyframe transform (barato, no canvas cada frame).
+Sprites de pixel, fondo transparente, pintados a tamaño nativo con `image-rendering: pixelated` (nearest-neighbor). No reescalar el contenedor.
+
+| Uso | Tamaño | Archivo |
+|---|---|---|
+| Avatar de pedido (default) | 32×32 | `assets/pixel/customers/<id>/32.png` + `idle_32.png` |
+| Avatar bajo `@media (max-width: 560px)` | 28×28 | `28.png` + `idle_28.png` |
+| Velo de victoria / derrota | 96×96 | `assets/pixel/host_cat_96.png` + `host_cat_96_idle.png` |
+| Icono de poder en la barra | 26×26 | `assets/pixel/skills/<skillKey>/26.png` (idle si existe) |
+
+- **Trazo:** `#794835`. **Crema:** `#f8f1d5`. **Blush:** `#f6a7c1`.
+- Cada criatura lleva un parche de su color de pedido (`--tile-*` / `colorIndex`).
+- Luz desde arriba a la izquierda.
+- Idle: tira horizontal de 4 frames, duraciones 250, 170, 250, 170 ms. Se repite.
+- El pedido usa la criatura de `runFaceColor()` (`colorIndex` en `assets/pixel/manifest.json`, formato `cozy-cat-cafe-sprites` v1). No el puesto de la tarjeta.
+- La barra pinta los 9 poderes. `previewPool` y `queueSkip` están en el pack y no tienen botón.
 
 ---
 
