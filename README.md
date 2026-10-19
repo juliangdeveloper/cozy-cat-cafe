@@ -11,7 +11,7 @@
 - Las pilas vecinas del mismo color se juntan; cuando la cima coincide con un pedido, el cliente se sirve solo.
 - La meta de cada partida es atender a 100 clientes.
 - Gasta monedas en habilidades (destruir, intercambiar, refrescar y más); mantén pulsada una para ver qué hace.
-- ¿Atascado? Mantén pulsado 3 segundos para reiniciar la partida.
+- ¿Atascado? Mantén pulsada la bandera 3 segundos para reiniciar la partida (las monedas vuelven a cero).
 - El progreso se guarda en tu navegador. La interfaz del juego está en inglés.
 
 ## Stack
