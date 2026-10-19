@@ -79,7 +79,7 @@ test('clients only ask for owned colors plus the next one', () => {
 });
 
 test('page: v2.24.7, help button, fixed skill bar, abbreviated money', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.22'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.23'/);
   assert.match(html, /id="btnHelp"/);
   assert.match(html, /startTutorial\(\); \};/);
   assert.match(html, /SKILL_BAR_ORDER\.map\(id=>meta\.find/);
