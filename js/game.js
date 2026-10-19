@@ -377,16 +377,13 @@ function expandTileCheck(s, q, r) {
 // Las celdas nacen dormant:true (visibles pero apagadas) salvo el núcleo 2-3-2
 // (7 celdas, mismas coords que initialHexCells) que queda jugable (dormant:false).
 // ---------------------------------------------------------------------------
-export function generateBoard(n, rng) {
-  const core = new Set(initialHexCells().map((c) => `${c.q},${c.r}`));
-  const board = [];
-  let id = 0;
-  // RECTÁNGULO 6×6 pointy: 6 filas axiales de 6 = 36 celdas, el mismo marco
-  // que las versiones 6×6 anteriores. En columna plegada col = q + floor(r/2)
-  // las 6 filas cubren el tramo -3..2 (qStart + floor(r/2) = -3), y el núcleo
-  // 2-3-2 (cols -1..1, filas -1..1) queda dentro:
-  //   r=-2/-1: q -2..3    r=0/1: q -3..2    r=2/3: q -4..1
-  const ROWS = [ // [r, qStart, width] — RECTÁNGULO 6×6 pointy (36 celdas)
+// RECTÁNGULO 6×6 pointy: 6 filas axiales de 6 = 36 celdas. En columna
+// plegada col = q + floor(r/2) las filas cubren -3..2, y el núcleo 2-3-2
+// (cols -1..1, filas -1..1) queda dentro:
+//   r=-2/-1: q -2..3    r=0/1: q -3..2    r=2/3: q -4..1
+export function canonicalBoardSlots() {
+  const slots = [];
+  const ROWS = [ // [r, qStart, width]
     [-2, -2, 6],
     [-1, -2, 6],
     [0, -3, 6],
@@ -395,12 +392,51 @@ export function generateBoard(n, rng) {
     [3, -4, 6],
   ];
   for (const [r, qStart, w] of ROWS) {
-    for (let q = qStart; q < qStart + w; q++) {
-      board.push({
-        id: `c${id++}`, q, r,
-        stack: [], blocked: false, calamity: false,
-        dormant: !core.has(`${q},${r}`),          // R14.2 núcleo 2-3-2 jugable
-      });
+    for (let q = qStart; q < qStart + w; q++) slots.push({ q, r });
+  }
+  return slots;
+}
+
+export function generateBoard(n, rng) {
+  const core = new Set(initialHexCells().map((c) => `${c.q},${c.r}`));
+  return canonicalBoardSlots().map(({ q, r }, i) => ({
+    id: `c${i}`, q, r,
+    stack: [], blocked: false, calamity: false,
+    dormant: !core.has(`${q},${r}`),          // R14.2 núcleo 2-3-2 jugable
+  }));
+}
+
+// A save with two stacks on one coordinate, or a missing cell, still has one
+// payload per index. Put each payload back on the 6×6 slot stored at that
+// index. A 36-cell board whose positions are already unique is left alone,
+// including an older lattice. Any other length is left alone.
+export function repairBoardGeometry(board) {
+  if (!Array.isArray(board) || board.length !== 36) return board;
+  const seen = new Set();
+  let ok = true;
+  for (const cell of board) {
+    if (!cell || typeof cell.q !== 'number' || typeof cell.r !== 'number' || !Number.isFinite(cell.q) || !Number.isFinite(cell.r)) {
+      ok = false;
+      break;
+    }
+    const k = `${cell.q},${cell.r}`;
+    if (seen.has(k)) { ok = false; break; }
+    seen.add(k);
+  }
+  if (ok) return board;
+  const slots = canonicalBoardSlots();
+  for (let i = 0; i < slots.length; i++) {
+    const slot = slots[i];
+    const cell = board[i];
+    if (!cell || typeof cell !== 'object') {
+      board[i] = {
+        id: `c${i}`, q: slot.q, r: slot.r,
+        stack: [], blocked: false, calamity: false, dormant: true,
+      };
+    } else {
+      cell.q = slot.q;
+      cell.r = slot.r;
+      if (!cell.id) cell.id = `c${i}`;
     }
   }
   return board;
@@ -2350,6 +2386,7 @@ export function deserializeState(json) {
         if (s.run.rosterIndex == null) s.run.rosterIndex = 5;   // R13.3 v2.1
         if (s.run.boardShuffleApplied == null) s.run.boardShuffleApplied = false;
         delete s.run.boardShuffleFrom;
+        if (Array.isArray(s.run.board)) repairBoardGeometry(s.run.board);
       }
       // v2.18 — first-run tutorial flag. Old saves (v2.16/v2.17) lack the key;
       // treat missing as TRUE so existing players never see the overlay.
@@ -2394,6 +2431,8 @@ export function importSave(json) {
     if (!s.settings || s.settings.epoch !== 21) return freshGameKeepingTutorial(s);
     dropPermanentTableFields(s);
     syncTipLevel(s);
+    if (s.run && s.run.boardShuffleFrom) delete s.run.boardShuffleFrom;
+    if (s.run && Array.isArray(s.run.board)) repairBoardGeometry(s.run.board);
     return s;
   } catch (e) {
     return { error: 'invalid' };

@@ -1208,10 +1208,17 @@ function shuffleDeltas(from, oldPos){
     const a=oldPos.get(src), b=oldPos.get(i);
     if(!a || !b) continue;
     const dx=a.x-b.x, dy=a.y-b.y;
-    if(!dx && !dy) continue;
+    if(!Number.isFinite(dx) || !Number.isFinite(dy) || (!dx && !dy)) continue;
     moves.push({i, dx, dy});
   }
   return moves;
+}
+function stopBoardMotion(){
+  document.querySelectorAll('#board .cell, #board .runbadge, #board .totalbadge').forEach(el=>{
+    if(typeof el.getAnimations==='function') el.getAnimations().forEach(a=>{ try{ a.cancel(); }catch(err){} });
+    el.style.transform='';
+    if(el.classList.contains('cell')) el.style.zIndex='';
+  });
 }
 function parkShuffle(from, oldPos){
   for(const m of shuffleDeltas(from, oldPos)){
@@ -1246,40 +1253,47 @@ function renderAll(){
       const from=ui.pendingShuffle;
       const pos=ui.pendingShufflePos;
       ui.pendingShuffle=null;
-      glideBoard(from, pos);
+      ui.pendingShufflePos=null;
+      glideBoard(from, pos, token);
     });
   }
 }
-function glideBoard(from, oldPos){
-  const moves=shuffleDeltas(from, oldPos);
-  if(!moves.length){
+function glideBoard(from, oldPos, token){
+  let settled=false;
+  const finish=()=>{
+    if(settled || token!==ui.shuffleToken) return;
+    settled=true;
     ui.anim=false;
     ui.shuffleUntil=0;
+    ui.pendingShuffle=null;
+    ui.pendingShufflePos=null;
+    stopBoardMotion();
+    renderBoard();
     renderCalamity();
-    return;
-  }
+  };
+  const moves=shuffleDeltas(from, oldPos);
+  if(!moves.length){ finish(); return; }
   const ease='cubic-bezier(.4,0,.2,1)';
+  const anims=[];
   for(const m of moves){
-    const frames=[{transform:`translate(${m.dx}px,${m.dy}px)`},{transform:'translate(0,0)'}];
+    const frames=[{transform:`translate(${m.dx}px,${m.dy}px)`},{transform:'translate(0px,0px)'}];
+    const opts={duration:2000, easing:ease, fill:'backwards'};
     const el=document.querySelector(`#board .cell[data-id="${m.i}"]`);
-    if(el) el.animate(frames, {duration:2000, easing:ease, fill:'both'});
+    if(el){
+      el.style.transform='';
+      if(typeof el.animate==='function') anims.push(el.animate(frames, opts));
+    }
     document.querySelectorAll(`#board .runbadge[data-cell="${m.i}"], #board .totalbadge[data-cell="${m.i}"]`).forEach(badge=>{
-      badge.animate(frames, {duration:2000, easing:ease, fill:'both'});
+      badge.style.transform='';
+      if(typeof badge.animate==='function') anims.push(badge.animate(frames, opts));
     });
   }
   toast('Board shuffle');
   ui.anim=true;
   ui.shuffleUntil=performance.now()+2000;
-  setTimeout(()=>{
-    document.querySelectorAll('#board .cell[data-id]').forEach(el=>{
-      el.style.transform='';
-      el.style.zIndex='';
-    });
-    document.querySelectorAll('#board .runbadge, #board .totalbadge').forEach(b=>{ b.style.transform=''; });
-    ui.anim=false;
-    ui.shuffleUntil=0;
-    renderCalamity();
-  }, 2000);
+  if(!anims.length){ finish(); return; }
+  Promise.all(anims.map(a=>a.finished.catch(()=>{}))).then(finish);
+  setTimeout(finish, 2100);
 }
 
 // ============================================================================
@@ -1745,6 +1759,7 @@ function placeBoardDecor(opts){
 }
 function renderBoard(){
   const box=$('#board'); if(!box) return;
+  stopBoardMotion();
   const r=state.run;
   const board=r.board||[];
   // axial coords: prefer cell.{q,r}; fall back to a generated honeycomb for indexes
@@ -2961,6 +2976,14 @@ window.addEventListener('resize', ()=>{
   placeBoardDecor();
   if(tutActive) showTutStep();
 });
+window.addEventListener('pageshow', (ev)=>{
+  if(!ev.persisted || !state || !state.run) return;
+  ui.pendingShuffle=null;
+  ui.pendingShufflePos=null;
+  ui.shuffleUntil=0;
+  ui.anim=false;
+  renderBoard();
+});
 window.addEventListener('orientationchange', ()=>{ if(tutActive) setTimeout(showTutStep, 120); });
 
 async function boot(){
@@ -2992,7 +3015,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.27';
+const GAME_VERSION = 'v2.24.28';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, set state(v){ state=v; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, maybeBoardShuffle, applyBoardShuffle, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, stackVisual, stackLiftPadPx, get boardHx(){ return boardHx(); } };
