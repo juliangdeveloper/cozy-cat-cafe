@@ -1,0 +1,688 @@
+{
+  "format": "cozy-cat-cafe-sprites",
+  "version": 1,
+  "notes": {
+    "pixelArt": "All files are native size. Draw at 1:1 CSS px with image-rendering: pixelated; do not rescale.",
+    "idleSheet": "Horizontal strip, frames left to right, loop forever with durationsMs per frame.",
+    "customerKey": "colorIndex = ROSTER position + 1 (js/game.js ROSTER) = face id from runFaceColor(); use it to pick the sprite for an order.",
+    "customerSizes": {
+      "32": ".order-card avatar (default)",
+      "28": ".order-card avatar inside @media(max-width:560px)"
+    },
+    "hostCat96": "victory/defeat veil (spr(\"cat_client_1\", 96))",
+    "skillSizes": {
+      "26": ".pow icon (.pow img, .pow .o = 26x26)"
+    },
+    "skillKey": "key used by renderPowers()/skillUsePrice(); inPowerbar=false means defined in js/game.js but no button today."
+  },
+  "customers": [
+    {
+      "id": "host_cat",
+      "rosterName": "Host cat",
+      "rosterIndex": 0,
+      "colorIndex": 1,
+      "orderToken": "--tile-mint",
+      "orderHex": "#7fd6a4",
+      "sizes": {
+        "32": {
+          "static": "customers/host_cat/32.png",
+          "width": 32,
+          "height": 32,
+          "idle": {
+            "sheet": "customers/host_cat/idle_32.png",
+            "frameWidth": 32,
+            "frameHeight": 32,
+            "frames": 4,
+            "durationsMs": [
+              250,
+              170,
+              250,
+              170
+            ]
+          }
+        },
+        "28": {
+          "static": "customers/host_cat/28.png",
+          "width": 28,
+          "height": 28,
+          "idle": {
+            "sheet": "customers/host_cat/idle_28.png",
+            "frameWidth": 28,
+            "frameHeight": 28,
+            "frames": 4,
+            "durationsMs": [
+              250,
+              170,
+              250,
+              170
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "fox_kit",
+      "rosterName": "Fox kit",
+      "rosterIndex": 1,
+      "colorIndex": 2,
+      "orderToken": "--tile-blue",
+      "orderHex": "#7cc4f5",
+      "sizes": {
+        "32": {
+          "static": "customers/fox_kit/32.png",
+          "width": 32,
+          "height": 32,
+          "idle": {
+            "sheet": "customers/fox_kit/idle_32.png",
+            "frameWidth": 32,
+            "frameHeight": 32,
+            "frames": 4,
+            "durationsMs": [
+              250,
+              170,
+              250,
+              170
+            ]
+          }
+        },
+        "28": {
+          "static": "customers/fox_kit/28.png",
+          "width": 28,
+          "height": 28,
+          "idle": {
+            "sheet": "customers/fox_kit/idle_28.png",
+            "frameWidth": 28,
+            "frameHeight": 28,
+            "frames": 4,
+            "durationsMs": [
+              250,
+              170,
+              250,
+              170
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "frog",
+      "rosterName": "Frog",
+      "rosterIndex": 2,
+      "colorIndex": 3,
+      "orderToken": "--tile-pink",
+      "orderHex": "#ff8fa3",
+      "sizes": {
+        "32": {
+          "static": "customers/frog/32.png",
+          "width": 32,
+          "height": 32,
+          "idle": {
+            "sheet": "customers/frog/idle_32.png",
+            "frameWidth": 32,
+            "frameHeight": 32,
+            "frames": 4,
+            "durationsMs": [
+              250,
+              170,
+              250,
+              170
+            ]
+          }
+        },
+        "28": {
+          "static": "customers/frog/28.png",
+          "width": 28,
+          "height": 28,
+          "idle": {
+            "sheet": "customers/frog/idle_28.png",
+            "frameWidth": 28,
+            "frameHeight": 28,
+            "frames": 4,
+            "durationsMs": [
+              250,
+              170,
+              250,
+              170
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "dragonling",
+      "rosterName": "Dragonling",
+      "rosterIndex": 3,
+      "colorIndex": 4,
+      "orderToken": "--tile-blush",
+      "orderHex": "#ffab72",
+      "sizes": {
+        "32": {
+          "static": "customers/dragonling/32.png",
+          "width": 32,
+          "height": 32,
+          "idle": {
+            "sheet": "customers/dragonling/idle_32.png",
+            "frameWidth": 32,
+            "frameHeight": 32,
+            "frames": 4,
+            "durationsMs": [
+              250,
+              170,
+              250,
+              170
+            ]
+          }
+        },
+        "28": {
+          "static": "customers/dragonling/28.png",
+          "width": 28,
+          "height": 28,
+          "idle": {
+            "sheet": "customers/dragonling/idle_28.png",
+            "frameWidth": 28,
+            "frameHeight": 28,
+            "frames": 4,
+            "durationsMs": [
+              250,
+              170,
+              250,
+              170
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "sweeper_bot",
+      "rosterName": "Sweeper bot",
+      "rosterIndex": 4,
+      "colorIndex": 5,
+      "orderToken": "--tile-lavender",
+      "orderHex": "#c49ade",
+      "sizes": {
+        "32": {
+          "static": "customers/sweeper_bot/32.png",
+          "width": 32,
+          "height": 32,
+          "idle": {
+            "sheet": "customers/sweeper_bot/idle_32.png",
+            "frameWidth": 32,
+            "frameHeight": 32,
+            "frames": 4,
+            "durationsMs": [
+              250,
+              170,
+              250,
+              170
+            ]
+          }
+        },
+        "28": {
+          "static": "customers/sweeper_bot/28.png",
+          "width": 28,
+          "height": 28,
+          "idle": {
+            "sheet": "customers/sweeper_bot/idle_28.png",
+            "frameWidth": 28,
+            "frameHeight": 28,
+            "frames": 4,
+            "durationsMs": [
+              250,
+              170,
+              250,
+              170
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "barista_bot",
+      "rosterName": "Barista bot",
+      "rosterIndex": 5,
+      "colorIndex": 6,
+      "orderToken": "--tile-cream",
+      "orderHex": "#f0d46e",
+      "sizes": {
+        "32": {
+          "static": "customers/barista_bot/32.png",
+          "width": 32,
+          "height": 32,
+          "idle": {
+            "sheet": "customers/barista_bot/idle_32.png",
+            "frameWidth": 32,
+            "frameHeight": 32,
+            "frames": 4,
+            "durationsMs": [
+              250,
+              170,
+              250,
+              170
+            ]
+          }
+        },
+        "28": {
+          "static": "customers/barista_bot/28.png",
+          "width": 28,
+          "height": 28,
+          "idle": {
+            "sheet": "customers/barista_bot/idle_28.png",
+            "frameWidth": 28,
+            "frameHeight": 28,
+            "frames": 4,
+            "durationsMs": [
+              250,
+              170,
+              250,
+              170
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "delivery_bot",
+      "rosterName": "Delivery bot",
+      "rosterIndex": 6,
+      "colorIndex": 7,
+      "orderToken": "--tile-denim",
+      "orderHex": "#2c6eb0",
+      "sizes": {
+        "32": {
+          "static": "customers/delivery_bot/32.png",
+          "width": 32,
+          "height": 32,
+          "idle": {
+            "sheet": "customers/delivery_bot/idle_32.png",
+            "frameWidth": 32,
+            "frameHeight": 32,
+            "frames": 4,
+            "durationsMs": [
+              250,
+              170,
+              250,
+              170
+            ]
+          }
+        },
+        "28": {
+          "static": "customers/delivery_bot/28.png",
+          "width": 28,
+          "height": 28,
+          "idle": {
+            "sheet": "customers/delivery_bot/idle_28.png",
+            "frameWidth": 28,
+            "frameHeight": 28,
+            "frames": 4,
+            "durationsMs": [
+              250,
+              170,
+              250,
+              170
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "dj_bot",
+      "rosterName": "DJ bot",
+      "rosterIndex": 7,
+      "colorIndex": 8,
+      "orderToken": "--tile-teal",
+      "orderHex": "#1f8f81",
+      "sizes": {
+        "32": {
+          "static": "customers/dj_bot/32.png",
+          "width": 32,
+          "height": 32,
+          "idle": {
+            "sheet": "customers/dj_bot/idle_32.png",
+            "frameWidth": 32,
+            "frameHeight": 32,
+            "frames": 4,
+            "durationsMs": [
+              250,
+              170,
+              250,
+              170
+            ]
+          }
+        },
+        "28": {
+          "static": "customers/dj_bot/28.png",
+          "width": 28,
+          "height": 28,
+          "idle": {
+            "sheet": "customers/dj_bot/idle_28.png",
+            "frameWidth": 28,
+            "frameHeight": 28,
+            "frames": 4,
+            "durationsMs": [
+              250,
+              170,
+              250,
+              170
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "human_twin_a",
+      "rosterName": "Human twin A",
+      "rosterIndex": 8,
+      "colorIndex": 9,
+      "orderToken": "--tile-pine",
+      "orderHex": "#14532d",
+      "sizes": {
+        "32": {
+          "static": "customers/human_twin_a/32.png",
+          "width": 32,
+          "height": 32,
+          "idle": {
+            "sheet": "customers/human_twin_a/idle_32.png",
+            "frameWidth": 32,
+            "frameHeight": 32,
+            "frames": 4,
+            "durationsMs": [
+              250,
+              170,
+              250,
+              170
+            ]
+          }
+        },
+        "28": {
+          "static": "customers/human_twin_a/28.png",
+          "width": 28,
+          "height": 28,
+          "idle": {
+            "sheet": "customers/human_twin_a/idle_28.png",
+            "frameWidth": 28,
+            "frameHeight": 28,
+            "frames": 4,
+            "durationsMs": [
+              250,
+              170,
+              250,
+              170
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "human_twin_b",
+      "rosterName": "Human twin B",
+      "rosterIndex": 9,
+      "colorIndex": 10,
+      "orderToken": "--tile-orchid",
+      "orderHex": "#9932cc",
+      "sizes": {
+        "32": {
+          "static": "customers/human_twin_b/32.png",
+          "width": 32,
+          "height": 32,
+          "idle": {
+            "sheet": "customers/human_twin_b/idle_32.png",
+            "frameWidth": 32,
+            "frameHeight": 32,
+            "frames": 4,
+            "durationsMs": [
+              250,
+              170,
+              250,
+              170
+            ]
+          }
+        },
+        "28": {
+          "static": "customers/human_twin_b/28.png",
+          "width": 28,
+          "height": 28,
+          "idle": {
+            "sheet": "customers/human_twin_b/idle_28.png",
+            "frameWidth": 28,
+            "frameHeight": 28,
+            "frames": 4,
+            "durationsMs": [
+              250,
+              170,
+              250,
+              170
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "winLose": {
+    "rosterName": "Host cat",
+    "colorIndex": 1,
+    "sizes": {
+      "96": {
+        "static": "host_cat_96.png",
+        "width": 96,
+        "height": 96,
+        "idle": {
+          "sheet": "host_cat_96_idle.png",
+          "frameWidth": 96,
+          "frameHeight": 96,
+          "frames": 4,
+          "durationsMs": [
+            250,
+            170,
+            250,
+            170
+          ]
+        }
+      }
+    },
+    "scale": "nearest-neighbour 3x of customers/host_cat/32.png"
+  },
+  "skills": [
+    {
+      "skillKey": "destroyPile",
+      "label": "Destroy",
+      "powerbarMode": "destroy",
+      "replacesIcon": "power_destroy",
+      "inPowerbar": true,
+      "sizes": {
+        "26": {
+          "static": "skills/destroyPile/26.png",
+          "width": 26,
+          "height": 26,
+          "idle": {
+            "sheet": "skills/destroyPile/idle_26.png",
+            "frameWidth": 26,
+            "frameHeight": 26,
+            "frames": 4,
+            "durationsMs": [
+              250,
+              170,
+              250,
+              170
+            ]
+          }
+        }
+      }
+    },
+    {
+      "skillKey": "swapPiles",
+      "label": "Swap",
+      "powerbarMode": "swap",
+      "replacesIcon": "power_swap",
+      "inPowerbar": true,
+      "sizes": {
+        "26": {
+          "static": "skills/swapPiles/26.png",
+          "width": 26,
+          "height": 26
+        }
+      }
+    },
+    {
+      "skillKey": "refreshPool",
+      "label": "Refresh",
+      "powerbarMode": "refresh",
+      "replacesIcon": "power_refresh",
+      "inPowerbar": true,
+      "sizes": {
+        "26": {
+          "static": "skills/refreshPool/26.png",
+          "width": 26,
+          "height": 26
+        }
+      }
+    },
+    {
+      "skillKey": "tables",
+      "label": "Tables",
+      "powerbarMode": "activate",
+      "replacesIcon": "furniture_table",
+      "inPowerbar": true,
+      "sizes": {
+        "26": {
+          "static": "skills/tables/26.png",
+          "width": 26,
+          "height": 26
+        }
+      }
+    },
+    {
+      "skillKey": "unlockLocks",
+      "label": "Unlock",
+      "powerbarMode": "unlock",
+      "replacesIcon": "\ud83d\udd13",
+      "inPowerbar": true,
+      "sizes": {
+        "26": {
+          "static": "skills/unlockLocks/26.png",
+          "width": 26,
+          "height": 26
+        }
+      }
+    },
+    {
+      "skillKey": "color",
+      "label": "Color",
+      "powerbarMode": "color",
+      "replacesIcon": "\ud83c\udfa8",
+      "inPowerbar": true,
+      "sizes": {
+        "26": {
+          "static": "skills/color/26.png",
+          "width": 26,
+          "height": 26
+        }
+      }
+    },
+    {
+      "skillKey": "tips",
+      "label": "Tips",
+      "powerbarMode": "tips",
+      "replacesIcon": "\u2728",
+      "inPowerbar": true,
+      "sizes": {
+        "26": {
+          "static": "skills/tips/26.png",
+          "width": 26,
+          "height": 26,
+          "idle": {
+            "sheet": "skills/tips/idle_26.png",
+            "frameWidth": 26,
+            "frameHeight": 26,
+            "frames": 4,
+            "durationsMs": [
+              250,
+              170,
+              250,
+              170
+            ]
+          }
+        }
+      }
+    },
+    {
+      "skillKey": "clearBoard",
+      "label": "Clear",
+      "powerbarMode": "clear",
+      "replacesIcon": "\ud83e\uddf9",
+      "inPowerbar": true,
+      "sizes": {
+        "26": {
+          "static": "skills/clearBoard/26.png",
+          "width": 26,
+          "height": 26,
+          "idle": {
+            "sheet": "skills/clearBoard/idle_26.png",
+            "frameWidth": 26,
+            "frameHeight": 26,
+            "frames": 4,
+            "durationsMs": [
+              250,
+              170,
+              250,
+              170
+            ]
+          }
+        }
+      }
+    },
+    {
+      "skillKey": "undoMove",
+      "label": "Undo",
+      "powerbarMode": "undo",
+      "replacesIcon": "\u21a9\ufe0f",
+      "inPowerbar": true,
+      "sizes": {
+        "26": {
+          "static": "skills/undoMove/26.png",
+          "width": 26,
+          "height": 26
+        }
+      }
+    },
+    {
+      "skillKey": "previewPool",
+      "label": "Peek",
+      "powerbarMode": null,
+      "replacesIcon": null,
+      "inPowerbar": false,
+      "sizes": {
+        "26": {
+          "static": "skills/previewPool/26.png",
+          "width": 26,
+          "height": 26,
+          "idle": {
+            "sheet": "skills/previewPool/idle_26.png",
+            "frameWidth": 26,
+            "frameHeight": 26,
+            "frames": 4,
+            "durationsMs": [
+              250,
+              170,
+              250,
+              170
+            ]
+          }
+        }
+      }
+    },
+    {
+      "skillKey": "queueSkip",
+      "label": "Skip",
+      "powerbarMode": null,
+      "replacesIcon": null,
+      "inPowerbar": false,
+      "sizes": {
+        "26": {
+          "static": "skills/queueSkip/26.png",
+          "width": 26,
+          "height": 26
+        }
+      }
+    }
+  ]
+}

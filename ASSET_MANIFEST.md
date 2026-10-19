@@ -5,7 +5,7 @@
 - **✅ existente** → ya dibujado en `assets/sprites.png` + `assets/sprites.json`.
 - **🔶 placeholder [pl]** → NO está en el sprite map; el juego lo genera *por código* (celda de color sólido fiel a STYLE_GUIDE + sigla del id) para que el juego sea **100 % jugable sin arte** (G7 / US-42 / US-43).
 
-Regla: **no escribas a mano sobre `sprites.png`/`sprites.json`.** Cuando el artista entregue el arte completo, sustituye ambos archivos; el juego los consume en caliente y solo cambian las imágenes. El código no se toca.
+La hoja `sprites.png` sigue alimentando el café de fondo (worker, máquinas, muebles). **Clientes, gato anfitrión y poderes** salen de `assets/pixel/` (pixel art, § abajo). El renderer elige la criatura con `runFaceColor()` → `colorIndex` del manifest.
 
 ---
 
@@ -25,16 +25,13 @@ Regla: **no escribas a mano sobre `sprites.png`/`sprites.json`.** Cuando el arti
 | # | id | qué es | Usado en | Estado |
 |---|----|--------|----------|--------|
 | 1 | `cat_worker` | Gato barista (worker) | menú + `renderIdle` (reflejo worker, US-36) | ✅ existente |
-| 2 | `cat_client_1` | Gato cliente Caramel | menú + tarjetas de pedido | ✅ existente |
-| 3 | `cat_client_2` | Gato cliente Cream | ídem (pedido #2) | ✅ existente |
-| 4 | `cat_client_3` | Gato cliente Grey | ídem (pedido #3) | ✅ existente |
-| 5 | `machine_coffee` | Máquina de espresso | menú + `renderIdle` (máquinas, US-36) | ✅ existente |
-| 6 | `icon_coin` | Moneda | chip de monedas (menú y barra superior) | ✅ existente |
-| 7 | `power_destroy` | Poder — destruir pila | barra de poderes `renderPowers` | ✅ existente |
-| 8 | `power_swap` | Poder — intercambiar | ídem | ✅ existente |
-| 9 | `power_refresh` | Poder — refrescar tray | ídem | ✅ existente |
-| 10 | `idle_tips_plate` | Platito de propinas | `renderIdle` (sistema fama/propinas, US-31) | 🔶 **placeholder [pl]** |
-| 11 | `idle_fame_star` | Estrella de fama | ídem (US-31) | 🔶 **placeholder [pl]** |
+| 2 | `cat_client_*` | Clientes genéricos del sheet | solo si falta el pixel | respaldo |
+| 3 | `assets/pixel/customers/*` | Criatura del pedido (idle) | tarjeta de pedido, por `colorIndex` | ✅ pixel |
+| 4 | `machine_coffee` | Máquina de espresso | menú + `renderIdle` (máquinas, US-36) | ✅ existente |
+| 5 | `icon_coin` | Moneda | chip de monedas (menú y barra superior) | ✅ existente |
+| 6 | `assets/pixel/skills/<skillKey>/26.png` | Icono 26×26 de la barra | `renderPowers` (9 poderes) | ✅ pixel |
+| 7 | `idle_tips_plate` | Platito de propinas | `renderIdle` (sistema fama/propinas, US-31) | 🔶 **placeholder [pl]** |
+| 8 | `idle_fame_star` | Estrella de fama | ídem (US-31) | 🔶 **placeholder [pl]** |
 
 ---
 
@@ -70,6 +67,21 @@ La regla de oro: **ningún sprite ausente rompe la jugabilidad**. Estos dos se g
    - `idle_fame_star`
 2. Genera `assets/sprites.json` con el MISMO esquema actual: `{ "SPRITE_CELL":128, "cols":N, "rows":M, "sheetWidth":…, "sheetHeight":…, "sprites":[{"id","name","x","y","w","h","col","row"}] }`.
 3. Sustituye ambos archivos en `assets/`. El juego detecta los ids y deja de usar los placeholders, **sin tocar `index.html`**.
+
+---
+
+## Pixel art (`assets/pixel/`)
+
+Manifest `format: cozy-cat-cafe-sprites`, `version: 1`. Fondo transparente, nearest-neighbor, 1:1.
+
+| Qué | Tamaño | Notas |
+|---|---|---|
+| Cliente | 32×32 y 28×28 | 28 solo en `@media (max-width: 560px)`. Idle 4 frames: 250, 170, 250, 170 ms. |
+| Host cat (victoria / derrota) | 96×96 | `host_cat_96.png` + idle |
+| Poderes de la barra | 26×26 | destroyPile, swapPiles, refreshPool, tables, unlockLocks, color, tips, clearBoard, undoMove |
+| previewPool, queueSkip | 26×26 | en el pack; sin botón |
+
+Trazo `#794835`, crema `#f8f1d5`, blush `#f6a7c1`, parche del color de pedido, luz arriba-izquierda.
 
 ---
 
