@@ -667,6 +667,60 @@ body.tut-on .powerbar.tut-spot{z-index:90}
 .tut-actions .btn{flex:1;min-height:44px}
 .tut-step{display:block;text-align:center;font-size:11px;font-weight:700;color:var(--ink-soft);margin-bottom:6px}
 
+/* Board and tray skin. Paint only: no width, height, padding, margin, gap, or border-width.
+   1 art px = 2 CSS px. Every image uses image-rendering: pixelated. */
+.board-wrap{
+  background:url(./assets/board-tray/img/board_wood_tile.png) 0 0/192px 88px repeat;
+  image-rendering:pixelated;
+  box-shadow:inset 0 0 0 2px #794835;
+  border-radius:6px;
+}
+.board:not(.flat) .cell:not(.dormant):not(.blocked):not(.hex-flat) .hexbg{
+  background:url(./assets/board-tray/img/cell_lace_open.png) 0 0/100% 100% no-repeat;
+  clip-path:none;
+  image-rendering:pixelated;
+}
+.board:not(.flat) .cell.dormant:not(.hex-flat) .hexbg{
+  background:url(./assets/board-tray/img/cell_lace_locked.png) 0 0/100% 100% no-repeat;
+  clip-path:none;
+  image-rendering:pixelated;
+}
+.board:not(.flat) .cell.dormant:not(.hex-flat){opacity:1}
+.board:not(.flat) .cell.blocked:not(.hex-flat){opacity:1}
+.board.actmode:not(.flat) .cell.dormant:not(.act-eligible){opacity:.55}
+.board-decor{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.board-decor>i{position:absolute;display:block;image-rendering:pixelated;background-repeat:no-repeat}
+.board-decor .bd-cat{width:68px;height:44px;background-image:url(./assets/board-tray/img/decor_cat_sleep_sheet.png);background-size:272px 44px;
+  animation:bd-cat 2.1s steps(4) infinite}
+.board-decor .bd-cup{width:36px;height:48px;background-image:url(./assets/board-tray/img/decor_cup_steam_sheet.png);background-size:144px 48px;
+  animation:bd-cup .72s steps(4) infinite}
+.board-decor .bd-petal{width:18px;height:16px;background-image:url(./assets/board-tray/img/decor_petal_sheet.png);background-size:72px 16px;
+  animation:bd-petal .88s steps(4) infinite,bd-drift 3.2s steps(4) infinite alternate}
+@keyframes bd-cat{to{background-position:-272px 0}}
+@keyframes bd-cup{to{background-position:-144px 0}}
+@keyframes bd-petal{to{background-position:-72px 0}}
+@keyframes bd-drift{to{transform:translate(2px,8px)}}
+@media (prefers-reduced-motion: reduce){
+  .board-decor>i{animation:none!important;background-position:0 0!important}
+}
+.pool{
+  background:url(./assets/board-tray/img/tray_wall_tile.png) 0 0/32px 16px repeat;
+  image-rendering:pixelated;
+}
+.poolslot,.poolslot.selected{
+  border-radius:0;
+  image-rendering:pixelated;
+  background:
+    url(./assets/board-tray/img/slot_curtain_paw.png) 50% 6px/14px 12px no-repeat,
+    url(./assets/board-tray/img/slot_sill_strip.png) 0 100%/16px 10px repeat-x,
+    url(./assets/board-tray/img/slot_post_left.png) 0 0/6px 16px repeat-y,
+    url(./assets/board-tray/img/slot_post_right.png) 100% 0/6px 16px repeat-y,
+    url(./assets/board-tray/img/slot_curtain_strip.png) 0 0/24px 26px repeat-x,
+    url(./assets/board-tray/img/slot_backplate_tile.png) 0 0/24px 24px repeat;
+  background-origin:border-box;
+}
+.poolslot.selected{box-shadow:inset 0 0 0 3px var(--accent),inset 0 0 0 999px rgba(255,226,140,.28)}
+
 </style>
 </head>
 <body>
@@ -1024,7 +1078,7 @@ function fitFrame(){
   // The tray is pinned to the board, so the wrap's box does not change when
   // the viewport shrinks. Refit from the frame size or the column overflows.
   const sig=Math.round(frame.offsetWidth)+'x'+Math.round(frame.offsetHeight);
-  if(sig===ui.frameBox) return;
+  if(sig===ui.frameBox){ placeBoardDecor(); return; }
   ui.frameBox=sig;
   ui.fitting=true;
   try{ renderBoard(); }
@@ -1462,6 +1516,97 @@ function stackBadgeHTML(cell, idx, left, top, m){
   }
   return html;
 }
+// Edge details sit on free wood around the cells. Every candidate is tested
+// against the real hexes, and measured rects are converted back through the
+// frame's CSS scale.
+function placeBoardDecor(opts){
+  opts = opts || {};
+  var SIZE = { cat: [68, 44], cup: [36, 48], petal: [18, 16] };
+  function even(v){ return Math.round(v / 2) * 2; }
+  function inHex(c, x, y){
+    var u = (x - c.x) / c.w, v = (y - c.y) / c.h;
+    if (u < 0 || u > 1 || v < 0 || v > 1) return false;
+    var dx = Math.abs(u - 0.5) * 2;
+    if (v >= 0.25 && v <= 0.75) return true;
+    var t = v < 0.25 ? v / 0.25 : (1 - v) / 0.25;
+    return dx <= t;
+  }
+  function hits(cells, b, pad){
+    pad = pad || 2;
+    for (var y = b.y - pad; y <= b.y + b.h + pad; y += 2)
+      for (var x = b.x - pad; x <= b.x + b.w + pad; x += 2)
+        for (var i = 0; i < cells.length; i++) if (inHex(cells[i], x, y)) return true;
+    return false;
+  }
+  function overlaps(a, b){ return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h; }
+  var wrap = document.querySelector(opts.wrap || '.board-wrap');
+  var board = document.querySelector(opts.board || '#board');
+  if (!wrap || !board || board.classList.contains('flat')) return;
+  var layer = wrap.querySelector('.board-decor');
+  if (!layer){
+    layer = document.createElement('div');
+    layer.className = 'board-decor';
+    layer.setAttribute('aria-hidden', 'true');
+    wrap.insertBefore(layer, wrap.firstChild);
+  }
+  layer.innerHTML = '';
+  var wr = wrap.getBoundingClientRect();
+  var k = wr.width / wrap.offsetWidth || 1;
+  var cells = [].map.call(board.querySelectorAll('.cell'), function (el) {
+    var r = el.getBoundingClientRect();
+    return { x: (r.left - wr.left) / k - wrap.clientLeft, y: (r.top - wr.top) / k - wrap.clientTop, w: r.width / k, h: r.height / k };
+  });
+  if (!cells.length) return;
+  var L = { x: 1e9, y: 1e9, r: -1e9, b: -1e9 };
+  cells.forEach(function (c) { L.x = Math.min(L.x, c.x); L.y = Math.min(L.y, c.y); L.r = Math.max(L.r, c.x + c.w); L.b = Math.max(L.b, c.y + c.h); });
+  var W = wrap.clientWidth, H = wrap.clientHeight, taken = [];
+  function free(b){
+    if (b.x < 2 || b.y < 2 || b.x + b.w > W - 2 || b.y + b.h > H - 2) return false;
+    for (var i = 0; i < taken.length; i++) if (overlaps(b, taken[i])) return false;
+    return !hits(cells, b);
+  }
+  function put(kind, b, delay){
+    var el = document.createElement('i'); el.className = 'bd-' + kind;
+    el.style.left = b.x + 'px'; el.style.top = b.y + 'px';
+    if (delay) el.style.animationDelay = delay;
+    layer.appendChild(el); taken.push({ x: b.x - 4, y: b.y - 4, w: b.w + 8, h: b.h + 8 });
+  }
+  function first(kind, cands){
+    var s = SIZE[kind];
+    for (var i = 0; i < cands.length; i++) {
+      var b = { x: even(cands[i][0]), y: even(cands[i][1]), w: s[0], h: s[1] };
+      if (free(b)) { put(kind, b); return true; }
+    }
+    return false;
+  }
+  var i, d, cands;
+  cands = [];
+  for (d = 0; d <= 60; d += 6) cands.push([L.r - SIZE.cat[0] - d, L.y - SIZE.cat[1] - 6]);
+  for (d = 0; d <= 60; d += 6) cands.push([L.r - SIZE.cat[0] - d, L.y - SIZE.cat[1] - 10]);
+  first('cat', cands);
+  cands = [];
+  for (d = 0; d <= 24; d += 2) cands.push([L.x + 2, L.b - SIZE.cup[1] - d]);
+  for (d = 0; d <= 24; d += 2) cands.push([L.r - SIZE.cup[0] - 2, L.b - SIZE.cup[1] - d]);
+  for (d = 0; d <= 40; d += 8) cands.push([L.x + 6 + d, L.y - SIZE.cup[1] - 6]);
+  for (d = 0; d <= 40; d += 8) cands.push([L.x + 6 + d, L.y - SIZE.cup[1] - 2]);
+  first('cup', cands);
+  var rows = {};
+  cells.forEach(function (c) { var key = Math.round(c.y); (rows[key] = rows[key] || []).push(c); });
+  var spots = [];
+  Object.keys(rows).sort(function (a, b) { return a - b; }).forEach(function (key) {
+    var r = rows[key], lx = 1e9, rx = -1e9, ch = r[0].h;
+    r.forEach(function (c) { lx = Math.min(lx, c.x); rx = Math.max(rx, c.x + c.w); });
+    if (lx - L.x > SIZE.petal[0] + 4) spots.push([L.x + (lx - L.x - SIZE.petal[0]) / 2, +key + ch * 0.38]);
+    if (L.r - rx > SIZE.petal[0] + 4) spots.push([rx + (L.r - rx - SIZE.petal[0]) / 2, +key + ch * 0.38]);
+  });
+  var cw = cells[0].w;
+  for (i = 0; i < 8; i++) spots.push([L.x + cw * (0.35 + i * 0.9), L.y - 24 - (i % 2) * 14]);
+  var n = 0, max = opts.petals == null ? 9 : opts.petals;
+  for (i = 0; i < spots.length && n < max; i++) {
+    var s = SIZE.petal, b = { x: even(spots[i][0]), y: even(spots[i][1]), w: s[0], h: s[1] };
+    if (free(b)) { put('petal', b, (-(i * 0.37) % 3.2).toFixed(2) + 's'); n++; }
+  }
+}
 function renderBoard(){
   const box=$('#board'); if(!box) return;
   const r=state.run;
@@ -1578,6 +1723,7 @@ function renderBoard(){
     if(c.dataset.pos){ placeTileFlow(c.dataset.pos); return; }
     tapTile(+c.dataset.id);
   }));
+  placeBoardDecor();
 }
 function renderPool(){
   const box=$('#pool'); if(!box) return;
@@ -2535,6 +2681,7 @@ function tutNext(){
 }
 window.addEventListener('resize', ()=>{
   fitFrame();
+  placeBoardDecor();
   if(tutActive) showTutStep();
 });
 window.addEventListener('orientationchange', ()=>{ if(tutActive) setTimeout(showTutStep, 120); });
