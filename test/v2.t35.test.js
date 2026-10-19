@@ -12,7 +12,7 @@ const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'i
 const css = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
 
 test('v2.24.9 puts a moving calamity icon on a thin track above the clients', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.18'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.19'/);
   const run = html.slice(html.indexOf('function renderRun'), html.indexOf('function renderCalamity'));
   const top = run.indexOf('class="topbar"');
   const cal = run.indexOf('class="cal-row"');
@@ -47,6 +47,7 @@ test('v2.24.18 keeps the chrome and fits every cell of the board', () => {
   assert.match(html, /\.tray\{width:40px\} \.ttile\{width:40px;height:34px\}/);
   assert.match(html, /\.pow\{min-height:48px;min-width:0\}/);
   assert.match(html, /\.pow-emoji\{font-size:26px\}/);
+  assert.match(html, /\.powerbar \.pow:nth-child\(-n\+5\) \.pow-face\{min-height:42px\}/);
   assert.match(html, /function trayStep\(\)\{ return Math\.max\(5,Math\.round\(rootHx\(\)\*0\.225\)\); \}/);
   assert.match(html, /const slotH=slot\?parseFloat\(getComputedStyle\(slot\)\.height\)\|\|slot\.offsetHeight:82;/);
   assert.match(html, /function fitBoardHx/);

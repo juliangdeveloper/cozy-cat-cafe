@@ -151,7 +151,7 @@ test('finished runs keep best and worst, capped, across a restart', () => {
   s.run.moneyStacks = 40;
   s.run.pilesDealt = 80;
   s.progress.coins = 2500;
-  const purse = 2500 + G.bonusCalamity(s.run);
+  const purse = 2500;
   s = G.beginVictory(s);
   assert.equal(s.run.phase, 'victory');
   assert.equal(s.runHistory.length, 2);
@@ -217,7 +217,7 @@ test('finished runs keep best and worst, capped, across a restart', () => {
 });
 
 test('save modal, skill level, coin float, and defeat are in the page', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.18'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.19'/);
   assert.match(html, /id="runHistory"/);
   assert.match(html, /function renderRunHistory/);
   assert.match(html, /topRuns\(hist/);
