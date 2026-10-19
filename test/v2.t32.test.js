@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'index.html'), 'utf8');
 
 test('the board fits its wrap and the tray keeps the width breakpoints', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.26'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.27'/);
   assert.match(html, /const HX_MAX = 60/);
   assert.match(html, /const HX_MIN = 16/);
   assert.match(html, /function boardMetrics/);

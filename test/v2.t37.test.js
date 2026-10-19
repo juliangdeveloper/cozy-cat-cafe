@@ -106,7 +106,7 @@ test('lift pad covers 6 steps and the run badge from hx 16 to 60', () => {
 });
 
 test('pointy and flat boards share one lift pad and the renderer uses it', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.26'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.27'/);
   assert.match(html, /const liftPad=stackLiftPadPx\(hxN\)/);
   assert.match(html, /\(m\.h-m\.liftPad\)<=availH-slack/);
   assert.match(html, /const needsScroll=hxN<=HX_MIN && \(m\.w>availW\+0\.5 \|\| cellsH>availH\+0\.5\)/);
