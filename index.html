@@ -124,11 +124,33 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
 .victory-veil .host-line{margin:0;font-family:var(--font-display);font-weight:800;font-size:22px;line-height:1.2}
 .victory-veil .host-hint{margin:0;font-size:13px;font-weight:800;color:var(--ink-soft)}
 .victory-veil.defeat-veil{cursor:default}
-.run-history{margin:0 0 12px;padding:10px;background:var(--wood);border:2px solid var(--ink);border-radius:12px}
+.run-history{margin:0 0 12px;padding:8px;background:var(--wood);border:2px solid var(--ink);border-radius:12px;overflow:hidden;max-width:100%}
 .run-history h4{margin:0 0 6px;font-family:var(--font-display);font-size:16px;text-align:center}
 .run-history p{margin:0 0 6px;font-size:13px;font-weight:700;text-align:center}
-.run-history ol{margin:0 0 6px;padding:0 0 0 1.4em;text-align:left}
-.run-history li{font-size:12px;font-weight:700;line-height:1.25;margin:0 0 2px}
+.run-history ol{margin:0 0 6px;padding:0;list-style:none;text-align:left;max-height:min(28vh,220px);overflow-x:hidden;overflow-y:auto}
+.run-history li{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;max-width:100%;font-size:12px;font-weight:800;line-height:1;margin:0;padding:4px 0;border-top:1px solid rgba(121,72,53,.28)}
+.run-history li:first-child{border-top:0}
+.run-history .rh-rank{flex:0 0 1.1em;color:var(--ink-soft);text-align:right}
+.run-history .rh-stat,.run-history .rh-skill{display:inline-flex;align-items:center;gap:2px;flex:0 0 auto;white-space:nowrap}
+.run-history .rh-skills{display:flex;flex-wrap:wrap;align-items:center;gap:3px 4px;flex:1 0 100%;min-width:0;max-width:100%}
+.run-history .rh-none{font-weight:800}
+.run-history .rh-ico{display:block;width:16px;height:16px;flex:0 0 16px;background:center/16px 16px no-repeat;image-rendering:pixelated}
+.run-history .rh-sk{width:26px;height:26px;flex-basis:26px;background-size:26px 26px}
+.run-history .rh-guest{background-image:url(./assets/pixel/customers/host_cat/32.png)}
+.run-history .rh-stacks{background-image:url(./assets/pixel/history/stacks.png)}
+.run-history .rh-tray{background-image:url(./assets/pixel/history/tray.png)}
+.run-history .rh-coin{background-image:url(./assets/pixel/history/coin.png)}
+.run-history .rh-win{background-image:url(./assets/pixel/history/win.png)}
+.run-history .rh-sk-destroyPile{background-image:url(./assets/pixel/skills/destroyPile/26.png)}
+.run-history .rh-sk-swapPiles{background-image:url(./assets/pixel/skills/swapPiles/26.png)}
+.run-history .rh-sk-refreshPool{background-image:url(./assets/pixel/skills/refreshPool/26.png)}
+.run-history .rh-sk-tables{background-image:url(./assets/pixel/skills/tables/26.png)}
+.run-history .rh-sk-unlockLocks{background-image:url(./assets/pixel/skills/unlockLocks/26.png)}
+.run-history .rh-sk-color{background-image:url(./assets/pixel/skills/color/26.png)}
+.run-history .rh-sk-tips{background-image:url(./assets/pixel/skills/tips/26.png)}
+.run-history .rh-sk-clearBoard{background-image:url(./assets/pixel/skills/clearBoard/26.png)}
+.run-history .rh-sk-undoMove{background-image:url(./assets/pixel/skills/undoMove/26.png)}
+.run-history .rh-sk-rotateBoard{background-image:url(./assets/pixel/history/rotate.png)}
 .run-history .rh-note{font-size:11px;color:var(--ink-soft);font-weight:700;line-height:1.35}
 .foot{text-align:center;font-size:11px;color:var(--ink-soft);font-weight:700;margin:4px 0 2px;flex-shrink:0}
 .order-card.legendary{box-shadow:0 0 0 3px var(--highlight),0 3px 0 var(--shadow)}
@@ -812,7 +834,7 @@ import {
   createGame, CONFIG, placeStack, serveOrder, closeRun, openRun, buySkill,
   buyMultiplier, useDestroyPile, useSwapPiles, useRefreshPool, buyExpansion,
   useUnlockLocks,                    // v2.8 R7.8: Unlock 🔓 (candados de calamidad)
-  useClearBoard, useUndoMove,        // v2.24 Clear board + Undo
+  useClearBoard, useUndoMove, useRotateBoard, // v2.24 Clear board + Undo + free rotate
   buyIdleUpgrade, tickIdle, applyOffline, colorsUnlocked,
   buyColor, colorPrice, colorRunCap, tipPrice, previewPrice, skillUsePrice, skillUseCount, // v2.22 pay-per-use
   SKILL_BAR_ORDER, // v2.24.7: fixed bar, sorted once by starting price
@@ -2358,6 +2380,9 @@ function openTheCafe(){
   maybeStartTutorial(); // v2.18: first-run overlay after café is open
 }
 function rotateBoard(){
+  const r = useRotateBoard(state);
+  if(r && r.error){ err(r); return; }
+  state = r;
   if(!state.settings) state.settings={ reducedMotion:false, seenTutorial:true, boardRot:0 };
   // Free rotate toggles the pointy view between 0° and 180°. A saved 90°/270°
   // still draws (flat-top) until the next tap, which lands on 180°.
@@ -2491,18 +2516,49 @@ async function playVictory(){
 // ============================================================================
 // MODALS
 // ============================================================================
+const RH_NAME = {
+  destroyPile:'Destroy', swapPiles:'Swap', refreshPool:'Refresh', tables:'Tables',
+  unlockLocks:'Unlock', color:'Color', tips:'Tips', clearBoard:'Clear',
+  undoMove:'Undo', rotateBoard:'Rotate',
+};
+function rhStat(icon, label, value){
+  return `<span class="rh-stat" title="${label}" aria-label="${label} ${value}"><i class="rh-ico rh-${icon}" aria-hidden="true"></i><b>${value}</b></span>`;
+}
+function rhSkills(rec){
+  const uses = rec && rec.skillUses;
+  if(!uses || typeof uses !== 'object' || Array.isArray(uses)){
+    return '<span class="rh-skills rh-none" aria-label="Skill uses unknown">—</span>';
+  }
+  const bits = SKILL_BAR_ORDER.filter(id => (uses[id]|0) > 0).map(id => {
+    const n = uses[id]|0;
+    const label = RH_NAME[id] || id;
+    return `<span class="rh-skill" title="${label}" aria-label="${label} ${n}"><i class="rh-ico rh-sk rh-sk-${id}" aria-hidden="true"></i><b>${fmt(n)}</b></span>`;
+  });
+  return `<span class="rh-skills">${bits.join('')}</span>`;
+}
 function renderRunHistory(){
   const box=$('#runHistory'); if(!box) return;
   const hist=Array.isArray(state.runHistory)?state.runHistory:[];
   const top=topRuns(hist, CONFIG.TOP_RUNS||10);
   const coins=(rec)=> rec && Number.isFinite(rec.coins) ? fmt(rec.coins) : '—';
-  const line=(rec)=> (rec.clientsServed|0)+' guests · '+(rec.moneyStacks|0)+' paid stacks · '+(rec.pilesDealt|0)+' trays · '+coins(rec);
   const note='Top 10 runs, best first. Ranked by guests served. Ties break on paid stacks, then trays dealt, then the later run.';
   if(!top.length){
     box.innerHTML='<h4>Run history</h4><p>No finished runs yet.</p><p class="rh-note">'+note+'</p>';
     return;
   }
-  const rows=top.map((rec)=>'<li>'+line(rec)+'</li>').join('');
+  const rows=top.map((rec,i)=>{
+    const win = rec.victory
+      ? '<span class="rh-stat" title="Victory" aria-label="Victory"><i class="rh-ico rh-win" aria-hidden="true"></i></span>'
+      : '';
+    return '<li><b class="rh-rank">'+(i+1)+'</b>'
+      +rhStat('guest','Guests served', rec.clientsServed|0)
+      +rhStat('stacks','Paid stacks', rec.moneyStacks|0)
+      +rhStat('tray','Trays dealt', rec.pilesDealt|0)
+      +rhStat('coin','Coins left', coins(rec))
+      +win
+      +rhSkills(rec)
+      +'</li>';
+  }).join('');
   box.innerHTML='<h4>Run history</h4><ol>'+rows+'</ol><p class="rh-note">'+note+'</p>';
 }
 function showSave(){ renderRunHistory(); $('#saveModal').classList.add('show'); }
@@ -2715,7 +2771,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.21';
+const GAME_VERSION = 'v2.24.22';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, stackVisual, stackLiftPadPx, get boardHx(){ return boardHx(); } };
