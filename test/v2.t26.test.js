@@ -192,6 +192,11 @@ test('wave 2 fires once when about 20 clients remain, same count logic', () => {
   assert.equal(f2.wave, 2);
   assert.ok(Math.abs(f2.progress - 40 / (100 - 20)) < 1e-9);
   mid.run.calamityWave2Applied = true;
+  const f3 = G.calamityForecast(mid);
+  assert.equal(f3.wave, 3);
+  assert.equal(f3.done, false);
+  assert.equal(f3.goal, G.CONFIG.BOARD_SHUFFLE_COINS);
+  mid.run.boardShuffleApplied = true;
   assert.equal(G.calamityForecast(mid).done, true);
 });
 
