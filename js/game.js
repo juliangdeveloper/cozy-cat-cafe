@@ -2083,17 +2083,14 @@ export function restartRun(state, rng) {
 
 // v2.21 — victoria formal: se sirvieron los N clientes. No cierra a un
 // menú ni anula la run (la escena se queda para atenuar luces y mostrar
-// al gato anfitrión). El bonus de calamidad (15 c/u, ambas oleadas) se
-// suma a las monedas de ESTA run; el siguiente restartRun las tira.
+// al gato anfitrión). v2.24.19: servir a todos no suma monedas por calamidad.
 export function beginVictory(state) {
   const s = clone(state);
   if (!s.run) return s;
   if (s.run.phase === 'victory') return s;
   if (!runVictory(s)) return s;
-  const bonus = bonusCalamity(s.run);
-  s.progress.coins += bonus;
   s.run.phase = 'victory';
-  s.run.victoryBonus = bonus;
+  delete s.run.victoryBonus;
   // The winning move is not rewound. Restart opens a fresh run anyway.
   delete s.run.undoSnap;
   delete s.run.undoStack;
@@ -2103,7 +2100,7 @@ export function beginVictory(state) {
   s.runHistory = pushRunHistory(s.runHistory, finishedRunRecord(s));
   s.metaClose = {
     reason: 'allServed',
-    bonus,
+    bonus: 0,
     victory: true,
     served: s.run.clientsServed,
     total: totalClients(s),

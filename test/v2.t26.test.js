@@ -195,7 +195,7 @@ test('wave 2 fires once when about 20 clients remain, same count logic', () => {
   assert.equal(G.calamityForecast(mid).done, true);
 });
 
-test('victory credits 15 per calamity and leaves the run in place', () => {
+test('victory leaves the run in place and does not add a calamity bonus', () => {
   const s = open(2);
   s.run.clientsServed = 100;
   s.run.calamities = 4;
@@ -206,8 +206,9 @@ test('victory credits 15 per calamity and leaves the run in place', () => {
   assert.equal(won.run.phase, 'victory');
   assert.ok(won.run);
   assert.equal(won.metaClose.victory, true);
-  assert.equal(won.metaClose.bonus, 4 * G.CONFIG.CALAMITY_BONUS_PER);
-  assert.equal(won.progress.coins, before + 60);
+  assert.equal(won.metaClose.bonus, 0);
+  assert.equal(won.run.victoryBonus, undefined);
+  assert.equal(won.progress.coins, before);
   const again = G.beginVictory(won);
   assert.equal(again.progress.coins, won.progress.coins);
   assert.equal(G.clearTables(won).run.board.every((c) => !c.stack.length), true);

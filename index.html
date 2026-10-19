@@ -429,8 +429,6 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .modal p{font-size:14px}
 .x{float:right;width:32px;height:32px;border:2px solid var(--ink);border-radius:9px;background:var(--accent);
   font-weight:800;cursor:pointer;font-size:15px;margin:-6px -6px 0 0}
-.bonus{display:inline-block;background:var(--danger);color:#fff8ec;font-weight:800;border-radius:10px;padding:3px 10px;
-  font-family:var(--font-display)}
 .offreps{display:flex;flex-direction:column;gap:5px;font-size:14px;font-weight:700;margin:10px 0}
 .offreps div{display:flex;justify-content:space-between}
 
@@ -549,6 +547,9 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
     background:var(--bg-primary);border-top:2px solid var(--wood);overflow:visible}
   .pow{min-height:48px;min-width:0}
   .pow-emoji{font-size:26px}
+  /* The first row keeps the 42px face the cropped drawings used.
+     Pixel icons stay 26px inside that face, so the bar keeps its height. */
+  .powerbar .pow:nth-child(-n+5) .pow-face{min-height:42px}
   .foot{margin:0}
   .pow-cost{font-size:9px;padding:0 1px}
   /* colapsables compactos (idle/decor) */
@@ -1047,7 +1048,6 @@ function renderMenu(){ renderRun(); }
 // ============================================================================
 function renderRun(){
   const won = state.run && state.run.phase === 'victory';
-  const bonus = (state.run && state.run.victoryBonus) || 0;
   $('#app').innerHTML = `
     <div class="scene active${won?' dim':''}">
       <div class="topbar">
@@ -1070,7 +1070,6 @@ function renderRun(){
       ${won ? `<div class="victory-veil" id="victoryVeil">
         ${hostCat()}
         <p class="host-line">Every guest is fed. The lights can rest.</p>
-        ${bonus>0 ? `<span class="bonus">Calamity bonus +${fmt(bonus)}</span>` : ''}
         <p class="host-hint">Tap to open again · or hold restart</p>
       </div>` : ''}
       <div class="board-wrap"><div class="board" id="board"></div></div>
@@ -1560,7 +1559,7 @@ function openSkillHelp(skill){
       const body = '<tbody>'+info.rows.map(r=>'<tr><td>'+r.qty+'</td><td>'+fmt(r.now)+'</td><td>'+fmt(r.next)+'</td></tr>').join('')+'</tbody>';
       table.innerHTML = head+body;
     }
-    tx.textContent = 'Only a served order pays more. A clear and a calamity bonus stay the same.';
+    tx.textContent = 'Only a served order pays more. A clear stays the same.';
     tx.classList.add('tip-note');
     if(dialog) dialog.setAttribute('aria-labelledby','skillPopTitle');
   } else {
@@ -2476,7 +2475,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.18';
+const GAME_VERSION = 'v2.24.19';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, get boardHx(){ return boardHx(); } };
