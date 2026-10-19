@@ -12,7 +12,7 @@ const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'i
 const css = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
 
 test('v2.24.9 puts a moving calamity icon on a thin track above the clients', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.18'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.19'/);
   const run = html.slice(html.indexOf('function renderRun'), html.indexOf('function renderCalamity'));
   const top = run.indexOf('class="topbar"');
   const cal = run.indexOf('class="cal-row"');
@@ -50,7 +50,7 @@ test('v2.24.18 keeps the chrome and fits every cell of the board', () => {
   assert.match(html, /function trayStep\(\)\{ return Math\.max\(5,Math\.round\(rootHx\(\)\*0\.225\)\); \}/);
   assert.match(html, /const slotH=slot\?parseFloat\(getComputedStyle\(slot\)\.height\)\|\|slot\.offsetHeight:82;/);
   assert.match(html, /function fitBoardHx/);
-  assert.match(html, /\(m\.h-m\.liftPad\)<=availH-slack/);
+  assert.match(html, /m\.h<=availH-slack/);
   assert.match(html, /wrap\.style\.overflow=needsScroll\?'auto':'hidden'/);
   assert.doesNotMatch(html, /inset\(0px 0px -180px 0px\)/);
   assert.match(html, /\.pool\{position:relative;z-index:12/);

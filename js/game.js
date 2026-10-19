@@ -1601,6 +1601,51 @@ export function topRunCount(stack) {
   return n;
 }
 
+// How many tiles the board draws. Taller piles stay in the rules; the extra
+// tiles are one wooden base, so the picture never grows past this many steps.
+export const STACK_VISUAL_CAP = 6;
+
+export function stackStepPx(hx) {
+  const n = Number(hx);
+  if (!Number.isFinite(n)) return 5;
+  return Math.max(5, Math.round(n * 0.225));
+}
+
+// Pixels kept above the top row. A capped pile lifts STACK_VISUAL_CAP steps
+// (wood base + the top 6) and the run badge hangs past that edge. Same pad
+// for pointy and flat boards.
+export function stackLiftPadPx(hx) {
+  const n = Number(hx);
+  const hxN = Number.isFinite(n) ? Math.max(0, n) : 0;
+  const face = Math.ceil(hxN * 0.015);
+  // Half of the run badge: font capped at 14px, line-height 1.15, 2px border.
+  const badgeHang = 14;
+  return STACK_VISUAL_CAP * stackStepPx(hxN) + face + badgeHang;
+}
+
+// What the board paints for a pile. `layers` run bottom to top. `lift` is in
+// steps (pixels = lift * stackStepPx). A pile of 7 or more keeps the top 6
+// and parks everything under them on lift 0 as one base.
+export function stackVisual(stack) {
+  const tiles = Array.isArray(stack) ? stack : [];
+  const total = tiles.length;
+  const hasBase = total > STACK_VISUAL_CAP;
+  const shown = hasBase ? tiles.slice(total - STACK_VISUAL_CAP) : tiles.slice();
+  const layers = shown.map((color, i) => ({ color, lift: hasBase ? i + 1 : i }));
+  const topLift = layers.length ? layers[layers.length - 1].lift : 0;
+  const run = topRunCount(tiles);
+  return {
+    total,
+    hasBase,
+    layers,
+    topLift,
+    showRun: run > 1,
+    run,
+    runColor: total ? tiles[total - 1] : 0,
+    showTotal: total >= 2,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // isServeReady(state, cellId) — el tope de ESA celda cumple ALGÚN pedido
 // pendiente (R15.2: la celda queda "servible" para el serve manual).
