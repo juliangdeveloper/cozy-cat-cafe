@@ -620,6 +620,10 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   .order-card .bubble{position:absolute;top:4px;right:4px;margin:0;padding:0 5px;gap:3px;font-size:13px}
   .order-card .bubble .minitile{width:16px;height:14px}
   .order-card .oname{font-size:12px;line-height:1.15;margin-top:0}
+  /* The guest hops inside the card. The card box, art fill, and badge stay put. */
+  .order-card{position:relative;overflow:hidden;padding:0}
+  .order-swap{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:2px;padding:4px 3px;min-height:0}
   .seltag{font-size:12px}
   /* Tray is a fixed strip. It does not grow into space the board leaves. */
   .pool{gap:4px;padding:4px;margin-top:2px;flex:0 0 auto;align-items:flex-end}
@@ -859,6 +863,8 @@ import {
   restartRun, beginVictory, clearTables, calamityForecast,
   maybeBoardShuffle, applyBoardShuffle,
   tipLevel, tipPayTable, runFaceColor, guestForColor, topRuns,
+  assignGuestSlots, guestSwapPlan, GUEST_SWAP_MS, GUEST_SWAP_FADE_MS,
+  PEEK_MOVE_MS, PEEK_HOLD_MS,
   undoStackOf, undoTopCoins,
 } from './js/game.js';
 import {
@@ -1310,6 +1316,11 @@ function renderMenu(){ renderRun(); }
 // ============================================================================
 function renderRun(){
   const won = state.run && state.run.phase === 'victory';
+  // A guest leave/enter is already running. Rebuilding the row would restart it.
+  const prevOrders = document.getElementById('orders');
+  const keepOrders = !!(prevOrders && ui.guestSlots && ui.guestSlots.some(s =>
+    (s.phase==='out' || s.phase==='in') && s.el && s.el.isConnected));
+  if(keepOrders) prevOrders.remove();
   $('#app').innerHTML = `
     <div class="scene active${won?' dim':''}">
       <div class="topbar">
@@ -1340,6 +1351,10 @@ function renderRun(){
       <div class="powerbar" id="powerbar"></div>
       <div class="foot">☕ Cozy Cat Café ${GAME_VERSION}</div>
     </div>`;
+  if(keepOrders){
+    const neu = document.getElementById('orders');
+    if(neu) neu.replaceWith(prevOrders);
+  }
   $('#btnSave').onclick=showSave;
   const hb=$('#btnHelp'); if(hb) hb.onclick=()=>{ if(ui.anim||tutActive) return; ui.mode=null; ui.slot=false; ui.servingOrder=null; renderAll(); startTutorial(); };
   bindMute();
@@ -1444,7 +1459,7 @@ function renderOrders(){
   const box=$('#orders'); if(!box) return;
   const r=state.run;
   // v2.1 R16.4: solo los 3 clientes VISIBLES (activeClients); contador de cola X/TOTAL
-  const vis = Array.isArray(r.activeClients) ? r.activeClients : r.orders;
+  const vis = Array.isArray(r.activeClients) ? r.activeClients : (r.orders||[]);
   const cnt = $('#queueCount');
   if(cnt){
     const label = `${r.clientsServed||0}/${totalClients(state)}`;
@@ -1452,29 +1467,196 @@ function renderOrders(){
     cnt.title = 'Guests ' + label;
     cnt.setAttribute('aria-label', 'Guests ' + label);
   }
-  box.innerHTML = vis.map((o)=>{
-    // v2 R13.2: nombre del ROSTER — el pedido de una criatura usa SOLO su color.
-    // Guest and hex both come from guestForColor, the same lookup as the
-    // unlock announcement. The face id is not passed through the palette again.
-    const ready = !o.served && orderIsReady(o);
-    const sel = ui.servingOrder===o.id;
-    const guest = guestForColor(state, o.color||1);
-    const token = faceToken(guest.face);
-    return `<div class="order-card ${o.served?'served':''} ${ready?'ready':''} ${sel?'selected':''} ${o.legendary?'legendary':''}" data-oid="${o.id}"
-      style="border-top:4px solid var(${token})">
-      ${customerAvatar(o.color||1)}
-      <div class="bubble">${o.qty}<span class="minitile" style="--mc:var(${token})"></span></div>
-      ${sel?'<div class="seltag">▼</div>':''}</div>`;
-  }).join('');
-  $$('#orders .order-card').forEach(c=>c.addEventListener('click',()=>{
-    if(ui.anim) return;                        // cascada en curso: input bloqueado
-    const o=(r.activeClients||r.orders).find(x=>String(x.id)===c.dataset.oid); if(!o||o.served) return;
+  if(!ui.guestSlots) ui.guestSlots=[];
+  const wiped = ui.guestSlots.some(s=>s.el && !s.el.isConnected);
+  if(wiped){
+    ui.guestSlots.forEach(s=>{
+      s.gen=(s.gen|0)+1;
+      if(s.anim){ try{ s.anim.cancel(); }catch(e){} s.anim=null; }
+      s.phase='idle'; s.el=null; s.face=null; s.next=null;
+    });
+    box.innerHTML='';
+  }
+  const desiredIds = assignGuestSlots(
+    ui.guestSlots.map(s=>({shownId:s.shown?s.shown.id:null})),
+    vis.map(o=>o.id),
+    !!ui.anim
+  );
+  while(ui.guestSlots.length < desiredIds.length){
+    ui.guestSlots.push({shown:null, phase:'idle', gen:0, next:null, anim:null, el:null, face:null});
+  }
+  desiredIds.forEach((id,i)=>{
+    const slot=ui.guestSlots[i];
+    const live=id==null?null:vis.find(o=>String(o.id)===String(id))||null;
+    const plan=guestSwapPlan(slot.shown&&slot.shown.id, slot.phase, id);
+    if(plan==='mount'){
+      ensureGuestCard(box, slot);
+      const snap=guestSnap(live);
+      slot.shown=snap;
+      slot.face=paintGuest(slot.el, snap, live);
+      slot.phase='idle';
+      slot.next=null;
+    } else if(plan==='keep'){
+      if(slot.phase==='in') slot.next=null;
+      if(slot.phase==='idle' && live){
+        ensureGuestCard(box, slot);
+        refreshGuest(slot, live);
+      }
+    } else if(plan==='leave'){
+      ensureGuestCard(box, slot);
+      if(!slot.face && slot.shown) slot.face=paintGuest(slot.el, slot.shown, null);
+      slot.next=live?{snap:guestSnap(live), live}:null;
+      beginGuestLeave(slot);
+    } else if(plan==='queue'){
+      slot.next=live?{snap:guestSnap(live), live}:null;
+    }
+  });
+  while(ui.guestSlots.length > desiredIds.length){
+    const extra=ui.guestSlots[ui.guestSlots.length-1];
+    if(extra.phase==='out' || extra.phase==='in') break;
+    if(extra.el) extra.el.remove();
+    ui.guestSlots.pop();
+  }
+  ui.guestSlots.forEach(s=>{ if(s.el && s.el.parentNode!==box) box.appendChild(s.el); });
+  bindOrderClicks(box);
+}
+function guestSnap(o){
+  return {id:String(o.id), color:o.color||1, qty:o.qty|0, legendary:!!o.legendary};
+}
+function guestMotion(){
+  const reduce=typeof matchMedia==='function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const ms=reduce?GUEST_SWAP_FADE_MS:GUEST_SWAP_MS;
+  const leave=reduce
+    ? [{opacity:1},{opacity:0}]
+    : [{opacity:1,transform:'translateY(0px)'},{opacity:1,transform:'translateY(-8px)',offset:0.34},{opacity:0,transform:'translateY(-18px)'}];
+  const enter=reduce
+    ? [{opacity:0},{opacity:1}]
+    : [{opacity:0,transform:'translateY(14px)'},{opacity:1,transform:'translateY(0px)'}];
+  return {reduce, ms, leave, enter, easing:reduce?'ease':'cubic-bezier(.4,0,.2,1)'};
+}
+// Guest and hex both come from guestForColor, the same lookup as the
+// unlock announcement. The face id is not passed through the palette again.
+function paintGuest(el, snap, live){
+  const src=live||snap;
+  const ready=!!(live && !live.served && orderIsReady(live));
+  const sel=!!(live && ui.servingOrder===live.id);
+  const guest=guestForColor(state, src.color||1);
+  const token=faceToken(guest.face);
+  el.className='order-card'+(ready?' ready':'')+(sel?' selected':'')+(src.legendary?' legendary':'');
+  el.dataset.oid=String(src.id);
+  el.style.borderTop='4px solid var('+token+')';
+  let face=el.querySelector('.order-swap');
+  if(!face){
+    face=document.createElement('div');
+    face.className='order-swap';
+    el.appendChild(face);
+  }
+  face.innerHTML=customerAvatar(src.color||1)
+    +'<div class="bubble">'+src.qty+'<span class="minitile" style="--mc:var('+token+')"></span></div>'
+    +(sel?'<div class="seltag">▼</div>':'');
+  return face;
+}
+function refreshGuest(slot, live){
+  const snap=guestSnap(live);
+  if(!slot.face || !slot.shown || slot.shown.color!==snap.color || slot.shown.qty!==snap.qty || !!slot.shown.legendary!==!!snap.legendary){
+    slot.shown=snap;
+    slot.face=paintGuest(slot.el, snap, live);
+    return;
+  }
+  slot.shown=snap;
+  const ready=!live.served && orderIsReady(live);
+  const sel=ui.servingOrder===live.id;
+  slot.el.classList.toggle('ready', !!ready);
+  slot.el.classList.toggle('selected', !!sel);
+  slot.el.classList.toggle('legendary', !!snap.legendary);
+  const guest=guestForColor(state, snap.color);
+  slot.el.style.borderTop='4px solid var('+faceToken(guest.face)+')';
+  let tag=slot.face.querySelector('.seltag');
+  if(sel && !tag){
+    tag=document.createElement('div');
+    tag.className='seltag';
+    tag.textContent='▼';
+    slot.face.appendChild(tag);
+  } else if(!sel && tag) tag.remove();
+}
+function ensureGuestCard(box, slot){
+  if(slot.el && slot.el.isConnected) return;
+  const el=document.createElement('div');
+  el.className='order-card';
+  slot.el=el;
+  slot.face=null;
+  box.appendChild(el);
+}
+function guestAnimate(el, frames, ms, easing){
+  if(!el || typeof el.animate!=='function') return null;
+  return el.animate(frames, {duration:ms, easing, fill:'forwards'});
+}
+function beginGuestLeave(slot){
+  if(slot.phase==='out' || slot.phase==='in') return;
+  if(!slot.el || !slot.face) return;
+  slot.phase='out';
+  const gen=(slot.gen|0)+1;
+  slot.gen=gen;
+  slot.el.classList.remove('grabbing');
+  const motion=guestMotion();
+  const anim=guestAnimate(slot.face, motion.leave, motion.ms.leave, motion.easing);
+  slot.anim=anim;
+  const done=()=>{ if(slot.gen===gen) arriveGuest(slot, gen); };
+  if(!anim){ done(); return; }
+  anim.onfinish=done;
+}
+function arriveGuest(slot, gen){
+  if(slot.gen!==gen) return;
+  const nxt=slot.next;
+  slot.next=null;
+  if(!nxt){
+    if(slot.anim){ try{ slot.anim.cancel(); }catch(e){} slot.anim=null; }
+    if(slot.el) slot.el.remove();
+    slot.el=null; slot.face=null; slot.shown=null; slot.phase='idle';
+    ui.guestSlots=(ui.guestSlots||[]).filter(s=>s!==slot);
+    return;
+  }
+  slot.shown=nxt.snap;
+  slot.face=paintGuest(slot.el, nxt.snap, nxt.live);
+  if(slot.face) slot.face.style.opacity='0';
+  if(slot.anim){ try{ slot.anim.cancel(); }catch(e){} slot.anim=null; }
+  beginGuestEnter(slot);
+}
+function beginGuestEnter(slot){
+  slot.phase='in';
+  const gen=(slot.gen|0)+1;
+  slot.gen=gen;
+  const motion=guestMotion();
+  const anim=guestAnimate(slot.face, motion.enter, motion.ms.enter, motion.easing);
+  slot.anim=anim;
+  const done=()=>{
+    if(slot.gen!==gen) return;
+    if(slot.face){ slot.face.style.opacity=''; slot.face.style.transform=''; }
+    if(slot.anim){ try{ slot.anim.cancel(); }catch(e){} slot.anim=null; }
+    slot.phase='idle';
+    const queued=slot.next;
+    if(queued && String(queued.snap.id)!==String(slot.shown&&slot.shown.id)) beginGuestLeave(slot);
+    else slot.next=null;
+  };
+  if(!anim){ done(); return; }
+  anim.onfinish=done;
+}
+function bindOrderClicks(box){
+  if(box.dataset.bound) return;
+  box.dataset.bound='1';
+  box.addEventListener('click',(e)=>{
+    const c=e.target.closest('.order-card');
+    if(!c || !box.contains(c)) return;
+    if(ui.anim) return;
+    const r=state.run;
+    const o=(r.activeClients||r.orders||[]).find(x=>String(x.id)===c.dataset.oid);
+    if(!o||o.served) return;
     if(ui.mode){ ui.mode=null; ui.swapFirst=null; renderPowers(); }
     if(ui.placeTile) ui.placeTile=false;
     ui.slot=false;
     ui.servingOrder = ui.servingOrder===o.id ? null : o.id;
     renderOrders(); renderBoard();
-  }));
+  });
 }
 function colorName(c){ return {1:'peppermint',2:'sky',3:'rose',4:'blush',5:'lavender',6:'vanilla',
   7:'denim',8:'teal',9:'pine',10:'orchid'}[c]||'tile'; }
@@ -2458,7 +2640,7 @@ function peekTiles(el, stack, from, to){
   ]);
   requestAnimationFrame(()=>{
     tiles.forEach((t,i)=>{
-      t.animate(frames[i], {duration:1000, easing:'linear', fill:'forwards'});
+      t.animate(frames[i], {duration:PEEK_MOVE_MS, easing:'linear', fill:'forwards'});
     });
   });
 }
@@ -2482,7 +2664,7 @@ function peekStack(id){
     const cur=state.run && state.run.board[id];
     if(!live || !cur || !cur.stack || !cur.stack.length) return;
     peekTiles(live, cur.stack, peekLiftPx(cur.stack, true, live), peekLiftPx(cur.stack, false));
-  }, 3000);
+  }, PEEK_MOVE_MS + PEEK_HOLD_MS);
   rec.end=setTimeout(()=>{
     if(!ui.peek || ui.peek[id]!==rec) return;
     delete ui.peek[id];
@@ -2491,7 +2673,7 @@ function peekStack(id){
       if(w) w.classList.remove('peek-live');
       renderBoard();
     }
-  }, 4000);
+  }, PEEK_MOVE_MS + PEEK_HOLD_MS + PEEK_MOVE_MS);
   ui.peek[id]=rec;
 }
 // Same resolution a tray placement uses: merge, serve, pay, and chain.
@@ -3028,7 +3210,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.29';
+const GAME_VERSION = 'v2.24.30';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, set state(v){ state=v; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, maybeBoardShuffle, applyBoardShuffle, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, stackVisual, stackLiftPadPx, get boardHx(){ return boardHx(); } };

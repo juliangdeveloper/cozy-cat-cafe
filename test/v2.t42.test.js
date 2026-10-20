@@ -47,7 +47,7 @@ function clearPiles(board) {
 }
 
 test('unlocking a hidden pile merges it, and undo puts the lock back', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.29'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.30'/);
   assert.match(html, /async function cascadeAfterReveal/);
   const unlock = html.slice(html.indexOf('async function unlockFlow'), html.indexOf('function destroyFlow'));
   const activate = html.slice(html.indexOf('async function activateFlow'), html.indexOf('async function unlockFlow'));
@@ -152,7 +152,7 @@ test('opening a dark table merges its hidden pile, and several reveals merge tog
 test('every unlocked color announces the guest and hex that guest orders', () => {
   const orders = html.slice(html.indexOf('function renderOrders'), html.indexOf('function colorName'));
   const powers = html.slice(html.indexOf('function renderPowers'), html.indexOf('function refreshFlow'));
-  assert.match(orders, /guestForColor\(state, o\.color/);
+  assert.match(orders, /guestForColor\(state, src\.color/);
   assert.match(orders, /faceToken\(guest\.face\)/);
   assert.match(powers, /guestForColor\(state, n\)/);
   assert.match(powers, /toast\('Unlocked: '\+guest\.name\+' \(color '\+n\+'\)', guest\.face\)/);
