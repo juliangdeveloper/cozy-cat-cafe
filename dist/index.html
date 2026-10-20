@@ -350,20 +350,15 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .totalbadge{translate:-50% -100%}
 .runbadge i{width:0.72em;height:0.72em;flex:0 0 auto;background:var(--tc);
   border:1px solid var(--ink);border-radius:2px}
-/* One slab for every tile under the top 6. Planks stay on the wood tokens. */
+/* Hidden tiles of a tall pile. Same box and bevel as the bottom food tile,
+   solid wood, no plank hatch. A hatch on the hex point shows up as a strip
+   on the cell below. */
 .woodbase{position:absolute;left:50%;top:50%;translate:-50% -50%;width:var(--cw);height:var(--ch)}
 .woodside{position:absolute;inset:0;background:var(--wood-dark);clip-path:var(--hexclip);
   transform:translateY(calc(var(--hx)*0.055))}
 .woodface{position:absolute;inset:0;clip-path:var(--hexclip);
   transform:translateY(calc(var(--hx)*-0.015));
-  background-color:var(--wood);
-  background-image:
-    repeating-linear-gradient(90deg, transparent 0 3px, color-mix(in srgb, var(--wood-dark) 70%, var(--ink)) 3px 4px),
-    repeating-linear-gradient(180deg,
-      color-mix(in srgb, var(--panel) 26%, var(--wood)) 0 2px,
-      var(--wood) 2px 3px,
-      var(--wood-dark) 3px 4px);
-  image-rendering:pixelated}
+  background:var(--wood)}
 .calmk{position:absolute;top:-9px;right:-3px;z-index:4;width:18px;height:18px;
   clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);background:var(--ink)}
 .calmk::before{content:"";position:absolute;inset:2px;background:var(--danger);
@@ -3170,7 +3165,8 @@ function topRunCount(stack) {
 }
 
 // How many tiles the board draws. Taller piles stay in the rules; the extra
-// tiles are one wooden base, so the picture never grows past this many steps.
+// tiles are one wooden base under the bottom tile, so the picture never
+// grows past this many tiles and the base stays on the cell.
 const STACK_VISUAL_CAP = 6;
 
 function stackStepPx(hx) {
@@ -3179,9 +3175,9 @@ function stackStepPx(hx) {
   return Math.max(5, Math.round(n * 0.225));
 }
 
-// Pixels kept above the top row. A capped pile lifts STACK_VISUAL_CAP steps
-// (wood base + the top 6) and the run badge hangs past that edge. Same pad
-// for pointy and flat boards.
+// Pixels kept above the top row. The tallest picture is STACK_VISUAL_CAP
+// tiles and the run badge hangs past that edge. Same pad for pointy and
+// flat boards. The pad is not part of the fit budget.
 function stackLiftPadPx(hx) {
   const n = Number(hx);
   const hxN = Number.isFinite(n) ? Math.max(0, n) : 0;
@@ -3204,14 +3200,16 @@ function trayStackShiftPx(count, tileH, slotH) {
 }
 
 // What the board paints for a pile. `layers` run bottom to top. `lift` is in
-// steps (pixels = lift * stackStepPx). A pile of 7 or more keeps the top 6
-// and parks everything under them on lift 0 as one base.
+// steps (pixels = lift * stackStepPx). The bottom tile is always lift 0, so
+// it sits on the cell. A pile of 7 or more keeps the top 6 at those same
+// lifts; everything under them is one wood slab on that same footprint,
+// not an extra step that would leave a face on the hex below.
 function stackVisual(stack) {
   const tiles = Array.isArray(stack) ? stack : [];
   const total = tiles.length;
   const hasBase = total > STACK_VISUAL_CAP;
   const shown = hasBase ? tiles.slice(total - STACK_VISUAL_CAP) : tiles.slice();
-  const layers = shown.map((color, i) => ({ color, lift: hasBase ? i + 1 : i }));
+  const layers = shown.map((color, i) => ({ color, lift: i }));
   const topLift = layers.length ? layers[layers.length - 1].lift : 0;
   const run = topRunCount(tiles);
   return {
@@ -4863,9 +4861,9 @@ function foodMarkup(color){
   return `<i class="ttex" data-food="${face}"></i><i class="tfood" data-food="${face}"></i>`;
 }
 
-// Top 6 tiles, each one step above the last. A taller pile adds one wood
-// slab under them (lift 0) instead of another tile, so the top stays at
-// STACK_VISUAL_CAP steps. Badges are painted later, on the board.
+// Top 6 tiles, each one step above the last, bottom tile on the cell.
+// A taller pile paints one wood slab on that same footprint, under the
+// bottom tile, instead of another step. Badges are painted later, on the board.
 function stackBodyHTML(cell){
   const view=stackVisual(cell.stack);
   const step=stackStep();
@@ -5643,7 +5641,7 @@ function peekLiftPx(stack, fanned, el){
     for(let i=0;i<n;i++) start[i]=-i*step;
   } else {
     const hidden=n-view.layers.length;
-    for(let i=0;i<view.layers.length;i++) start[hidden+i]=-(i+1)*step;
+    for(let i=0;i<view.layers.length;i++) start[hidden+i]=-i*step;
   }
   if(!fanned) return start;
   const hx=boardHx();
@@ -6247,7 +6245,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.30';
+const GAME_VERSION = 'v2.24.31';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, set state(v){ state=v; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, maybeBoardShuffle, applyBoardShuffle, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, stackVisual, stackLiftPadPx, get boardHx(){ return boardHx(); } };
