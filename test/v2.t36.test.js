@@ -1,4 +1,4 @@
-// Pixel customers, host cat, and skill icons. Version footer is v2.24.29.
+// Pixel customers, host cat, and skill icons. Version footer is v2.24.30.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -18,14 +18,14 @@ function pngSize(buf) {
   return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
 }
 
-test('version footer is v2.24.29', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.29'/);
+test('version footer is v2.24.30', () => {
+  assert.match(html, /GAME_VERSION = 'v2\.24\.30'/);
   assert.match(html, /☕ Cozy Cat Café \$\{GAME_VERSION\}/);
 });
 
 test('order cards use the creature for that color, with idle frames', () => {
   const orders = html.slice(html.indexOf('function renderOrders'), html.indexOf('function colorName'));
-  assert.match(orders, /customerAvatar\(o\.color/);
+  assert.match(orders, /customerAvatar\(src\.color/);
   assert.doesNotMatch(orders, /cat_client_'\+\(\s*\(i%3\)\+1\s*\)/);
   assert.match(html, /function customerAvatar/);
   assert.match(html, /px-idle/);

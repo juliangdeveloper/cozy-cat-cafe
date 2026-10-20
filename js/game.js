@@ -721,6 +721,66 @@ export function guestForColor(state, logical) {
   };
 }
 
+// Visual only. The cascade never waits on these.
+// Leave, then enter: 750ms + 750ms. Reduced motion uses the short fade.
+export const GUEST_SWAP_MS = Object.freeze({ leave: 750, enter: 750 });
+export const GUEST_SWAP_FADE_MS = Object.freeze({ leave: 160, enter: 160 });
+// Stack peek: rise 1s, stay raised 1s, return 1s.
+export const PEEK_MOVE_MS = 1000;
+export const PEEK_HOLD_MS = 1000;
+
+function guestId(id) {
+  if (id == null || id === '') return null;
+  return String(id);
+}
+
+// Which guest each on-screen card should end on.
+// Survivors stay in their card. A newcomer fills a card whose guest left.
+// holdMissing: a cascade step has removed someone and the replacement is not
+// in the list yet — keep the painted guest so the card does not blank.
+export function assignGuestSlots(slots, desiredIds, holdMissing) {
+  const shown = (slots || []).map((s) => guestId(s && s.shownId));
+  const want = (desiredIds || []).map(guestId).filter((id) => id != null);
+  const kept = new Set();
+  shown.forEach((id) => {
+    if (id != null && want.includes(id) && !kept.has(id)) kept.add(id);
+  });
+  const newcomers = want.filter((id) => !kept.has(id));
+  const missing = shown.some((id) => id != null && !want.includes(id));
+  if (holdMissing && missing && newcomers.length === 0) return shown.slice();
+  if (holdMissing && shown.every((id) => id == null)) return want.slice();
+  const used = new Set();
+  const out = shown.map((id) => {
+    if (id != null && want.includes(id) && !used.has(id)) {
+      used.add(id);
+      return id;
+    }
+    return null;
+  });
+  const fresh = want.filter((id) => !used.has(id));
+  for (let i = 0; i < out.length && fresh.length; i++) {
+    if (out[i] == null) out[i] = fresh.shift();
+  }
+  while (fresh.length) out.push(fresh.shift());
+  return out;
+}
+
+// idle + same guest: keep. idle + empty card: mount (no animation).
+// idle + someone else: leave, then the caller enters the newcomer.
+// out/in: queue the latest guest. Do not restart the animation.
+export function guestSwapPlan(shownId, phase, desiredId) {
+  const shown = guestId(shownId);
+  const desired = guestId(desiredId);
+  const moving = phase === 'out' || phase === 'in';
+  if (!moving) {
+    if (shown === desired) return 'keep';
+    if (shown == null) return desired == null ? 'keep' : 'mount';
+    return 'leave';
+  }
+  if (phase === 'in' && desired === shown) return 'keep';
+  return 'queue';
+}
+
 // v2 helper: color máximo que genera el pool = min(rosterIndex, colorsOwned).
 // El pedido de una criatura POR ENCIMA del techo (colorsOwned) NO se genera en
 // pool — eso es la presión de compra (R13.5/R13.7). v2.1: pool < roster.
