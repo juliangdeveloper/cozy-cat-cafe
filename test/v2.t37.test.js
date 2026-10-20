@@ -1,5 +1,6 @@
-// A pile draws at most 6 tiles. Anything under that is one wood base,
-// with the total on the front and the top run on the top tile.
+// A pile draws at most 6 tiles. Anything under that is one wood slab on the
+// same footprint as the bottom tile, so the base stays on the cell. The
+// total sits on the front and the top run sits on the top tile.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -48,15 +49,16 @@ test('counts 1, 3, 7, 15 and 40 stay within 6 steps', () => {
   assert.equal(seven.total, 7);
   assert.equal(seven.hasBase, true);
   assert.equal(seven.run, 3);
-  assert.equal(seven.topLift, 6);
+  assert.equal(seven.topLift, 5);
   assert.deepEqual(seven.layers.map((l) => l.color), [2, 2, 4, 1, 1, 1]);
-  assert.deepEqual(seven.layers.map((l) => l.lift), [1, 2, 3, 4, 5, 6]);
+  assert.deepEqual(seven.layers.map((l) => l.lift), [0, 1, 2, 3, 4, 5]);
+  assert.equal(seven.layers[0].lift, 0);
 
   const fifteen = paint(Array.from({ length: 15 }, (_, i) => (i < 9 ? 4 : 8)));
   assert.equal(fifteen.total, 15);
   assert.equal(fifteen.hasBase, true);
   assert.equal(fifteen.run, 6);
-  assert.equal(fifteen.topLift, 6);
+  assert.equal(fifteen.topLift, 5);
   assert.ok(fifteen.layers.every((l) => l.color === 8));
 
   const forty = paint(Array.from({ length: 40 }, (_, i) => (i < 35 ? 3 : 6)));
@@ -64,7 +66,7 @@ test('counts 1, 3, 7, 15 and 40 stay within 6 steps', () => {
   assert.equal(forty.hasBase, true);
   assert.equal(forty.run, 5);
   assert.equal(forty.showRun, true);
-  assert.equal(forty.topLift, 6);
+  assert.equal(forty.topLift, 5);
   assert.equal(forty.layers[0].color, 3);
   assert.equal(forty.layers.filter((l) => l.color === 6).length, 5);
 });
@@ -106,7 +108,7 @@ test('lift pad covers 6 steps and the run badge from hx 16 to 60', () => {
 });
 
 test('pointy and flat boards share one lift pad and the renderer uses it', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.30'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.31'/);
   assert.match(html, /const liftPad=stackLiftPadPx\(hxN\)/);
   assert.match(html, /\(m\.h-m\.liftPad\)<=availH-slack/);
   assert.match(html, /const needsScroll=hxN<=HX_MIN && \(m\.w>availW\+0\.5 \|\| cellsH>availH\+0\.5\)/);

@@ -1793,7 +1793,8 @@ export function topRunCount(stack) {
 }
 
 // How many tiles the board draws. Taller piles stay in the rules; the extra
-// tiles are one wooden base, so the picture never grows past this many steps.
+// tiles are one wooden base under the bottom tile, so the picture never
+// grows past this many tiles and the base stays on the cell.
 export const STACK_VISUAL_CAP = 6;
 
 export function stackStepPx(hx) {
@@ -1802,9 +1803,9 @@ export function stackStepPx(hx) {
   return Math.max(5, Math.round(n * 0.225));
 }
 
-// Pixels kept above the top row. A capped pile lifts STACK_VISUAL_CAP steps
-// (wood base + the top 6) and the run badge hangs past that edge. Same pad
-// for pointy and flat boards.
+// Pixels kept above the top row. The tallest picture is STACK_VISUAL_CAP
+// tiles and the run badge hangs past that edge. Same pad for pointy and
+// flat boards. The pad is not part of the fit budget.
 export function stackLiftPadPx(hx) {
   const n = Number(hx);
   const hxN = Number.isFinite(n) ? Math.max(0, n) : 0;
@@ -1827,14 +1828,16 @@ export function trayStackShiftPx(count, tileH, slotH) {
 }
 
 // What the board paints for a pile. `layers` run bottom to top. `lift` is in
-// steps (pixels = lift * stackStepPx). A pile of 7 or more keeps the top 6
-// and parks everything under them on lift 0 as one base.
+// steps (pixels = lift * stackStepPx). The bottom tile is always lift 0, so
+// it sits on the cell. A pile of 7 or more keeps the top 6 at those same
+// lifts; everything under them is one wood slab on that same footprint,
+// not an extra step that would leave a face on the hex below.
 export function stackVisual(stack) {
   const tiles = Array.isArray(stack) ? stack : [];
   const total = tiles.length;
   const hasBase = total > STACK_VISUAL_CAP;
   const shown = hasBase ? tiles.slice(total - STACK_VISUAL_CAP) : tiles.slice();
-  const layers = shown.map((color, i) => ({ color, lift: hasBase ? i + 1 : i }));
+  const layers = shown.map((color, i) => ({ color, lift: i }));
   const topLift = layers.length ? layers[layers.length - 1].lift : 0;
   const run = topRunCount(tiles);
   return {
