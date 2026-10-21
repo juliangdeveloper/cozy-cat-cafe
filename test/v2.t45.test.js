@@ -1,5 +1,5 @@
-// v2.24.32 — a cat paw points at tutorial touches, and each skill tip
-// plays a short clip inside the wood frame.
+// v2.24.33 — the tutorial paw looks up its target on each frame, and each
+// skill tip plays a short clip inside the wood frame.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
@@ -12,8 +12,8 @@ const css = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
 
 const CLIP_IDS = ['destroyPile','swapPiles','refreshPool','tables','tips','undoMove','color','unlockLocks','clearBoard','rotateBoard'];
 
-test('version footer is v2.24.32', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.32'/);
+test('version footer is v2.24.33', () => {
+  assert.match(html, /GAME_VERSION = 'v2\.24\.33'/);
 });
 
 test('tutorial steps name a gesture and a target only where a touch is shown', () => {
@@ -47,6 +47,8 @@ test('the paw is 64 CSS px, pixelated, and a press keeps the toe on the target',
   assert.match(html, /ms:\[140,140,140,200\]/);
   assert.match(html, /ms:\[300,300\]/);
   assert.match(html, /ms:\[500,500\]/);
+  assert.match(html, /function pawTarget\(sel\)/);
+  assert.match(html, /const el = pawTarget\(sel\)/);
   assert.match(html, /function pawReduced\(\)/);
   assert.match(html, /prefers-reduced-motion: reduce/);
   assert.match(html, /hold_0/);
