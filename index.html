@@ -109,6 +109,16 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
 .tip-table{width:100%;border-collapse:collapse;margin:0 0 10px;font-size:13px;font-variant-numeric:tabular-nums}
 .tip-table th,.tip-table td{padding:3px 6px;text-align:right;font-weight:800;border-bottom:1px solid color-mix(in srgb, var(--ink) 18%, transparent)}
 .tip-table th:first-child,.tip-table td:first-child{text-align:left}
+/* Skill clip: 110×70 art at 2 CSS px, opening inset 5 (200×120). The cat
+   sits above the frame (native left 81, top -13), so the frame overflows. */
+.skill-clip{display:flex;justify-content:center;margin:18px 0 12px;overflow:visible}
+.skill-clip[hidden]{display:none!important}
+.skill-clip-frame{position:relative;width:220px;height:140px;overflow:visible;flex:0 0 auto}
+.skill-clip-vid,.skill-clip-still{position:absolute;left:10px;top:10px;width:200px;height:120px;
+  object-fit:cover;image-rendering:pixelated;background:#d7b899;border:0;pointer-events:none}
+.skill-clip-still[hidden],.skill-clip-vid[hidden]{display:none!important}
+.skill-clip-frame-img{position:absolute;inset:0;width:220px;height:140px;image-rendering:pixelated;pointer-events:none}
+.skill-clip-cat{position:absolute;left:162px;top:-26px;width:40px;height:34px;image-rendering:pixelated;pointer-events:none}
 .peek-pop{max-width:440px}
 .peek-pop h3{margin-bottom:4px}
 .peek-note{margin:0 0 12px;text-align:center;font-weight:700;font-size:13px;color:var(--ink-soft)}
@@ -693,6 +703,10 @@ body.tut-on .powerbar.tut-spot{z-index:90}
 .tut-actions{display:flex;gap:10px;justify-content:center}
 .tut-actions .btn{flex:1;min-height:44px}
 .tut-step{display:block;text-align:center;font-size:11px;font-weight:700;color:var(--ink-soft);margin-bottom:6px}
+/* Tutorial paw: 32×32 art at 2 CSS px. Hotspot is the leading toe tip. */
+.tut-paw{position:fixed;z-index:97;width:64px;height:64px;pointer-events:none;
+  image-rendering:pixelated;background-repeat:no-repeat;background-position:0 0}
+.tut-paw[hidden]{display:none!important}
 
 /* Board and tray skin. Paint only: no width, height, padding, margin, gap, or border-width.
    1 art px = 2 CSS px. Every image uses image-rendering: pixelated. */
@@ -765,6 +779,14 @@ body.tut-on .powerbar.tut-spot{z-index:90}
 
 <div id="skillPop" class="overlay" aria-hidden="true">
   <div class="modal skill-pop" role="dialog" aria-modal="true" aria-labelledby="skillPopText">
+    <div class="skill-clip" id="skillClip" hidden>
+      <div class="skill-clip-frame">
+        <video id="skillClipVid" class="skill-clip-vid" muted autoplay playsinline loop preload="metadata" poster=""></video>
+        <img id="skillClipStill" class="skill-clip-still" alt="" hidden>
+        <img class="skill-clip-frame-img" alt="" src="./assets/tutorial/clip/clip_frame.png">
+        <img class="skill-clip-cat" alt="" src="./assets/tutorial/clip/clip_ornament_cat.png">
+      </div>
+    </div>
     <h3 id="skillPopTitle" hidden></h3>
     <table id="skillPopTable" class="tip-table" hidden></table>
     <p id="skillPopText"></p>
@@ -817,6 +839,7 @@ body.tut-on .powerbar.tut-spot{z-index:90}
 
 
 <div id="tutOverlay"></div>
+<div class="tut-paw" id="tutPaw" hidden aria-hidden="true"></div>
 <div class="tut-hole" id="tutHole" hidden></div>
 <div class="tut-card" id="tutCard" hidden aria-live="polite">
   <span class="tut-step" id="tutStepLabel">1 / 5</span>
@@ -2141,12 +2164,45 @@ function colorLocked(){
 function colorLockedLine(){
   return 'All '+colorRunCap(state)+' colors unlocked.';
 }
+const SKILL_CLIP_IDS = ['destroyPile','swapPiles','refreshPool','tables','tips','undoMove','color','unlockLocks','clearBoard','rotateBoard'];
+function skillClipSrc(skill, ext){
+  return './assets/tutorial/clips/'+skill+'.'+ext;
+}
+function mountSkillClip(skill){
+  const box = $('#skillClip'); const vid = $('#skillClipVid'); const still = $('#skillClipStill');
+  if(!box || !vid) return;
+  if(!SKILL_CLIP_IDS.includes(skill)){ box.hidden = true; if(vid.pause) vid.pause(); return; }
+  box.hidden = false;
+  box.dataset.skill = skill;
+  const poster = skillClipSrc(skill, 'png');
+  vid.poster = poster;
+  if(still){ still.src = poster; still.hidden = true; }
+  vid.hidden = false;
+  vid.muted = true; vid.defaultMuted = true; vid.loop = true; vid.playsInline = true;
+  vid.setAttribute('playsinline',''); vid.setAttribute('muted','');
+  vid.innerHTML = '<source src="'+skillClipSrc(skill,'webm')+'" type="video/webm"><source src="'+skillClipSrc(skill,'mp4')+'" type="video/mp4">';
+  vid.load();
+  if(pawReduced()){
+    vid.pause();
+    try{ vid.currentTime = 0; }catch(err){}
+  } else {
+    const play = vid.play();
+    if(play && play.catch) play.catch(()=>{});
+  }
+}
+function skillClipFailed(){
+  const box = $('#skillClip'); if(!box || box.hidden) return;
+  const vid = $('#skillClipVid'); const still = $('#skillClipStill');
+  if(vid){ vid.hidden = true; if(vid.pause) vid.pause(); }
+  if(still && still.src) still.hidden = false;
+}
 function openSkillHelp(skill){
   closePeekModal();
   const pop = $('#skillPop'); const tx = $('#skillPopText');
   const title = $('#skillPopTitle'); const table = $('#skillPopTable');
   const dialog = pop && pop.querySelector('[role="dialog"]');
   if(!pop || !tx) return;
+  mountSkillClip(skill);
   if(skill==='tips'){
     const info = tipPayTable(state);
     if(title){ title.hidden = false; title.textContent = 'Tips — level '+info.level; }
@@ -2171,6 +2227,7 @@ function openSkillHelp(skill){
 }
 function closeSkillHelp(){
   const pop = $('#skillPop'); if(!pop) return;
+  const vid = $('#skillClipVid'); if(vid && vid.pause) vid.pause();
   pop.classList.remove('show');
   pop.setAttribute('aria-hidden','true');
 }
@@ -3054,6 +3111,8 @@ function bindGlobal(){
     if(e.target === skillPop) closeSkillHelp();
   });
   if(skillPopClose) skillPopClose.addEventListener('click', closeSkillHelp);
+  const skillClipVid = $('#skillClipVid');
+  if(skillClipVid) skillClipVid.addEventListener('error', skillClipFailed);
   const peekPop = $('#peekPop');
   const peekPopClose = $('#peekPopClose');
   if(peekPop) peekPop.addEventListener('click', (e)=>{
@@ -3072,12 +3131,137 @@ function bindGlobal(){
 // v2.22.3 — copy matches the live run: auto-serve, serve 100, Hold 3s
 // restarts (coins reset), tap a skill / hold for a one-line tip.
 const TUT_STEPS = [
-  { sel: '#pool',       text: 'Tap a tray, then a table — stack food.' },
-  { sel: '#orders',     text: 'Matching tops serve themselves — cats take the food.' },
+  { sel: '#pool', gesture: 'tap', target: ['#pool .poolslot', '#board .cell:not(.dormant):not(.blocked)'], text: 'Tap a tray, then a table — stack food.' },
+  { sel: '#orders', text: 'Matching tops serve themselves — cats take the food.' },
   { sel: '#queueCount', text: 'Goal: serve 100 customers. This shows served/100.' },
-  { sel: '#btnClose',   text: 'Stuck? Hold 3s to restart this run. Coins reset.' },
-  { sel: '#powerbar',   text: 'Tap a skill to spend coins. Hold one for a one-line tip.' },
+  { sel: '#btnClose', gesture: 'hold', target: '#btnClose', text: 'Stuck? Hold 3s to restart this run. Coins reset.' },
+  { sel: '#powerbar', gesture: 'tap-hold', target: '#powerbar .pow', text: 'Tap a skill to spend coins. Hold one for a one-line tip.' },
 ];
+// Cat paw, 32×32 art at 2 CSS px. Hotspot is the leading toe tip, pixel centre
+// (hx + 0.5) * PAW_SCALE. Hold (9,9) at 2x is left = tx - 19px, top = ty - 19px.
+// A press drops the tip 3 native px; the lower hotspot raises the sprite so
+// the tip stays on the target. Leftward drag mirrors with scaleX(-1) and
+// hotspot x' = 31 - x.
+const PAW_SCALE = 2;
+const PAW_HOT = {
+  idle_0:[9,6], idle_1:[9,5],
+  tap_0:[9,6], tap_1:[9,9],
+  hold_0:[9,9], hold_1:[9,9], hold_2:[9,9], hold_3:[9,9],
+  drag_0:[8,9], drag_1:[8,9],
+};
+const PAW_ANIMS = {
+  idle:{sheet:'hand_idle_sheet.png', frames:['idle_0','idle_1'], ms:[500,500]},
+  tap:{sheet:'hand_tap_sheet.png', frames:['tap_0','tap_1'], ms:[450,220]},
+  hold:{sheet:'hand_hold_sheet.png', frames:['hold_0','hold_1','hold_2','hold_3'], ms:[140,140,140,200]},
+  drag:{sheet:'hand_drag_sheet.png', frames:['drag_0','drag_1'], ms:[300,300]},
+};
+let pawToken = 0;
+let pawTimer = 0;
+function pawReduced(){
+  if(state && state.settings && state.settings.reducedMotion) return true;
+  return !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+}
+function pawPoint(el, frameName, mirror){
+  const hot = PAW_HOT[frameName];
+  const hx = mirror ? (31 - hot[0]) : hot[0];
+  const hy = hot[1];
+  const r = el.getBoundingClientRect();
+  const box = frameMetrics();
+  const tx = (r.left - box.l) / box.s + r.width / box.s / 2;
+  const ty = (r.top - box.t) / box.s + r.height / box.s / 2;
+  return {
+    x: tx - (hx + 0.5) * PAW_SCALE,
+    y: ty - (hy + 0.5) * PAW_SCALE,
+  };
+}
+function paintPaw(frameName, anim, x, y, mirror){
+  const paw = $('#tutPaw'); if(!paw) return;
+  const spec = PAW_ANIMS[anim];
+  const i = spec.frames.indexOf(frameName);
+  paw.hidden = false;
+  paw.style.backgroundImage = 'url(./assets/tutorial/paw/'+spec.sheet+')';
+  paw.style.backgroundSize = (spec.frames.length * 32 * PAW_SCALE)+'px '+(32 * PAW_SCALE)+'px';
+  paw.style.backgroundPosition = (-i * 32 * PAW_SCALE)+'px 0px';
+  paw.style.transform = mirror ? 'scaleX(-1)' : '';
+  paw.style.left = x+'px';
+  paw.style.top = y+'px';
+}
+function pawLater(token, fn, ms){
+  if(pawTimer) clearTimeout(pawTimer);
+  pawTimer = setTimeout(()=>{ if(token===pawToken) fn(); }, ms);
+}
+function oncePaw(token, anim, el, mirror, done){
+  const spec = PAW_ANIMS[anim];
+  let i = 0;
+  const step = ()=>{
+    if(token!==pawToken) return;
+    const name = spec.frames[i];
+    const p = pawPoint(el, name, mirror);
+    paintPaw(name, anim, p.x, p.y, mirror);
+    const ms = spec.ms[i];
+    i++;
+    if(i < spec.frames.length) pawLater(token, step, ms);
+    else if(done) pawLater(token, done, ms);
+    else pawLater(token, ()=>{ i = 0; step(); }, ms);
+  };
+  step();
+}
+function loopPaw(token, anim, el){
+  oncePaw(token, anim, el, false, ()=>loopPaw(token, anim, el));
+}
+function glidePaw(token, fromEl, toEl, done){
+  const a = pawPoint(fromEl, 'tap_0', false);
+  const b = pawPoint(toEl, 'tap_0', false);
+  const steps = 6;
+  let i = 0;
+  const tick = ()=>{
+    if(token!==pawToken) return;
+    const t = i / steps;
+    paintPaw('tap_0', 'tap', a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, false);
+    i++;
+    if(i > steps) done();
+    else pawLater(token, tick, 300 / steps);
+  };
+  tick();
+}
+function tourPaw(token, els, idx){
+  if(token!==pawToken) return;
+  const el = els[idx % els.length];
+  const next = els[(idx + 1) % els.length];
+  oncePaw(token, 'tap', el, false, ()=>{
+    if(els.length < 2) tourPaw(token, els, idx + 1);
+    else glidePaw(token, el, next, ()=>tourPaw(token, els, idx + 1));
+  });
+}
+function startTutPaw(step){
+  if(pawTimer){ clearTimeout(pawTimer); pawTimer = 0; }
+  const token = ++pawToken;
+  const paw = $('#tutPaw'); if(!paw) return;
+  if(!step || !step.gesture){ paw.hidden = true; return; }
+  const sels = Array.isArray(step.target) ? step.target : [step.target];
+  const els = sels.map((s)=>$(s)).filter(Boolean);
+  if(!els.length){ paw.hidden = true; return; }
+  // No box yet (or a headless document): don't leave a timer running.
+  if(!els.some((el)=>{ const r = el.getBoundingClientRect(); return r.width > 2 && r.height > 2; })){
+    paw.hidden = true;
+    return;
+  }
+  if(pawReduced()){
+    const name = step.gesture==='hold' ? 'hold_0' : 'tap_0';
+    const anim = step.gesture==='hold' ? 'hold' : 'tap';
+    const p = pawPoint(els[0], name, false);
+    paintPaw(name, anim, p.x, p.y, false);
+    return;
+  }
+  if(step.gesture==='hold') loopPaw(token, 'hold', els[0]);
+  else if(step.gesture==='tap-hold') oncePaw(token, 'tap', els[0], false, ()=>loopPaw(token, 'hold', els[0]));
+  else tourPaw(token, els, 0);
+}
+function stopTutPaw(){
+  pawToken++;
+  if(pawTimer){ clearTimeout(pawTimer); pawTimer = 0; }
+  const paw = $('#tutPaw'); if(paw) paw.hidden = true;
+}
 let tutStep = 0;
 let tutActive = false;
 
@@ -3115,6 +3299,7 @@ function showTutStep(){
   const next = $('#tutNext'); if(next) next.textContent = tutStep >= TUT_STEPS.length-1 ? 'Done' : 'Next';
   applyTutLayer();
   positionTut(step.sel);
+  startTutPaw(step);
 }
 function positionTut(sel){
   const el = $(sel); const hole = $('#tutHole'); const card = $('#tutCard');
@@ -3148,6 +3333,7 @@ function positionTut(sel){
 }
 function finishTutorial(){
   tutActive = false;
+  stopTutPaw();
   document.body.classList.remove('tut-on');
   $$('.tut-spot').forEach(el=>{ el.classList.remove('tut-spot','tut-spot-block'); });
   const ov = $('#tutOverlay'); if(ov) ov.classList.remove('show');
@@ -3205,7 +3391,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.31';
+const GAME_VERSION = 'v2.24.32';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, set state(v){ state=v; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, maybeBoardShuffle, applyBoardShuffle, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, stackVisual, stackLiftPadPx, get boardHx(){ return boardHx(); } };
