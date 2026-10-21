@@ -3174,6 +3174,15 @@ function pawPoint(el, frameName, mirror){
     y: ty - (hy + 0.5) * PAW_SCALE,
   };
 }
+// The board rebuilds its cells when the wrap changes size. Look the target
+// up on each frame so the toe stays on the live tray or table.
+function pawTarget(sel){
+  const el = $(sel);
+  if(!el || !el.isConnected) return null;
+  const r = el.getBoundingClientRect();
+  if(r.width <= 2 || r.height <= 2) return null;
+  return el;
+}
 function paintPaw(frameName, anim, x, y, mirror){
   const paw = $('#tutPaw'); if(!paw) return;
   const spec = PAW_ANIMS[anim];
@@ -3190,11 +3199,13 @@ function pawLater(token, fn, ms){
   if(pawTimer) clearTimeout(pawTimer);
   pawTimer = setTimeout(()=>{ if(token===pawToken) fn(); }, ms);
 }
-function oncePaw(token, anim, el, mirror, done){
+function oncePaw(token, anim, sel, mirror, done){
   const spec = PAW_ANIMS[anim];
   let i = 0;
   const step = ()=>{
     if(token!==pawToken) return;
+    const el = pawTarget(sel);
+    if(!el){ pawLater(token, step, 80); return; }
     const name = spec.frames[i];
     const p = pawPoint(el, name, mirror);
     paintPaw(name, anim, p.x, p.y, mirror);
@@ -3206,16 +3217,19 @@ function oncePaw(token, anim, el, mirror, done){
   };
   step();
 }
-function loopPaw(token, anim, el){
-  oncePaw(token, anim, el, false, ()=>loopPaw(token, anim, el));
+function loopPaw(token, anim, sel){
+  oncePaw(token, anim, sel, false, ()=>loopPaw(token, anim, sel));
 }
-function glidePaw(token, fromEl, toEl, done){
-  const a = pawPoint(fromEl, 'tap_0', false);
-  const b = pawPoint(toEl, 'tap_0', false);
+function glidePaw(token, fromSel, toSel, done){
   const steps = 6;
   let i = 0;
   const tick = ()=>{
     if(token!==pawToken) return;
+    const fromEl = pawTarget(fromSel);
+    const toEl = pawTarget(toSel);
+    if(!fromEl || !toEl){ pawLater(token, tick, 80); return; }
+    const a = pawPoint(fromEl, 'tap_0', false);
+    const b = pawPoint(toEl, 'tap_0', false);
     const t = i / steps;
     paintPaw('tap_0', 'tap', a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, false);
     i++;
@@ -3224,14 +3238,25 @@ function glidePaw(token, fromEl, toEl, done){
   };
   tick();
 }
-function tourPaw(token, els, idx){
+function tourPaw(token, sels, idx){
   if(token!==pawToken) return;
-  const el = els[idx % els.length];
-  const next = els[(idx + 1) % els.length];
-  oncePaw(token, 'tap', el, false, ()=>{
-    if(els.length < 2) tourPaw(token, els, idx + 1);
-    else glidePaw(token, el, next, ()=>tourPaw(token, els, idx + 1));
+  const sel = sels[idx % sels.length];
+  const next = sels[(idx + 1) % sels.length];
+  oncePaw(token, 'tap', sel, false, ()=>{
+    if(sels.length < 2) tourPaw(token, sels, idx + 1);
+    else glidePaw(token, sel, next, ()=>tourPaw(token, sels, idx + 1));
   });
+}
+function placeStaticPaw(token, step, sel){
+  if(token!==pawToken) return;
+  const el = pawTarget(sel);
+  if(el){
+    const name = step.gesture==='hold' ? 'hold_0' : 'tap_0';
+    const anim = step.gesture==='hold' ? 'hold' : 'tap';
+    const p = pawPoint(el, name, false);
+    paintPaw(name, anim, p.x, p.y, false);
+  }
+  pawLater(token, ()=>placeStaticPaw(token, step, sel), 400);
 }
 function startTutPaw(step){
   if(pawTimer){ clearTimeout(pawTimer); pawTimer = 0; }
@@ -3239,23 +3264,17 @@ function startTutPaw(step){
   const paw = $('#tutPaw'); if(!paw) return;
   if(!step || !step.gesture){ paw.hidden = true; return; }
   const sels = Array.isArray(step.target) ? step.target : [step.target];
-  const els = sels.map((s)=>$(s)).filter(Boolean);
-  if(!els.length){ paw.hidden = true; return; }
-  // No box yet (or a headless document): don't leave a timer running.
-  if(!els.some((el)=>{ const r = el.getBoundingClientRect(); return r.width > 2 && r.height > 2; })){
+  if(!sels.some((sel)=>pawTarget(sel))){
     paw.hidden = true;
     return;
   }
   if(pawReduced()){
-    const name = step.gesture==='hold' ? 'hold_0' : 'tap_0';
-    const anim = step.gesture==='hold' ? 'hold' : 'tap';
-    const p = pawPoint(els[0], name, false);
-    paintPaw(name, anim, p.x, p.y, false);
+    placeStaticPaw(token, step, sels[0]);
     return;
   }
-  if(step.gesture==='hold') loopPaw(token, 'hold', els[0]);
-  else if(step.gesture==='tap-hold') oncePaw(token, 'tap', els[0], false, ()=>loopPaw(token, 'hold', els[0]));
-  else tourPaw(token, els, 0);
+  if(step.gesture==='hold') loopPaw(token, 'hold', sels[0]);
+  else if(step.gesture==='tap-hold') oncePaw(token, 'tap', sels[0], false, ()=>loopPaw(token, 'hold', sels[0]));
+  else tourPaw(token, sels, 0);
 }
 function stopTutPaw(){
   pawToken++;
@@ -3391,7 +3410,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.32';
+const GAME_VERSION = 'v2.24.33';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, set state(v){ state=v; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, maybeBoardShuffle, applyBoardShuffle, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, stackVisual, stackLiftPadPx, get boardHx(){ return boardHx(); } };
