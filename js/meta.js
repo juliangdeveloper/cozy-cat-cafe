@@ -237,7 +237,9 @@ export function metaResetClock() {
 // ---------------------------------------------------------------------------
 // Café snapshot. Stat keys and achievement ids stay stable.
 // Counted sittings are runHistory plus the open sitting when it is not
-// already archived there. Totals stop at the history cap (20).
+// already archived there. runHistory keeps only the 20 best sittings, so the
+// lifetime totals (META_TOTALS) come from running counters once
+// metaTotalsStart has read the record: finished sittings plus the open one.
 // ---------------------------------------------------------------------------
 
 function metaNum(v) {
@@ -253,21 +255,21 @@ function metaTipLevel(state) {
 
 // Declared stat keys, in write order. monotonic: totals, finished counts, bests, highest levels.
 export const STATS = [
-  { key: 'runs_finished', monotonic: true }, // finished sittings kept in runHistory
-  { key: 'victories', monotonic: true }, // kept sittings that served 100 guests
+  { key: 'runs_finished', monotonic: true }, // finished sittings, lifetime
+  { key: 'victories', monotonic: true }, // sittings that served 100 guests, lifetime
   { key: 'best_clients', monotonic: true }, // most guests served in one counted sitting
-  { key: 'clients_total', monotonic: true }, // guests served across counted sittings
+  { key: 'clients_total', monotonic: true }, // guests served, lifetime
   { key: 'guests_now', monotonic: false }, // guests served in the open sitting
   { key: 'best_coins', monotonic: true }, // highest purse in a kept sitting or the live purse
   { key: 'coins', monotonic: false }, // coins in the live café
   { key: 'best_stacks', monotonic: true }, // most paid stacks in one counted sitting
-  { key: 'stacks_total', monotonic: true }, // paid stacks across counted sittings
+  { key: 'stacks_total', monotonic: true }, // paid stacks, lifetime
   { key: 'best_trays', monotonic: true }, // most trays dealt in one counted sitting
-  { key: 'trays_total', monotonic: true }, // trays dealt across counted sittings
+  { key: 'trays_total', monotonic: true }, // trays dealt, lifetime
   { key: 'colors_owned', monotonic: true }, // highest colors owned
   { key: 'tip_level', monotonic: true }, // highest tip multiplier level
   { key: 'tables_opened', monotonic: true }, // most tables activated in a sitting
-  { key: 'skills_used', monotonic: true }, // skill uses across counted sittings
+  { key: 'skills_used', monotonic: true }, // skill uses, lifetime
   { key: 'best_skill_uses', monotonic: true }, // most uses of one skill in a counted sitting
   { key: 'calamities_seen', monotonic: false }, // calamity cells on the open board
   { key: 'tutorial_done', monotonic: true }, // 1 after the spotlight is finished or skipped
@@ -326,6 +328,84 @@ function metaFold(stats, sitting) {
   if (sitting.victory) stats.victories += 1;
 }
 
+// One sitting as counted for meta, read from the live café.
+function metaSitting(state) {
+  const run = state.run && typeof state.run === 'object' ? state.run : {};
+  const progress = state.progress && typeof state.progress === 'object' ? state.progress : {};
+  const clients = metaNum(run.clientsServed);
+  const skills = metaSkillTotals(metaLiveSkills(state));
+  return {
+    clients,
+    coins: metaNum(progress.coins),
+    stacks: metaNum(run.moneyStacks),
+    trays: metaNum(run.pilesDealt),
+    victory: metaWon(clients, run.phase === 'victory'),
+    skillTotal: skills.total,
+    bestSkill: skills.best,
+  };
+}
+
+// Lifetime totals. These keys are running counters in the record.
+const META_TOTALS = ['runs_finished', 'victories', 'clients_total', 'stacks_total', 'trays_total', 'skills_used'];
+
+// Finished-sitting totals behind the record. null until metaTotalsStart.
+let metaBase = null;
+
+function metaTotalsOf(sitting, finished) {
+  return {
+    runs_finished: finished ? 1 : 0,
+    victories: sitting.victory ? 1 : 0,
+    clients_total: sitting.clients,
+    stacks_total: sitting.stacks,
+    trays_total: sitting.trays,
+    skills_used: sitting.skillTotal,
+  };
+}
+
+// The open sitting's share of the totals. Zero once it is archived.
+function metaLiveTotals(state) {
+  const run = state && state.run && typeof state.run === 'object' ? state.run : null;
+  if (!run || run.archived) return metaTotalsOf({ clients: 0, stacks: 0, trays: 0, skillTotal: 0, victory: false }, false);
+  return metaTotalsOf(metaSitting(state), false);
+}
+
+// Call once on load, after metaBackfill. Reads the stored totals as the
+// running counters: stored value minus the open sitting, never below the
+// runHistory estimate. With no record (demo, no storage) totals stay on runHistory.
+export function metaTotalsStart(slug, state) {
+  metaBase = null;
+  try {
+    if (metaIsDemo() || !state || typeof state !== 'object') return;
+    const storage = globalThis.localStorage;
+    if (!storage) return;
+    const raw = storage.getItem('meta.v1.' + slug);
+    const record = raw ? metaStored(raw, slug) : null;
+    if (!record) return;
+    const stored = record.stats && typeof record.stats === 'object' && !Array.isArray(record.stats) ? record.stats : {};
+    const estimate = metaFromState(state).stats;
+    const live = metaLiveTotals(state);
+    const base = {};
+    for (const key of META_TOTALS) {
+      const fromHistory = Math.max(0, estimate[key] - live[key]);
+      const fromRecord = metaFinite(stored[key]) ? Math.max(0, Math.floor(stored[key]) - live[key]) : 0;
+      base[key] = Math.max(fromHistory, fromRecord);
+    }
+    metaBase = base;
+  } catch (e) {
+    metaBase = null;
+  }
+}
+
+// Call once per finished sitting, with the café as it finished: after
+// beginVictory, or before restartRun when the sitting was not archived.
+export function metaRunFinished(state) {
+  try {
+    if (!metaBase || !state || typeof state !== 'object' || !state.run) return;
+    const add = metaTotalsOf(metaSitting(state), true);
+    for (const key of META_TOTALS) metaBase[key] += add[key];
+  } catch (e) {}
+}
+
 // Ids are stable. `met` reads the stat snapshot above.
 export const META_ACHIEVEMENTS = [
   { id: 'first_service', met: (s) => s.clients_total >= 1 }, // one guest served
@@ -373,18 +453,11 @@ export function metaFromState(state) {
     stats.guests_now = metaNum(run.clientsServed);
     stats.tables_opened = metaNum(run.runTilesActivated);
     stats.calamities_seen = metaNum(run.calamities);
-    if (!run.archived) {
-      const skills = metaSkillTotals(metaLiveSkills(state));
-      metaFold(stats, {
-        clients: stats.guests_now,
-        coins: stats.coins,
-        stacks: metaNum(run.moneyStacks),
-        trays: metaNum(run.pilesDealt),
-        victory: metaWon(stats.guests_now, run.phase === 'victory'),
-        skillTotal: skills.total,
-        bestSkill: skills.best,
-      });
-    }
+    if (!run.archived) metaFold(stats, metaSitting(state));
+  }
+  if (metaBase) {
+    const live = metaLiveTotals(state);
+    for (const key of META_TOTALS) stats[key] = metaBase[key] + live[key];
   }
   if (stats.coins > stats.best_coins) stats.best_coins = stats.coins;
   const logros = [];

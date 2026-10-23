@@ -889,7 +889,7 @@ import {
   bindCafeAudio, unlockCafeAudio, noteCafeOpen, noteCafeClosed,
   playCafeSfx, cafeAudioMuted, toggleCafeAudio,
 } from './js/ambience.js';
-import { metaBackfill, metaFromState, metaSchedule, metaFlush } from './js/meta.js';
+import { metaBackfill, metaFromState, metaSchedule, metaFlush, metaTotalsStart, metaRunFinished } from './js/meta.js';
 
 let state = null;
 const KEY = 'cozy-cat-cafe.save.v1';
@@ -2983,7 +2983,9 @@ async function restartCafe(){
     const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     await sleepMs(reduce ? 0 : 420);
   }
+  const finishing = state.run && !state.run.archived ? state : null;
   state = restartRun(state, Math.random);
+  if(finishing){ metaRunFinished(finishing); scheduleMeta(); }
   ui.slot=false; ui.mode=null; ui.swapFirst=null; ui.servingOrder=null; ui.placeTile=false;
   ui.previewSeed=Math.floor(Math.random()*2147483647);
   ui.restarting = false;
@@ -2999,6 +3001,7 @@ async function playVictory(){
   ui.anim = true;
   const beforeCoins = state.progress.coins;
   state = beginVictory(state);
+  metaRunFinished(state);
   const calamityGain = state.progress.coins - beforeCoins;
   persist();
   playCafeSfx('close');
@@ -3420,6 +3423,7 @@ async function boot(){
   // La run en curso de esta versión se conserva. El mute no se toca.
   if(!state.run) state = openRun(state, Math.random);
   metaBackfill(META_SLUG, GAME_VERSION, metaFromState(state));
+  metaTotalsStart(META_SLUG, state);
   await loadSprites();
   await loadPixelArt();
   bindCafeAudio();
@@ -3437,7 +3441,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.38';
+const GAME_VERSION = 'v2.24.39';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, set state(v){ state=v; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, maybeBoardShuffle, applyBoardShuffle, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, stackVisual, stackLiftPadPx, get boardHx(){ return boardHx(); } };
