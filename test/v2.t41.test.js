@@ -21,7 +21,7 @@ function slotKey(cell) {
 }
 
 test('a shuffle keeps 36 unique cells, and a broken save is repaired on load', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.34'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.37'/);
   assert.match(html, /function stopBoardMotion/);
   assert.match(html, /fill:'backwards'/);
   assert.doesNotMatch(html, /fill:'both'/);
@@ -102,7 +102,8 @@ test('the glide does not leave stacks off their cells, including after a reload'
   const importBlock = gameImp[1].split('\n').map((line) => line.replace(/\/\/.*$/, '')).join('\n');
   const appBody = appCode
     .replace(/import \{[\s\S]*?from '\.\/js\/game\.js';/, '')
-    .replace(/from '\.\/js\/ambience\.js'/g, "from '../js/ambience.js'");
+    .replace(/from '\.\/js\/ambience\.js'/g, "from '../js/ambience.js'")
+    .replace(/from '\.\/js\/meta\.js'/g, "from '../js/meta.js'");
   const tmp = join(root, 'test', '.app_t41.mjs');
   writeFileSync(tmp, `import {${importBlock}} from '../js/game.js';\n${appBody}\nwindow.__boot = boot;\n`);
   try {

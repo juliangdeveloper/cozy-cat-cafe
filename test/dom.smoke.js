@@ -70,7 +70,8 @@ const importBlock = gameImp[1]
 const header = `import {${importBlock}} from '../js/game.js';\n`;
 const appBody = appCode
   .replace(/import \{[\s\S]*?from '\.\/js\/game\.js';/, '')
-  .replace(/from '\.\/js\/ambience\.js'/g, "from '../js/ambience.js'");
+  .replace(/from '\.\/js\/ambience\.js'/g, "from '../js/ambience.js'")
+  .replace(/from '\.\/js\/meta\.js'/g, "from '../js/meta.js'");
 const bridge = header + appBody + '\nwindow.__boot = boot;\n';
 const tmp = join(base, 'test', '.app_runner.mjs');
 writeFileSync(tmp, bridge);
