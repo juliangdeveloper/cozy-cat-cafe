@@ -47,7 +47,7 @@ function clearPiles(board) {
 }
 
 test('unlocking a hidden pile merges it, and undo puts the lock back', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.34'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.35'/);
   assert.match(html, /async function cascadeAfterReveal/);
   const unlock = html.slice(html.indexOf('async function unlockFlow'), html.indexOf('function destroyFlow'));
   const activate = html.slice(html.indexOf('async function activateFlow'), html.indexOf('async function unlockFlow'));

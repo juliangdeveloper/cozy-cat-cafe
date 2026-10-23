@@ -28,6 +28,7 @@ const ROOT = dirname(fileURLToPath(import.meta.url));
 const SRC_HTML = join(ROOT, 'index.html');
 const SRC_GAME = join(ROOT, 'js', 'game.js');
 const SRC_AMB = join(ROOT, 'js', 'ambience.js');
+const SRC_META = join(ROOT, 'js', 'meta.js');
 const SRC_HOWLER = join(ROOT, 'vendor', 'howler.min.js');
 const SRC_JSON = join(ROOT, 'assets', 'sprites.json');
 const SRC_PNG = join(ROOT, 'assets', 'sprites.png');
@@ -116,6 +117,9 @@ app = app.replace(importRe, '');
 const ambImportRe = /import\s*\{[\s\S]*?\}\s*from\s*['"]\.\/js\/ambience\.js['"];\s*/;
 if (!ambImportRe.test(app)) fail('no se encontró el import de js/ambience.js');
 app = app.replace(ambImportRe, '');
+const metaImportRe = /import\s*\{[\s\S]*?\}\s*from\s*['"]\.\/js\/meta\.js['"];\s*/;
+if (!metaImportRe.test(app)) fail('no se encontró el import de js/meta.js');
+app = app.replace(metaImportRe, '');
 if (/from\s*['"]\.\//.test(app)) fail('sigue habiendo un from relativo tras quitar los imports');
 
 // 4) Reemplazar el comentario de cabecera de la app (ahora es un bundle).
@@ -237,11 +241,19 @@ if (amb.includes('./assets/audio/')) fail('ambience.js todavía apunta a assets/
 const ambClash = [...topNames(amb)].filter((n) => topNames(game).has(n) || appNames.has(n));
 if (ambClash.length) fail(`colisión de ambience.js con game/app: ${ambClash.join(', ')}`);
 
+let metaSrc = readFileSync(SRC_META, 'utf8')
+  .split('\n')
+  .map((l) => (l.startsWith('export ') ? l.slice('export '.length) : l))
+  .join('\n');
+if (/^export\s/m.test(metaSrc)) fail('quedó un export en meta.js');
+const metaClash = [...topNames(metaSrc)].filter((n) => topNames(game).has(n) || appNames.has(n) || topNames(amb).has(n));
+if (metaClash.length) fail(`colisión de meta.js: ${metaClash.join(', ')}`);
+
 const howlerSrc = readFileSync(SRC_HOWLER, 'utf8');
 if (!howlerSrc.includes('howler.js v2.2.4')) fail('vendor/howler.min.js no es Howler 2.2.4');
 if (/https?:\/\//i.test(howlerSrc)) fail('vendor/howler.min.js contiene una URL remota');
 
-const bundle = `${howlerSrc}\n\n// ---- AMBIENCE (Hybrid Sunlatte + stack/merge/serve) ----\n${amb}\n\n${game}\n\n// ---- APP (DOM + browser lifecycle) -------------------------------\n${app}\n`;
+const bundle = `${howlerSrc}\n\n// ---- AMBIENCE (Hybrid Sunlatte + stack/merge/serve) ----\n${amb}\n\n${game}\n\n// ---- META (meta.v1 progress) ----\n${metaSrc}\n\n// ---- APP (DOM + browser lifecycle) -------------------------------\n${app}\n`;
 const outHtml = `${html.slice(0, i0 + OPEN_TAG.length)}\n${bundle}${html.slice(i1)}`;
 
 mkdirSync(join(ROOT, 'dist'), { recursive: true });
@@ -277,6 +289,8 @@ if (!bundle.includes('skills/previewPool/26.png')) problems.push('falta el icono
 if (!bundle.includes('skills/queueSkip/26.png')) problems.push('falta el icono queueSkip');
 if (!bundle.includes('host_cat_96_idle.png')) problems.push('falta el host cat de 96');
 if (!bundle.includes('cozy-cat-cafe.save.v1')) problems.push('falta la clave de localStorage cozy-cat-cafe.save.v1');
+if (!bundle.includes('function metaUpdate')) problems.push('falta metaUpdate');
+if (!bundle.includes("'meta.v1.'")) problems.push('falta la clave meta.v1');
 if (/https?:\/\//i.test(outHtml)) problems.push('URL remota http:// o https:// presente');
 if (!bundle.includes('Howler.ctx.resume')) problems.push('falta Howler.ctx.resume() (reanudar Web Audio en iOS)');
 if (!bundle.includes('data:audio/mpeg;base64,')) problems.push('falta el audio mp3 embebido');

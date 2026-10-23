@@ -889,9 +889,11 @@ import {
   bindCafeAudio, unlockCafeAudio, noteCafeOpen, noteCafeClosed,
   playCafeSfx, cafeAudioMuted, toggleCafeAudio,
 } from './js/ambience.js';
+import { metaUpdate, metaBackfill, metaFromState } from './js/meta.js';
 
 let state = null;
 const KEY = 'cozy-cat-cafe.save.v1';
+const META_SLUG = 'cozy-cat-cafe';
 const ui = { slot:false, mode:null, swapFirst:null, servingOrder:null, placeTile:false, previewSeed:1, restarting:false, fitting:false, fitBox:'', observedWrap:null };
 
 const $ = s => document.querySelector(s);
@@ -1207,7 +1209,39 @@ async function settlePasses(){
   }
   renderAll(); checkServedAll();
 }
-function persist(){ state.meta.lastSavedAt = Date.now(); localStorage.setItem(KEY, serializeState(state)); }
+function writeMeta(){
+  try {
+    if(!state) return;
+    metaUpdate(META_SLUG, GAME_VERSION, metaFromState(state));
+  } catch (e) {}
+}
+let metaTimer = 0;
+let metaLast = 0;
+function scheduleMeta(){
+  const now = Date.now();
+  const since = now - metaLast;
+  if(since >= 1000){
+    metaLast = now;
+    writeMeta();
+    return;
+  }
+  if(metaTimer) return;
+  metaTimer = setTimeout(()=>{
+    metaTimer = 0;
+    metaLast = Date.now();
+    writeMeta();
+  }, 1000 - since);
+}
+function flushMeta(){
+  if(metaTimer){ clearTimeout(metaTimer); metaTimer = 0; }
+  metaLast = Date.now();
+  writeMeta();
+}
+function persist(){
+  state.meta.lastSavedAt = Date.now();
+  localStorage.setItem(KEY, serializeState(state));
+  scheduleMeta();
+}
 function captureCellPos(){
   const map=new Map();
   document.querySelectorAll('#board .cell[data-id]').forEach(el=>{
@@ -3395,13 +3429,14 @@ async function boot(){
   // v2.21: siempre en juego. Un save viejo llega sin run (meta descartada).
   // La run en curso de esta versión se conserva. El mute no se toca.
   if(!state.run) state = openRun(state, Math.random);
+  metaBackfill(META_SLUG, GAME_VERSION, metaFromState(state));
   await loadSprites();
   await loadPixelArt();
   bindCafeAudio();
   renderAll();
   bindGlobal();
   startLoop();
-  window.addEventListener('beforeunload',persist);
+  window.addEventListener('beforeunload', ()=>{ persist(); flushMeta(); });
   // v2.22.3: show the spotlight when this save has not finished it.
   // A finished flag stays finished — this does not clear seenTutorial.
   maybeStartTutorial();
@@ -3410,7 +3445,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.34';
+const GAME_VERSION = 'v2.24.35';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, set state(v){ state=v; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, maybeBoardShuffle, applyBoardShuffle, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, stackVisual, stackLiftPadPx, get boardHx(){ return boardHx(); } };
