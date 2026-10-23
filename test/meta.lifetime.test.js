@@ -126,6 +126,38 @@ describe('meta.v1 lifetime totals', { concurrency: false }, () => {
     assert.equal(stored().clients_total, 115);
   });
 
+  test('importing a save restarts the counters from the record and the imported history', () => {
+    useStorage();
+    const rng = seeded();
+    let state = openRun(createGame(), rng);
+    metaBackfill(SLUG, VERSION, metaFromState(state));
+    metaTotalsStart(SLUG, state);
+    for (let i = 0; i < 3; i++) {
+      state = finishByRestart(state, rng, 5);
+      write(state);
+    }
+    assert.equal(stored().runs_finished, 3);
+
+    // A save from another device with 20 kept sittings of 50 guests.
+    let other = openRun(createGame(), rng);
+    for (let i = 0; i < 20; i++) {
+      other.run.clientsServed = 50;
+      other = restartRun(other, rng);
+    }
+    const imported = deserializeState(serializeState(other));
+    imported.run.clientsServed = 4;
+    state = imported;
+    metaTotalsStart(SLUG, state);
+    write(state);
+    assert.equal(stored().runs_finished, 20);
+    assert.equal(stored().clients_total, 1004);
+
+    state = finishByRestart(state, rng, 6);
+    write(state);
+    assert.equal(stored().runs_finished, 21);
+    assert.equal(stored().clients_total, 1006);
+  });
+
   test('an old capped record is the best estimate and the totals never go down', () => {
     const rng = seeded();
     let state = openRun(createGame(), rng);

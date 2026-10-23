@@ -6606,7 +6606,7 @@ function bindGlobal(){
     const rd=new FileReader(); rd.onload=()=>{
       const res=importSave(rd.result);
       if(res.error){ toast('Invalid save file'); }
-      else { if(!res.meta.exportId) res.meta.exportId='cozy-'+Date.now(); normalizeOrders(res); state=res; persist(); renderAll(); toast('Save imported ✓'); }
+      else { if(!res.meta.exportId) res.meta.exportId='cozy-'+Date.now(); normalizeOrders(res); state=res; metaTotalsStart(META_SLUG, state); persist(); renderAll(); toast('Save imported ✓'); }
     }; rd.readAsText(f);
   });
   $('#offCollect').addEventListener('click',()=>{ $('#offModal').classList.remove('show'); renderAll(); });

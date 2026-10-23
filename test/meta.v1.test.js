@@ -553,6 +553,7 @@ test('the café schedules one meta write and flushes a pending hide immediately'
   assert.match(html, /const META_SLUG = 'cozy-cat-cafe'/);
   assert.match(html, /metaBackfill\(META_SLUG, GAME_VERSION, metaFromState\(state\)\);\s*metaTotalsStart\(META_SLUG, state\);/);
   assert.match(html, /state = beginVictory\(state\);\s*metaRunFinished\(state\);/);
+  assert.match(html, /state=res; metaTotalsStart\(META_SLUG, state\); persist\(\);/);
   assert.match(html, /const finishing = state\.run && !state\.run\.archived \? state : null;\s*state = restartRun\(state, Math\.random\);\s*if\(finishing\)\{ metaRunFinished\(finishing\); scheduleMeta\(\); \}/);
   assert.match(html, /function scheduleMeta\(\)/);
   assert.match(html, /metaSchedule\(META_SLUG, GAME_VERSION/);
