@@ -14,8 +14,8 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(root, 'index.html'), 'utf8');
 const SAVE_KEY = 'cozy-cat-cafe.save.v1';
 const META_KEY = 'meta.v1.cozy-cat-cafe';
-const VERSION = 'v2.24.37';
-const PLAIN = '2.24.37';
+const VERSION = 'v2.24.38';
+const PLAIN = '2.24.38';
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
 function memoryStorage(initial) {
@@ -97,7 +97,7 @@ test('an old save without the key produces a meta.v1 record', () => {
   assert.deepEqual(snap.logros, expectedLogros);
   assert.equal(metaBackfill('cozy-cat-cafe', VERSION, snap), true);
   const record = JSON.parse(globalThis.localStorage.getItem(META_KEY));
-  assert.deepEqual(Object.keys(record), ['v', 'slug', 'version', 'updatedAt', 'stats', 'logros', 'hitos']);
+  assert.deepEqual(Object.keys(record), ['v', 'slug', 'version', 'updatedAt', 'stats', 'logros', 'hitos', 'proyecto']);
   assert.equal(record.v, 1);
   assert.equal(record.slug, 'cozy-cat-cafe');
   assert.equal(record.version, PLAIN);
@@ -548,7 +548,7 @@ test('pagehide and a hidden tab flush a pending change inside one second', async
 });
 
 test('the café schedules one meta write and flushes a pending hide immediately', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.37'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.38'/);
   assert.match(html, /import \{ metaBackfill, metaFromState, metaSchedule, metaFlush \} from '\.\/js\/meta\.js'/);
   assert.match(html, /const META_SLUG = 'cozy-cat-cafe'/);
   assert.match(html, /metaBackfill\(META_SLUG, GAME_VERSION, metaFromState\(state\)\)/);
