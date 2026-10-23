@@ -3095,7 +3095,7 @@ function bindGlobal(){
     const rd=new FileReader(); rd.onload=()=>{
       const res=importSave(rd.result);
       if(res.error){ toast('Invalid save file'); }
-      else { if(!res.meta.exportId) res.meta.exportId='cozy-'+Date.now(); normalizeOrders(res); state=res; metaTotalsStart(META_SLUG, state); persist(); renderAll(); toast('Save imported ✓'); }
+      else { if(!res.meta.exportId) res.meta.exportId='cozy-'+Date.now(); normalizeOrders(res); flushMeta(true); state=res; metaTotalsStart(META_SLUG, state); persist(); renderAll(); toast('Save imported ✓'); }
     }; rd.readAsText(f);
   });
   $('#offCollect').addEventListener('click',()=>{ $('#offModal').classList.remove('show'); renderAll(); });
@@ -3111,6 +3111,7 @@ function bindGlobal(){
       return;
     }
     localStorage.removeItem(KEY);
+    flushMeta(true); // write a game that just ended before the totals restart
     state=createGame();
     state.meta.exportId='ccc-1-'+Date.now();
     metaTotalsStart(META_SLUG, state);
