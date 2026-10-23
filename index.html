@@ -1213,8 +1213,8 @@ function scheduleMeta(){
   try { metaSchedule(META_SLUG, GAME_VERSION, () => state ? metaFromState(state) : null); }
   catch (e) {}
 }
-function flushMeta(){
-  try { metaFlush(); } catch (e) {}
+function flushMeta(immediate){
+  try { metaFlush(immediate); } catch (e) {}
 }
 function persist(){
   state.meta.lastSavedAt = Date.now();
@@ -1223,7 +1223,14 @@ function persist(){
 }
 function leaveCafe(){
   persist();
-  flushMeta();
+  flushMeta(false);
+}
+function hideCafe(){
+  persist();
+  flushMeta(true);
+}
+function onCafeVisibility(){
+  if (document.visibilityState === 'hidden') hideCafe();
 }
 function captureCellPos(){
   const map=new Map();
@@ -3420,7 +3427,8 @@ async function boot(){
   bindGlobal();
   startLoop();
   window.addEventListener('beforeunload', leaveCafe);
-  window.addEventListener('pagehide', leaveCafe);
+  window.addEventListener('pagehide', hideCafe);
+  document.addEventListener('visibilitychange', onCafeVisibility);
   // v2.22.3: show the spotlight when this save has not finished it.
   // A finished flag stays finished — this does not clear seenTutorial.
   maybeStartTutorial();
@@ -3429,7 +3437,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.36';
+const GAME_VERSION = 'v2.24.37';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, set state(v){ state=v; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, maybeBoardShuffle, applyBoardShuffle, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, stackVisual, stackLiftPadPx, get boardHx(){ return boardHx(); } };

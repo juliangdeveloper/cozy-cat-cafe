@@ -1,9 +1,10 @@
 // meta.v1 migration: a save without the key, an existing record, and corrupt JSON.
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { JSDOM } from 'jsdom';
 import {
   metaUpdate, metaBackfill, metaFromState, metaSchedule, metaFlush, metaResetClock,
   META_ACHIEVEMENTS, STATS,
@@ -13,8 +14,8 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(root, 'index.html'), 'utf8');
 const SAVE_KEY = 'cozy-cat-cafe.save.v1';
 const META_KEY = 'meta.v1.cozy-cat-cafe';
-const VERSION = 'v2.24.36';
-const PLAIN = '2.24.36';
+const VERSION = 'v2.24.37';
+const PLAIN = '2.24.37';
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
 function memoryStorage(initial) {
@@ -358,6 +359,56 @@ test('at most one meta write per second, including backfill and flush', async ()
   }
 });
 
+test('a pending change flushes immediately, and an empty flush does not write', () => {
+  const writes = [];
+  const messages = [];
+  const bag = {};
+  globalThis.localStorage = {
+    getItem(k) { return Object.prototype.hasOwnProperty.call(bag, k) ? bag[k] : null; },
+    setItem(k, v) {
+      if (k === META_KEY) writes.push(String(v));
+      bag[k] = String(v);
+    },
+    removeItem(k) { delete bag[k]; },
+  };
+  const parent = { postMessage: (data, origin) => messages.push({ data, origin }) };
+  globalThis.window = { parent };
+  globalThis.location = { origin: 'https://play.example', search: '' };
+  try {
+    assert.equal(metaBackfill('cozy-cat-cafe', VERSION, { stats: { coins: 1 }, logros: [] }), true);
+    assert.equal(writes.length, 1);
+    metaFlush(true);
+    assert.equal(writes.length, 1);
+    assert.equal(messages.length, 1);
+
+    metaSchedule('cozy-cat-cafe', VERSION, { stats: { coins: 42, runs_finished: 3 }, logros: ['first_service'] });
+    assert.equal(writes.length, 1);
+    metaFlush(true);
+    assert.equal(writes.length, 2);
+    assert.equal(messages.length, 2);
+    const record = JSON.parse(writes[1]);
+    assert.equal(record.version, PLAIN);
+    assert.equal(record.stats.coins, 42);
+    assert.equal(record.stats.runs_finished, 3);
+    assert.equal(messages[1].data.type, 'meta');
+    assert.equal(messages[1].data.key, META_KEY);
+    assert.equal(messages[1].origin, 'https://play.example');
+    metaFlush(true);
+    assert.equal(writes.length, 2);
+    assert.equal(messages.length, 2);
+
+    globalThis.location = { search: '?preview=1', origin: 'https://play.example' };
+    metaSchedule('cozy-cat-cafe', VERSION, { stats: { coins: 99 }, logros: ['full_service'] });
+    metaFlush(true);
+    assert.equal(writes.length, 2);
+    assert.equal(messages.length, 2);
+  } finally {
+    metaResetClock();
+    delete globalThis.window;
+    delete globalThis.location;
+  }
+});
+
 test('demo and preview do not write or postMessage', () => {
   useStorage({});
   const messages = [];
@@ -395,18 +446,125 @@ test('the café save stays byte-identical through backfill and a later update', 
   assert.equal(JSON.stringify(state), rawSave);
 });
 
-test('the café schedules one meta write and flushes only when one is pending', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.36'/);
+test('pagehide and a hidden tab flush a pending change inside one second', async () => {
+  const page = html
+    .replace(/<script src="\.\/vendor\/howler\.min\.js"><\/script>\s*/, '')
+    .replace(/<script type="module">[\s\S]*?<\/script>/, '');
+  const dom = new JSDOM(page, { runScripts: 'dangerously', pretendToBeVisual: true, url: 'http://localhost/' });
+  const { window } = dom;
+  window.matchMedia = () => ({ matches: false, media: '', addEventListener() {}, removeEventListener() {} });
+  window.Image = class { set src(v) { if (v && this.onload) setTimeout(() => this.onload(), 0); } constructor() { this.onload = null; this.onerror = null; } };
+  window.fetch = async () => { throw new Error('no-network'); };
+  window.requestAnimationFrame = (cb) => setTimeout(() => cb(Date.now()), 16);
+  window.cancelAnimationFrame = (id) => clearTimeout(id);
+  const realAdd = window.addEventListener.bind(window);
+  window.addEventListener = (type, fn, opt) => {
+    if (type === 'load') return;
+    return realAdd(type, fn, opt);
+  };
+  const writes = [];
+  const storage = memoryStorage();
+  const origSet = storage.setItem.bind(storage);
+  storage.setItem = (k, v) => {
+    if (k === META_KEY) writes.push(String(v));
+    return origSet(k, v);
+  };
+  const timers = new Set();
+  const origTimeout = globalThis.setTimeout;
+  const origClear = globalThis.clearTimeout;
+  globalThis.setTimeout = (fn, ms, ...args) => {
+    const id = origTimeout(() => {
+      timers.delete(id);
+      fn(...args);
+    }, ms, ...args);
+    timers.add(id);
+    return id;
+  };
+  window.setTimeout = globalThis.setTimeout;
+  let hidden = false;
+  Object.defineProperty(window.document, 'visibilityState', {
+    configurable: true,
+    get() { return hidden ? 'hidden' : 'visible'; },
+  });
+  globalThis.window = window;
+  globalThis.document = window.document;
+  globalThis.localStorage = storage;
+  globalThis.location = window.location;
+  globalThis.fetch = window.fetch;
+  globalThis.Image = window.Image;
+  globalThis.matchMedia = window.matchMedia;
+  globalThis.getComputedStyle = window.getComputedStyle.bind(window);
+  globalThis.requestAnimationFrame = window.requestAnimationFrame;
+  globalThis.cancelAnimationFrame = window.cancelAnimationFrame;
+
+  const appCode = html.match(/<script type="module">([\s\S]*?)<\/script>/)[1];
+  const gameImp = appCode.match(/import\s*\{([\s\S]*?)\}\s*from\s*'\.\/js\/game\.js'/);
+  const importBlock = gameImp[1].split('\n').map((line) => line.replace(/\/\/.*$/, '')).join('\n');
+  const appBody = appCode
+    .replace(/import \{[\s\S]*?from '\.\/js\/game\.js';/, '')
+    .replace(/from '\.\/js\/ambience\.js'/g, "from '../js/ambience.js'")
+    .replace(/from '\.\/js\/meta\.js'/g, "from '../js/meta.js'");
+  const tmp = join(root, 'test', '.app_meta.mjs');
+  writeFileSync(tmp, `import {${importBlock}} from '../js/game.js';\n${appBody}\nwindow.__boot = boot;\n`);
+  try {
+    await import('file:///' + tmp.replace(/\\/g, '/'));
+    await window.__boot();
+    assert.equal(writes.length, 1);
+    const dbg = window.__dbg;
+    dbg.state.progress.coins = 4242;
+    window.dispatchEvent(new window.Event('pagehide'));
+    assert.equal(writes.length, 2);
+    assert.equal(JSON.parse(writes[1]).stats.coins, 4242);
+    assert.equal(JSON.parse(writes[1]).version, PLAIN);
+
+    dbg.state.progress.coins = 4343;
+    hidden = true;
+    window.document.dispatchEvent(new window.Event('visibilitychange'));
+    assert.equal(writes.length, 3);
+    assert.equal(JSON.parse(writes[2]).stats.coins, 4343);
+
+    const kept = writes.length;
+    dbg.state.progress.coins = 4444;
+    hidden = false;
+    window.document.dispatchEvent(new window.Event('visibilitychange'));
+    assert.equal(writes.length, kept);
+    metaFlush(true);
+    assert.equal(writes.length, kept);
+  } finally {
+    metaResetClock();
+    for (const id of timers) origClear(id);
+    globalThis.setTimeout = origTimeout;
+    delete globalThis.window;
+    delete globalThis.document;
+    delete globalThis.location;
+    delete globalThis.fetch;
+    delete globalThis.Image;
+    delete globalThis.matchMedia;
+    delete globalThis.getComputedStyle;
+    delete globalThis.requestAnimationFrame;
+    delete globalThis.cancelAnimationFrame;
+    try { unlinkSync(tmp); } catch (e) {}
+  }
+});
+
+test('the café schedules one meta write and flushes a pending hide immediately', () => {
+  assert.match(html, /GAME_VERSION = 'v2\.24\.37'/);
   assert.match(html, /import \{ metaBackfill, metaFromState, metaSchedule, metaFlush \} from '\.\/js\/meta\.js'/);
   assert.match(html, /const META_SLUG = 'cozy-cat-cafe'/);
   assert.match(html, /metaBackfill\(META_SLUG, GAME_VERSION, metaFromState\(state\)\)/);
   assert.match(html, /function scheduleMeta\(\)/);
   assert.match(html, /metaSchedule\(META_SLUG, GAME_VERSION/);
-  assert.match(html, /function flushMeta\(\)/);
-  assert.match(html, /metaFlush\(\)/);
+  assert.match(html, /function flushMeta\(immediate\)/);
+  assert.match(html, /metaFlush\(immediate\)/);
+  assert.match(html, /function hideCafe\(\)/);
+  assert.match(html, /flushMeta\(true\)/);
+  assert.match(html, /function onCafeVisibility\(\)/);
+  assert.match(html, /visibilityState === 'hidden'/);
   assert.match(html, /function leaveCafe\(\)/);
+  assert.match(html, /flushMeta\(false\)/);
   assert.match(html, /beforeunload', leaveCafe\)/);
-  assert.match(html, /pagehide', leaveCafe\)/);
+  assert.match(html, /pagehide', hideCafe\)/);
+  assert.match(html, /visibilitychange', onCafeVisibility\)/);
   assert.equal(html.includes('metaLast'), false);
   assert.equal(html.includes('meta.v1.cozy-cat-cafe'), false);
   assert.equal(html.includes("removeItem(META_KEY)"), false);

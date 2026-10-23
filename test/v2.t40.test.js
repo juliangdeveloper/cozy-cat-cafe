@@ -32,7 +32,7 @@ test('a tray stack is centered by its base, and a tall one overflows upward', ()
 });
 
 test('tall top-row stacks do not move the 36-cell board', async () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.36'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.37'/);
   const boardFn = html.slice(html.indexOf('function renderBoard'), html.indexOf('function renderPool'));
   const shift = boardFn.slice(boardFn.indexOf('const cellsH'), boardFn.indexOf('box.style.setProperty'));
   assert.doesNotMatch(shift, /stack/);

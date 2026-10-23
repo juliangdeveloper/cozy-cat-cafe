@@ -1,5 +1,6 @@
 // Shared meta.v1 writer. Same steps in every app: read, merge, write, post.
-// Never throws. At most one record write per second, including backfill and flush.
+// Never throws. Normal use writes the record at most once per second, including
+// backfill. Hiding the page flushes a pending change immediately.
 
 let metaWroteAt = 0;
 let metaTimer = 0;
@@ -160,8 +161,10 @@ export function metaSchedule(slug, version, snapshot) {
   } catch (e) {}
 }
 
-// Write the pending snapshot, and only when the one-per-second window is open.
-export function metaFlush() {
+// Write the pending snapshot. A normal call waits until a second has passed
+// since the last record write. immediate (page hide or tab hidden) writes a
+// pending change now. With nothing pending, this does nothing.
+export function metaFlush(immediate) {
   try {
     if (metaIsDemo()) {
       metaPending = null;
@@ -170,7 +173,7 @@ export function metaFlush() {
     }
     if (!metaPending) return;
     const now = Date.now();
-    if (now - metaWroteAt < 1000) return;
+    if (!immediate && now - metaWroteAt < 1000) return;
     if (metaTimer) { clearTimeout(metaTimer); metaTimer = 0; }
     const pending = metaPending;
     metaPending = null;

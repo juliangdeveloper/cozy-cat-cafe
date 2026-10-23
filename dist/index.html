@@ -3924,7 +3924,8 @@ function brandExportId(state, ms) {
 
 // ---- META (meta.v1 progress) ----
 // Shared meta.v1 writer. Same steps in every app: read, merge, write, post.
-// Never throws. At most one record write per second, including backfill and flush.
+// Never throws. Normal use writes the record at most once per second, including
+// backfill. Hiding the page flushes a pending change immediately.
 
 let metaWroteAt = 0;
 let metaTimer = 0;
@@ -4085,8 +4086,10 @@ function metaSchedule(slug, version, snapshot) {
   } catch (e) {}
 }
 
-// Write the pending snapshot, and only when the one-per-second window is open.
-function metaFlush() {
+// Write the pending snapshot. A normal call waits until a second has passed
+// since the last record write. immediate (page hide or tab hidden) writes a
+// pending change now. With nothing pending, this does nothing.
+function metaFlush(immediate) {
   try {
     if (metaIsDemo()) {
       metaPending = null;
@@ -4095,7 +4098,7 @@ function metaFlush() {
     }
     if (!metaPending) return;
     const now = Date.now();
-    if (now - metaWroteAt < 1000) return;
+    if (!immediate && now - metaWroteAt < 1000) return;
     if (metaTimer) { clearTimeout(metaTimer); metaTimer = 0; }
     const pending = metaPending;
     metaPending = null;
@@ -4606,8 +4609,8 @@ function scheduleMeta(){
   try { metaSchedule(META_SLUG, GAME_VERSION, () => state ? metaFromState(state) : null); }
   catch (e) {}
 }
-function flushMeta(){
-  try { metaFlush(); } catch (e) {}
+function flushMeta(immediate){
+  try { metaFlush(immediate); } catch (e) {}
 }
 function persist(){
   state.meta.lastSavedAt = Date.now();
@@ -4616,7 +4619,14 @@ function persist(){
 }
 function leaveCafe(){
   persist();
-  flushMeta();
+  flushMeta(false);
+}
+function hideCafe(){
+  persist();
+  flushMeta(true);
+}
+function onCafeVisibility(){
+  if (document.visibilityState === 'hidden') hideCafe();
 }
 function captureCellPos(){
   const map=new Map();
@@ -6813,7 +6823,8 @@ async function boot(){
   bindGlobal();
   startLoop();
   window.addEventListener('beforeunload', leaveCafe);
-  window.addEventListener('pagehide', leaveCafe);
+  window.addEventListener('pagehide', hideCafe);
+  document.addEventListener('visibilitychange', onCafeVisibility);
   // v2.22.3: show the spotlight when this save has not finished it.
   // A finished flag stays finished — this does not clear seenTutorial.
   maybeStartTutorial();
@@ -6822,7 +6833,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.36';
+const GAME_VERSION = 'v2.24.37';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, set state(v){ state=v; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, maybeBoardShuffle, applyBoardShuffle, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, stackVisual, stackLiftPadPx, get boardHx(){ return boardHx(); } };
