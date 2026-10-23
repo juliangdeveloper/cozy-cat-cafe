@@ -1,14 +1,8 @@
-// Shared meta.v1 writer. Same steps in every app: read, merge, write, post.
-// Never throws. Normal use writes the record at most once per second, including
-// backfill. Hiding the page flushes a pending change immediately.
 
 let metaWroteAt = 0;
 let metaTimer = 0;
 let metaPending = null;
 
-// Project status, set by hand and bumped with the version. Never computed from play.
-// fase 1-6: Idea, Definición, Diseño, Construcción, Validación, Lanzamiento y mantenimiento.
-// fase_estado 0-4: pendiente, en curso, bloqueada, en revisión, completada.
 export const PROYECTO = {
   objetivo: 'Juego cozy de café para móvil: apilar comida en hexágonos y servir a 100 clientes, con tutorial y habilidades.',
   fase: 6,
@@ -22,7 +16,6 @@ function proyectoInt(n, lo, hi) {
   return typeof n === 'number' && Number.isInteger(n) && n >= lo && n <= hi;
 }
 
-// Clean copy of a proyecto block, or null when any field is missing or out of range.
 export function metaProyecto(p) {
   try {
     if (!p || typeof p !== 'object' || Array.isArray(p)) return null;
@@ -35,12 +28,10 @@ export function metaProyecto(p) {
   }
 }
 
-// Tests only: swap the block the writer uses (null restores PROYECTO).
 export function metaSetProyecto(p) {
   proyectoSource = p === null ? PROYECTO : p;
 }
 
-// Adds the current proyecto block to a record being written, when it is valid.
 function withProyecto(record) {
   const p = metaProyecto(proyectoSource);
   if (p) record.proyecto = p;
@@ -71,9 +62,6 @@ function metaFinite(n) {
   return typeof n === 'number' && Number.isFinite(n);
 }
 
-// Declared keys only, in declared order, at most 20.
-// A monotonic key keeps the greater of the stored and new values.
-// A declared key omitted from this call keeps its stored value.
 function metaMergeStats(prevStats, given) {
   const prev = prevStats && typeof prevStats === 'object' && !Array.isArray(prevStats) ? prevStats : {};
   const next = given && typeof given === 'object' && !Array.isArray(given) ? given : {};
@@ -163,9 +151,6 @@ export function metaUpdate(slug, version, input) {
   }
 }
 
-// Missing key: write once from the snapshot. A valid record is left untouched.
-// Unreadable JSON, a non-object, v !== 1, or a slug mismatch is copied to
-// meta.v1.<slug>.corrupt and rebuilt (hitos = this write).
 export function metaBackfill(slug, version, snapshot) {
   try {
     if (metaIsDemo()) return false;
@@ -185,7 +170,6 @@ export function metaBackfill(slug, version, snapshot) {
   }
 }
 
-// Queue one record write. A call inside the same second only marks it pending.
 export function metaSchedule(slug, version, snapshot) {
   try {
     if (metaIsDemo()) return;
@@ -203,9 +187,6 @@ export function metaSchedule(slug, version, snapshot) {
   } catch (e) {}
 }
 
-// Write the pending snapshot. A normal call waits until a second has passed
-// since the last record write. immediate (page hide or tab hidden) writes a
-// pending change now. With nothing pending, this does nothing.
 export function metaFlush(immediate) {
   try {
     if (metaIsDemo()) {
@@ -234,13 +215,6 @@ export function metaResetClock() {
   metaWroteAt = 0;
 }
 
-// ---------------------------------------------------------------------------
-// Café snapshot. Stat keys and achievement ids stay stable.
-// Counted sittings are runHistory plus the open sitting when it is not
-// already archived there. runHistory keeps only the 20 best sittings, so the
-// lifetime totals (META_TOTALS) come from running counters once
-// metaTotalsStart has read the record: finished sittings plus the open one.
-// ---------------------------------------------------------------------------
 
 function metaNum(v) {
   if (typeof v !== 'number' || !Number.isFinite(v) || v <= 0) return 0;
@@ -253,26 +227,25 @@ function metaTipLevel(state) {
   return Math.floor(n);
 }
 
-// Declared stat keys, in write order. monotonic: totals, finished counts, bests, highest levels.
 export const STATS = [
-  { key: 'runs_finished', monotonic: true }, // finished sittings, lifetime
-  { key: 'victories', monotonic: true }, // sittings that served 100 guests, lifetime
-  { key: 'best_clients', monotonic: true }, // most guests served in one counted sitting
-  { key: 'clients_total', monotonic: true }, // guests served, lifetime
-  { key: 'guests_now', monotonic: false }, // guests served in the open sitting
-  { key: 'best_coins', monotonic: true }, // highest purse in a kept sitting or the live purse
-  { key: 'coins', monotonic: false }, // coins in the live café
-  { key: 'best_stacks', monotonic: true }, // most paid stacks in one counted sitting
-  { key: 'stacks_total', monotonic: true }, // paid stacks, lifetime
-  { key: 'best_trays', monotonic: true }, // most trays dealt in one counted sitting
-  { key: 'trays_total', monotonic: true }, // trays dealt, lifetime
-  { key: 'colors_owned', monotonic: true }, // highest colors owned
-  { key: 'tip_level', monotonic: true }, // highest tip multiplier level
-  { key: 'tables_opened', monotonic: true }, // most tables activated in a sitting
-  { key: 'skills_used', monotonic: true }, // skill uses, lifetime
-  { key: 'best_skill_uses', monotonic: true }, // most uses of one skill in a counted sitting
-  { key: 'calamities_seen', monotonic: false }, // calamity cells on the open board
-  { key: 'tutorial_done', monotonic: true }, // 1 after the spotlight is finished or skipped
+  { key: 'runs_finished', monotonic: true },
+  { key: 'victories', monotonic: true },
+  { key: 'best_clients', monotonic: true },
+  { key: 'clients_total', monotonic: true },
+  { key: 'guests_now', monotonic: false },
+  { key: 'best_coins', monotonic: true },
+  { key: 'coins', monotonic: false },
+  { key: 'best_stacks', monotonic: true },
+  { key: 'stacks_total', monotonic: true },
+  { key: 'best_trays', monotonic: true },
+  { key: 'trays_total', monotonic: true },
+  { key: 'colors_owned', monotonic: true },
+  { key: 'tip_level', monotonic: true },
+  { key: 'tables_opened', monotonic: true },
+  { key: 'skills_used', monotonic: true },
+  { key: 'best_skill_uses', monotonic: true },
+  { key: 'calamities_seen', monotonic: false },
+  { key: 'tutorial_done', monotonic: true },
 ];
 
 function metaBlankStats() {
@@ -293,7 +266,6 @@ function metaSkillTotals(uses) {
   return { total, best };
 }
 
-// Color, tips, and tables live on the café, not only in run.skillUses.
 function metaLiveSkills(state) {
   const run = state.run || {};
   const bag = run.skillUses && typeof run.skillUses === 'object' && !Array.isArray(run.skillUses) ? run.skillUses : {};
@@ -328,7 +300,6 @@ function metaFold(stats, sitting) {
   if (sitting.victory) stats.victories += 1;
 }
 
-// One sitting as counted for meta, read from the live café.
 function metaSitting(state) {
   const run = state.run && typeof state.run === 'object' ? state.run : {};
   const progress = state.progress && typeof state.progress === 'object' ? state.progress : {};
@@ -345,10 +316,8 @@ function metaSitting(state) {
   };
 }
 
-// Lifetime totals. These keys are running counters in the record.
 const META_TOTALS = ['runs_finished', 'victories', 'clients_total', 'stacks_total', 'trays_total', 'skills_used'];
 
-// Finished-sitting totals behind the record. null until metaTotalsStart.
 let metaBase = null;
 
 function metaTotalsOf(sitting, finished) {
@@ -362,16 +331,12 @@ function metaTotalsOf(sitting, finished) {
   };
 }
 
-// The open sitting's share of the totals. Zero once it is archived.
 function metaLiveTotals(state) {
   const run = state && state.run && typeof state.run === 'object' ? state.run : null;
   if (!run || run.archived) return metaTotalsOf({ clients: 0, stacks: 0, trays: 0, skillTotal: 0, victory: false }, false);
   return metaTotalsOf(metaSitting(state), false);
 }
 
-// Call once on load, after metaBackfill. Reads the stored totals as the
-// running counters: stored value minus the open sitting, never below the
-// runHistory estimate. With no record (demo, no storage) totals stay on runHistory.
 export function metaTotalsStart(slug, state) {
   metaBase = null;
   try {
@@ -396,8 +361,6 @@ export function metaTotalsStart(slug, state) {
   }
 }
 
-// Call once per finished sitting, with the café as it finished: after
-// beginVictory, or before restartRun when the sitting was not archived.
 export function metaRunFinished(state) {
   try {
     if (!metaBase || !state || typeof state !== 'object' || !state.run) return;
@@ -406,20 +369,19 @@ export function metaRunFinished(state) {
   } catch (e) {}
 }
 
-// Ids are stable. `met` reads the stat snapshot above.
 export const META_ACHIEVEMENTS = [
-  { id: 'first_service', met: (s) => s.clients_total >= 1 }, // one guest served
-  { id: 'tutorial_done', met: (s) => s.tutorial_done >= 1 }, // spotlight finished or skipped
-  { id: 'guests_10', met: (s) => s.best_clients >= 10 }, // 10 guests in one sitting
-  { id: 'guests_50', met: (s) => s.best_clients >= 50 }, // 50 guests in one sitting
-  { id: 'second_wave', met: (s) => s.best_clients >= 80 }, // 80 guests (second calamity wave)
-  { id: 'full_service', met: (s) => s.best_clients >= 100 }, // 100 guests in one sitting
-  { id: 'sittings_3', met: (s) => s.runs_finished >= 3 }, // three finished sittings kept
-  { id: 'coins_1000', met: (s) => s.best_coins >= 1000 }, // purse reached 1000
-  { id: 'coins_100000', met: (s) => s.best_coins >= 100000 }, // purse reached 100000 (board shuffle)
-  { id: 'colors_8', met: (s) => s.colors_owned >= 8 }, // eight colors owned (run palette)
-  { id: 'paid_stacks_20', met: (s) => s.best_stacks >= 20 }, // 20 paid stacks in one sitting
-  { id: 'skill_used', met: (s) => s.skills_used >= 1 }, // one skill used in a counted sitting
+  { id: 'first_service', met: (s) => s.clients_total >= 1 },
+  { id: 'tutorial_done', met: (s) => s.tutorial_done >= 1 },
+  { id: 'guests_10', met: (s) => s.best_clients >= 10 },
+  { id: 'guests_50', met: (s) => s.best_clients >= 50 },
+  { id: 'second_wave', met: (s) => s.best_clients >= 80 },
+  { id: 'full_service', met: (s) => s.best_clients >= 100 },
+  { id: 'sittings_3', met: (s) => s.runs_finished >= 3 },
+  { id: 'coins_1000', met: (s) => s.best_coins >= 1000 },
+  { id: 'coins_100000', met: (s) => s.best_coins >= 100000 },
+  { id: 'colors_8', met: (s) => s.colors_owned >= 8 },
+  { id: 'paid_stacks_20', met: (s) => s.best_stacks >= 20 },
+  { id: 'skill_used', met: (s) => s.skills_used >= 1 },
 ];
 
 export function metaFromState(state) {

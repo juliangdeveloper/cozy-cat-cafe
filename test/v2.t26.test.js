@@ -1,4 +1,3 @@
-// v2.21 — meta efímera, 100 clientes, tamaños de pedido, oleada 2, victoria, saves viejos.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

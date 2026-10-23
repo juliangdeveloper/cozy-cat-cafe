@@ -1,8 +1,3 @@
-// ============================================================================
-// Cozy Cat Café × HexaSort — TDD suite v2.18 (node:test, no deps).
-// Block T24 — first-run tutorial flag (settings.seenTutorial).
-// Run: node --test test/v2.t24.test.js
-// ============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 

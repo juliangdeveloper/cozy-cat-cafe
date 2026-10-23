@@ -1,6 +1,3 @@
-// v2.22 — pay-per-use skills. Price = SKILL_USE_BASE * SKILL_USE_RATIO^n
-// (40 × 1.6^n), same curve as tables. Every skill works from the start of
-// a run. Grey/noFunds only when the next price is unaffordable.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -147,7 +144,6 @@ test('tips, chalkboard, and tables stay uncapped; color stops at the palette', (
   for (const id of ['destroyPile', 'swapPiles', 'refreshPool', 'queueSkip', 'tables', 'tips', 'previewPool']) {
     assert.equal(G.skillUsePrice(s, id), expect, id);
   }
-  // v2.24.5: Unlock starts at 10000.
   assert.equal(G.skillUsePrice(s, 'unlockLocks'), 10000 * 1.6 ** 4);
   assert.equal(G.runTilePrice(s), expect);
   assert.equal(G.colorPrice(s), 1000 * 1.6 ** 4);

@@ -1,22 +1,12 @@
-// ============================================================================
-// Cozy Cat Café × HexaSort — TDD suite v2 (node:test, no deps).
-// Blocks T11-T12 only (T13-T15 are added by another agent).
-// Source of truth: RULES.md §3 (T11..T12) + §2 (R12, R13, R15).
-// v2 imports are DYNAMIC (inside before()) so the file parses/loads even
-// while exports are missing; each test fails RED with a clear message.
-// Run: node --test test/
-// ============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-let G; // module ../js/game.js (loaded in before())
+let G;
 test.before(async () => { G = await import('../js/game.js'); });
 
-// helper rng: same mulberry32 as rules.test.js
 const mulberry32 = s => () => { s|=0; s=s+0x6D2B79F5|0; let t=Math.imul(s^s>>>15,1|s); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; };
 const rng = (n) => mulberry32(n);
 
-// RED gate: assert an export exists, else fail with clear message
 const need = (fnName) => {
   const v = G[fnName];
   if (fnName === 'CONFIG') {
@@ -26,19 +16,15 @@ const need = (fnName) => {
   assert.ok(typeof v === 'function', `RED: export ${fnName} no implementado`);
 };
 
-// openRun (v1) RETORNA el estado con run abierto; sin él s.run es null
 const mkGame = (seed = 1) => {
   const s = G.createGame({ progress: { coins: 1000 } });
   if (typeof G.openRun === 'function') return G.openRun(s, rng(seed)) || s;
   return s;
 };
 
-// board: array de 7 celdas {id:'c0'.., stack, blocked}; cellId = índice numérico
-// (así funciona la v1: board[cellId]).
 const unwind = (ret, fallback) =>
   (ret && ret.state) ? ret.state : (ret && ret.progress ? ret : fallback);
 
-// Auto-serve is always on. Park visible orders so a fixture stack is not eaten.
 function parkOrders(s) {
   const park = (o) => { if (o) { o.color = 10; o.qty = 99; } };
   if (s && s.run) {
@@ -48,24 +34,14 @@ function parkOrders(s) {
   return s;
 }
 
-// ---------------------------------------------------------------------------
-// T11 — Merge y cascada [R12]
-// ---------------------------------------------------------------------------
 test('T11a [R12.1 v3] merge hexasort: grupo contiguo fusiona; fuente conserva sub-pila; target = no-receptor', () => {
   need('createGame'); need('placeStack'); need('resolveCascade');
-  // GIVEN: A = vecino con stack [2,2] (torre existente); D = destino con [1].
-  // placeStack pone [2] en D => grupo contiguo {A,D} tope 2. T1 empata (ambas
-  // ramas score 35) y el tie-break cozy prefiere el NO-receptor => target=A:
-  // la ficha colocada es absorbida por la torre; D conserva su sub-pila [1].
-  // v2.11 R12.4: la pila [2] colocada es MONOCOLOR => marca ancla. Para probar
-  // el árbitro T1/R2 SIN ancla se usa una pila multicolor (la pre-colocación
-  // con stack explícito era el método v2.2; el ancla cambió ese contrato).
   const s = mkGame();
   const A = s.run.board[0], D = s.run.board[1];
   A.stack = [2, 2];
   D.stack = [1];
   parkOrders(s);
-  const placed = G.placeStack(s, 1, 0, [5, 2]);   // multicolor, tope 2 => sin ancla
+  const placed = G.placeStack(s, 1, 0, [5, 2]);
   const src = unwind(placed, s);
   assert.deepEqual(src.run.board[1].stack, [1, 5, 2], 'RED: placeStack apila la pila en D sin fusionar');
   assert.deepEqual(src.run.board[0].stack, [2, 2], 'RED: placeStack NO muta al vecino');
@@ -80,10 +56,9 @@ test('T11b [R12.1] merge: vecino de tope color distinto NO se fusiona ni muta', 
   need('createGame'); need('placeStack');
   const s = mkGame();
   const A = s.run.board[0], D = s.run.board[1];
-  A.stack = [3, 3];        // color distinto del stack colocado (2)
+  A.stack = [3, 3];
   D.stack = [1];
   const beforeA = JSON.stringify(A.stack), beforeD = JSON.stringify(D.stack);
-  // (misma firma asumida que T11a; ver comentario AMBIGUA ahí)
   const ret = G.placeStack(s, 1, 0, [2]);
   const st = unwind(ret, s);
   assert.equal(JSON.stringify(st.run.board[0].stack), beforeA, 'RED: A (color distinto) no debe mutarse');
@@ -93,23 +68,20 @@ test('T11b [R12.1] merge: vecino de tope color distinto NO se fusiona ni muta', 
 test('T11c [R15.2 + R12.2] orden eslabon: auto-servir ANTES de evaluar umbral', () => {
   need('createGame'); need('placeStack'); need('resolveCascade');
   const s = mkGame();
-  // pedido pendiente flotante {color:2, qty:3}
   s.run.orders.length = 0;
   s.run.orders.push({ id: 'o11c', color: 2, qty: 3, cell: null, served: false });
-  s.run.activeClients = [s.run.orders[0]]; // v2.1-clients: solo visibles se sirven [R16.4]
+  s.run.activeClients = [s.run.orders[0]];
   const A = s.run.board[0], D = s.run.board[1];
   A.stack = [2, 2];
   D.stack = [1];
-  const ret = G.placeStack(s, 1, 0, [2]); // merge lleva tope de D a count 3 color 2
+  const ret = G.placeStack(s, 1, 0, [2]);
   const src = unwind(ret, s);
   const res = G.resolveCascade(src);
   const st = unwind(res, src);
-  // THEN: auto-servir consume exactamente 3 del tope de D, ANTES del umbral
   const Dtop = st.run.board[1].stack;
   assert.ok(!Dtop || Dtop.filter(c => c === 2).length === 0, 'RED: auto-serve debe consumir 3 del tope de D');
   const o = st.run.orders.find(o => o.id === 'o11c');
   assert.ok(o && o.served, 'RED: order.served debe ser true tras auto-servir');
-  // pay(order) = Math.round(5*3**1.25) = 20
   assert.equal(st.progress.coins, 1000 + Math.round(5 * 3 ** 1.25), 'RED: coins debe subir exactamente pay(order)=20');
 });
 
@@ -117,17 +89,16 @@ test('T11d [R12.2] resolveCascade es pura: {state, steps}; estable => steps 0 y 
   need('createGame'); need('resolveCascade');
   const s = mkGame();
   parkOrders(s);
-  s.run.board[0].stack = [1, 1]; // estable: sin merge ni threshold pendiente
+  s.run.board[0].stack = [1, 1];
   const snapshot = JSON.stringify(s);
   const res = G.resolveCascade(s);
   assert.ok(res && typeof res === 'object' && 'state' in res && 'steps' in res,
     'RED: resolveCascade debe retornar {state, steps}');
   assert.equal(res.steps, 0, 'RED: estado estable => steps === 0');
   assert.deepEqual(res.state, JSON.parse(snapshot), 'RED: resolveCascade no debe mutar el estado de entrada (deep-equal)');
-  // con una mutación pendiente itera hasta estabilizar
   const s2 = mkGame();
   parkOrders(s2);
-  s2.run.board[0].stack = Array.from({ length: 10 }, () => 4); // debris threshold pendiente
+  s2.run.board[0].stack = Array.from({ length: 10 }, () => 4);
   const res2 = G.resolveCascade(s2);
   assert.ok(res2.steps >= 1, 'RED: con mutación pendiente steps >= 1');
 });
@@ -146,20 +117,14 @@ test('T11e [R12.3] debris: grupo contiguo de 10 fichas color 1 => destruido y co
   assert.equal(st.progress.coins, coinsBefore + G.debrisPay(10), 'RED: un run de 10 paga ×4');
 });
 
-// ---------------------------------------------------------------------------
-// T12 — Auto-servir y pedidos flotantes [R13.1, R15.2]
-// ---------------------------------------------------------------------------
 test('T12a [R13.1] pedido sin order.cell es servible desde CUALQUIER celda', () => {
   need('createGame'); need('orderReadyOn');
   const s = mkGame();
-  // pedido flotante (sin cell / cell null)
   s.run.orders.length = 0;
   s.run.orders.push({ id: 'o12a', color: 2, qty: 3, cell: null, served: false });
-  s.run.activeClients = [s.run.orders[0]]; // v2.1-clients: solo visibles se sirven [R16.4]
-  // tope color 2 count 3 en la celda 3
+  s.run.activeClients = [s.run.orders[0]];
   s.run.board[3].stack = [1, 2, 2, 2];
   assert.equal(G.orderReadyOn(s, 'o12a', 3), true, 'RED: pedido flotante debe ser servible desde cualquier celda (c3)');
-  // y también desde otra celda distinta (c5)
   s.run.board[3].stack = [1];
   s.run.board[5].stack = [2, 2, 2];
   assert.equal(G.orderReadyOn(s, 'o12a', 5), true, 'RED: pedido flotante servible desde otra celda cualquiera (c5)');
@@ -167,14 +132,10 @@ test('T12a [R13.1] pedido sin order.cell es servible desde CUALQUIER celda', () 
 
 test('T12b [R15.2] match determinista: elige tope count mas cercano SIN exceder (luego menor disponible)', () => {
   need('createGame'); need('resolveCascade');
-  // v3/v2.13: topes NO adyacentes (celdas 0 y 10 — con 7 columnas la celda 7
-  // quedó adyacente a la 0, así que usamos 10 [fila r=-1]) para probar el
-  // matching del serve sin que el barrido global de merge los fusione antes.
-  // caso 1: topes count 3 (celda 0) y 4 (celda 10) => elige el de 3
   const s = mkGame();
   s.run.orders.length = 0;
   s.run.orders.push({ id: 'o12b', color: 2, qty: 3, cell: null, served: false });
-  s.run.activeClients = [s.run.orders[0]]; // v2.1-clients: solo visibles se sirven [R16.4]
+  s.run.activeClients = [s.run.orders[0]];
   s.run.board[0].stack = [2, 2, 2];
   s.run.board[10].stack = [2, 2, 2, 2];
   const res = G.resolveCascade(s);
@@ -183,11 +144,10 @@ test('T12b [R15.2] match determinista: elige tope count mas cercano SIN exceder 
   assert.equal(st.run.board[0].stack.length, 0, 'RED: debe elegir la celda con tope count 3 (cercano sin exceder)');
   assert.deepEqual(st.run.board[10].stack, [2, 2, 2, 2], 'RED: la celda no elegida queda intacta');
 
-  // caso 2: topes 5 y 6, qty 3 => elige el de 5 (menor disponible)
   const s2 = mkGame();
   s2.run.orders.length = 0;
   s2.run.orders.push({ id: 'o12b2', color: 2, qty: 3, cell: null, served: false });
-  s2.run.activeClients = [s2.run.orders[0]]; // v2.1-clients: solo visibles se sirven [R16.4]
+  s2.run.activeClients = [s2.run.orders[0]];
   s2.run.board[0].stack = [2, 2, 2, 2, 2];
   s2.run.board[10].stack = [2, 2, 2, 2, 2, 2];
   const res2 = G.resolveCascade(s2);
@@ -202,8 +162,8 @@ test('T12c [R4.3 v2] servir consume EXACTAMENTE qty del tope (excedente queda)',
   const s = mkGame();
   s.run.orders.length = 0;
   s.run.orders.push({ id: 'o12c', color: 2, qty: 3, cell: null, served: false });
-  s.run.activeClients = [s.run.orders[0]]; // v2.1-clients: solo visibles se sirven [R16.4]
-  s.run.board[0].stack = [2, 2, 2, 2, 2]; // tope count 5
+  s.run.activeClients = [s.run.orders[0]];
+  s.run.board[0].stack = [2, 2, 2, 2, 2];
   const ret = G.serveOrder(s, 'o12c', 0);
   assert.ok(!(ret && ret.error), 'RED: serveOrder debe servir el pedido');
   const st = unwind(ret, s);
@@ -217,7 +177,7 @@ test('T12d [R5.1] paga pay(order) exacto: Math.round(5*qty**1.25)', () => {
   const qty = 3;
   s.run.orders.length = 0;
   s.run.orders.push({ id: 'o12d', color: 2, qty, cell: null, served: false });
-  s.run.activeClients = [s.run.orders[0]]; // v2.1-clients: solo visibles se sirven [R16.4]
+  s.run.activeClients = [s.run.orders[0]];
   s.run.board[0].stack = [2, 2, 2, 2, 2];
   const coinsBefore = s.progress.coins;
   const ret = G.serveOrder(s, 'o12d', 0);
@@ -231,7 +191,7 @@ test('T12e [R15.2] a matching top always auto-serves', () => {
   const s = mkGame();
   s.run.orders.length = 0;
   s.run.orders.push({ id: 'o12e', color: 2, qty: 3, cell: null, served: false });
-  s.run.activeClients = [s.run.orders[0]]; // v2.1-clients: solo visibles se sirven [R16.4]
+  s.run.activeClients = [s.run.orders[0]];
   s.run.board[0].stack = [2, 2, 2];
   const res = G.resolveCascade(s);
   const st = unwind(res, s);
@@ -244,12 +204,12 @@ test('T12f [R4.3] serveOrder(state, orderId) without a cell still serves the clo
   const s = mkGame();
   s.run.orders.length = 0;
   s.run.orders.push({ id: 'o12f', color: 2, qty: 3, cell: null, served: false });
-  s.run.activeClients = [s.run.orders[0]]; // v2.1-clients: solo visibles se sirven [R16.4]
-  s.run.board[0].stack = [2, 2, 2, 2, 2]; // tope count 5
+  s.run.activeClients = [s.run.orders[0]];
+  s.run.board[0].stack = [2, 2, 2, 2, 2];
   const coinsBefore = s.progress.coins;
   let ret;
   try {
-    ret = G.serveOrder(s, 'o12f'); // firma manual v2: sin cellId
+    ret = G.serveOrder(s, 'o12f');
   } catch (e) {
     assert.fail('RED: serveOrder manual (state, orderId) sin cellId no implementado: ' + e.message);
   }

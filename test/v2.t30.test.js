@@ -1,6 +1,3 @@
-// v2.24.3 — clients ask for owned colors plus the next buyColor unlock,
-// capped at this run's palette (8). Buying past 8 does not add a creature.
-// A saved sitting with a 7-color palette keeps that cap until the next run.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -56,8 +53,6 @@ test('the next client color is the next buyColor unlock, not the roster', () => 
   assert.equal(s.run.palette.length, G.CONFIG.RUN_COLORS);
   assert.equal(s.run.palette.length, 8);
   assert.equal(s.progress.colorsOwned, 4);
-  // Logical colors are 1..k. buyColor only increments colorsOwned.
-  // The face of logical k is palette[k-1].
   assert.equal(G.runFaceColor(s, 5), s.run.palette[4]);
   const rosterBefore = s.run.rosterIndex;
   const bought = G.buyColor(s);
@@ -65,7 +60,6 @@ test('the next client color is the next buyColor unlock, not the roster', () => 
   assert.equal(bought.run.rosterIndex, rosterBefore);
   assert.equal(bought.run.palette.length, 8);
 
-  // Roster is stuck behind the purchase. The draw still includes the new next.
   const lag = structuredClone(s);
   lag.run.rosterIndex = 2;
   const at4 = drawnColors(lag, 11);
@@ -113,7 +107,7 @@ test('color locks at the palette and size-8 tips step by 0.20', () => {
 test('colorsOwned 8 and 9 stay inside the 8-color palette', () => {
   const htmlCap = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'js', 'game.js'), 'utf8');
   assert.match(htmlCap, /Math\.min\(owned \+ 1, rosterCeiling\(s\.run\)\)/);
-  assert.match(html, /GAME_VERSION = 'v2\.24\.39'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.40'/);
   assert.match(html, /All '\+colorRunCap\(state\)\+' colors unlocked/);
 
   const almost = open(27);

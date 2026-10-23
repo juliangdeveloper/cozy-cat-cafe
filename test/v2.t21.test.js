@@ -1,14 +1,3 @@
-// ============================================================================
-// Cozy Cat Café × HexaSort — TDD suite v2.11 (node:test, no deps).
-// Block T21 — ANCLA DEL JUGADOR [R12.4]: colocar una pila MONOCOLOR marca
-// run.anchor = celda; durante toda la cascada disparada por esa colocación,
-// TODO grupo contiguo que CONTENGA el ancla tiene como destino el ancla
-// (vecinos y vecinos-de-vecinos drenan su run de tope HACIA la baldosa del
-// jugador). Grupos sin ancla usan el árbitro T1/R2 normal. El ancla se limpia
-// al final de resolveCascade. swap/unlock no fijan ancla.
-// Fuente de verdad: RULES.md §R12.4.
-// Run: node --test test/v2.t21.test.js
-// ============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -34,25 +23,17 @@ const mkGame = (seed = 1) => {
   return parkOrders(unwind(G.openRun(s, rng(seed)), s));
 };
 
-// ---------------------------------------------------------------------------
-// T21a — ancla absorbe el tope del vecino: D=[1] recibe [2,2] monocolor; A
-// vecino con tope 2. Grupo {A,D}: el destino es D (ancla), NO la torre A.
-// Contrario al tie-break viejo (T18c): la colocada drena al ancla.
-// ---------------------------------------------------------------------------
 test('T21a [R12.4] ancla monocolor: la pila colocada drena al tope del vecino', () => {
   need('placeStack'); need('resolveCascade');
   const s = mkGame(1);
-  // v2.14-shape: núcleo jugable = 8,9,14,15,16,20,21 (q/r equivalentes al 2-3-2);
-  // A=8 (q0,r-1) y D=9 (q1,r-1) adyacentes y jugables.
   const A = s.run.board[8], D = s.run.board[9];
   A.stack = [2, 2];
   D.stack = [1];
-  const ret = G.placeStack(s, 9, 0, [2, 2]);          // monocolor 2
+  const ret = G.placeStack(s, 9, 0, [2, 2]);
   const src = unwind(ret, s);
   assert.equal(src.run.anchor, 9, 'RED: colocar monocolor debe marcar run.anchor=cellId');
   const res = G.resolveCascade(src);
   const st = unwind(res, src);
-  // D tras colocar = [1,2,2]; absorbe el run [2,2] de A => [1,2,2,2,2]
   assert.deepEqual(st.run.board[9].stack, [1, 2, 2, 2, 2],
     'RED: el ANCLA (D) debe absorber la racha de A => [1,2,2,2,2]');
   assert.deepEqual(st.run.board[8].stack, [],
@@ -61,108 +42,74 @@ test('T21a [R12.4] ancla monocolor: la pila colocada drena al tope del vecino', 
     'RED: el ancla debe eliminarse al final de la cascada');
 });
 
-// ---------------------------------------------------------------------------
-// T21b — drenaje de 2º grado: la cascada revela sub-pilas y siguen drenando
-// hacia el ancla. Ancla D=[1]; A=[2,2] y B=[2,3] vecinas del ancla. Coloco
-// [2,2] en D => grupo {A,B,D} tope 2 drena a D => D=[1,2,2,2,2,2], B revela
-// [3]. Si el 3 de B toca otra torre vecina de tope 3 (C=[3]) ese grupo NO
-// contiene el ancla => árbitro normal (T1/R2), el ancla NO interfiere.
-// ---------------------------------------------------------------------------
 test('T21b [R12.4] revelación de 2º grado: sub-pilas drenadas en eslabones siguientes', () => {
   need('placeStack'); need('resolveCascade');
   const s = mkGame(1);
-  // Geometría núcleo REAL (probe v2.14): 14-15-16 adyacentes en fila r=0; 8-15
-  // (dq1,dr1) y 9-15 (dq-1,dr1) también. Ancla = 15; A=14 y B=16 vecinas del ancla.
   const A = s.run.board[14], D = s.run.board[15], B = s.run.board[16];
   A.stack = [2, 2];
   D.stack = [1];
-  B.stack = [3, 2];            // tope 2 (entra al grupo), revela [3] al ceder
+  B.stack = [3, 2];
   const ret = G.placeStack(s, 15, 0, [2, 2]);
   const src = unwind(ret, s);
   const res = G.resolveCascade(src);
   const st = unwind(res, src);
-  // D tras colocar = [1,2,2]; absorbe run de A (2 fichas) + run de B (1 ficha)
   assert.deepEqual(st.run.board[15].stack, [1, 2, 2, 2, 2, 2],
     `RED: el ancla debe juntar AMBOS runs de 2 => [1,2,2,2,2,2], dio ${JSON.stringify(st.run.board[15].stack)}`);
   assert.deepEqual(st.run.board[14].stack, [], 'RED: A queda vacía');
   assert.deepEqual(st.run.board[16].stack, [3], 'RED: B conserva sub-pila [3]');
 });
 
-// ---------------------------------------------------------------------------
-// T21c — pila MULTICOLOR NO ancla: se conserva el árbitro T1/R2 (comportamiento
-// v2.10: la torre A absorbe por tie-break). run.anchor queda undefined/null.
-// ---------------------------------------------------------------------------
 test('T21c [R12.4] pila multicolor NO marca ancla: árbitro normal (regresión T18c)', () => {
   need('placeStack'); need('resolveCascade');
   const s = mkGame(1);
-  // v2.14-shape: A=8, D=9 jugables adyacentes
   const A = s.run.board[8], D = s.run.board[9];
   A.stack = [2, 2];
   D.stack = [1];
-  const ret = G.placeStack(s, 9, 0, [2, 5]);          // multicolor
+  const ret = G.placeStack(s, 9, 0, [2, 5]);
   const src = unwind(ret, s);
   assert.ok(!src.run.anchor, 'RED: multicolor NO debe marcar ancla');
   const res = G.resolveCascade(src);
   const st = unwind(res, src);
-  // Árbitro v2.10 intacto: el tope 2 de D se fusiona; T1/R2 puede elegir A.
   const tops = [st.run.board[8].stack, st.run.board[9].stack];
   const a = tops[0], d = tops[1];
   const dTop = d.length ? d[d.length - 1] : 0;
   assert.ok(
     (a.length === 3 && d.length === 1) || (d.length === 3 && a.length === 0) || (dTop !== 2),
     `RED: sin ancla el árbitro decide (A=${JSON.stringify(a)} D=${JSON.stringify(d)})`);
-  // Ningún estado intermedio debe haber tratado a D como destino forzoso.
   assert.ok(a.length !== 0 || d.length >= 1, 'RED: sanity boards');
 });
 
-// ---------------------------------------------------------------------------
-// T21d — grupo SIN ancla usa el árbitro normal: con ancla vigente (cascada en
-// curso tras colocar monocolor), un grupo lejano del mismo color se resuelve
-// por T1/R2, no por el ancla.
-// ---------------------------------------------------------------------------
 test('T21d [R12.4] grupo sin ancla usa T1/R2 normal aunque haya ancla vigente', () => {
   need('placeStack'); need('resolveCascade');
   const s = mkGame(1);
-  // Encontrar dos celdas jugables NO adyacentes entre sí y NO adyacentes al ancla 1
   const board = s.run.board;
   const adj = (x, y) => G.HEX_ADJ.some(([dq, dr]) =>
     board[y].q === board[x].q + dq && board[y].r === board[x].r + dr);
   const playable = board.map((c, i) => ({ c, i })).filter(x => !x.c.dormant && !x.c.blocked && x.i !== 0 && x.i !== 1);
   const far = playable.find(x => !adj(1, x.i));
   assert.ok(far, 'RED: precondition — se necesita una celda jugable no adyacente al ancla');
-  // Marcar ancla a mano (como si la cascada estuviera en curso tras colocar monocolor)
   s.run.anchor = 1;
   s.run.board[1].stack = [5, 5];
   far.c.stack = [5, 5];
-  // dar a la far una vecina con tope 5 para formar grupo sin ancla
   const nb = board.map((c, i) => ({ c, i })).find(x => x.i !== far.i && !x.c.dormant && !x.c.blocked && adj(far.i, x.i));
   assert.ok(nb, 'RED: precondition — la celda lejana necesita una vecina jugable');
   nb.c.stack = [5];
   const res = G.resolveCascade(s);
   const st = unwind(res, s);
-  // El grupo {far, nb} NO contiene el ancla: el árbitro T1/R2 decide. El ancla
-  // (torre 5,5 sin grupo) NO debe absorber nada del grupo lejano.
   const anchorLen = st.run.board[1].stack.length;
   assert.ok(anchorLen <= 2,
     `RED: el ancla absorbió fichas de un grupo sin ancla (stack=${JSON.stringify(st.run.board[1].stack)})`);
   assert.equal(st.run.anchor, undefined, 'RED: ancla eliminada al final');
 });
 
-// ---------------------------------------------------------------------------
-// T21e — NO-monocolor explícito: pila monocolor colocada por la FIRMA v2
-// (rngOrStack array) con un solo color SÍ ancla; con dos colores NO. Cubre
-// también el flujo pool (slot del tray).
-// ---------------------------------------------------------------------------
 test('T21e [R12.4] flujo pool: colocar del tray monocolor ancla; el ancla vive solo durante la cascada', () => {
   need('placeStack'); need('resolveCascade');
   const s = mkGame(1);
-  // Geometría real v2.14: 14-15 adyacentes. Pool monocolor [3,3] al slot 0; torre
-  // vecina de tope 3 en 15; ancla = 14.
   s.run.pool = [[3, 3], [], []];
   s.run.poolPlaced = 0;
   s.run.board[14].stack = [];
   s.run.board[15].stack = [3];
-  const ret = G.placeStack(s, 14, 0);                 // firma pool: (state, cellId, slot)
+  const ret = G.placeStack(s, 14, 0);
   const src = unwind(ret, s);
   assert.equal(src.run.anchor, 14, 'RED: pool monocolor debe marcar ancla');
   const res = G.resolveCascade(src);
@@ -172,9 +119,6 @@ test('T21e [R12.4] flujo pool: colocar del tray monocolor ancla; el ancla vive s
   assert.equal(st.run.anchor, undefined, 'RED: ancla eliminada tras cascada');
 });
 
-// ---------------------------------------------------------------------------
-// T21f — swap NO marca ancla (regresión v2.6): useSwapPiles no deja run.anchor
-// ---------------------------------------------------------------------------
 test('T21f [R12.4] swap no marca ancla', () => {
   need('useSwapPiles'); need('resolveCascade');
   const s = mkGame(1);

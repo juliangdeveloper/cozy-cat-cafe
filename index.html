@@ -5,10 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Cozy Cat Café × HexaSort</title>
 <style>
-/* ============================================================
-   Cozy Cat Café × HexaSort — Warm Vintage Café (STYLE_GUIDE)
-   All colors come from the palette tokens. No off-token hexes.
-   ============================================================ */
 :root{
   --hex-pointy:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
   --hex-flat:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);
@@ -17,7 +13,7 @@
   --accent:#f6a7c1; --accent-2:#ffb2c1; --highlight:#fff5b2;
   --tile-mint:#7fd6a4; --tile-blue:#7cc4f5; --tile-pink:#ff8fa3; --tile-blush:#ffab72;
   --tile-lavender:#c49ade; --tile-cream:#f0d46e;
-  --tile-denim:#2c6eb0; --tile-teal:#1f8f81; --tile-pine:#14532d; --tile-orchid:#9932cc; /* v2.6.1 colores 7..10 */
+  --tile-denim:#2c6eb0; --tile-teal:#1f8f81; --tile-pine:#14532d; --tile-orchid:#9932cc;
   --ink:#794835; --ink-soft:#a06e52; --success:#a8e1d4; --danger:#c96a5a;
   --lock:#a0928a; --shadow:rgba(121,72,53,.25);
   --font-display:'Baloo 2',system-ui,'Segoe UI',sans-serif;
@@ -27,10 +23,6 @@
 html,body{margin:0;padding:0;height:100%;overflow:hidden}
 body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
   height:100%;touch-action:manipulation}
-/* v2.24.13 — the stage is the visible viewport. Safe areas sit outside the
-   column. fitFrame() fills that box on a phone and scales one 375×812 frame
-   on a larger screen. Viewport-height units are not used: Safari's large
-   viewport and a transformed 812px frame hid the tray under the skill bar. */
 #stage{position:fixed;left:0;top:0;width:100%;height:100%;overflow:hidden;
   background:var(--bg-primary);visibility:hidden;
   padding:env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px)}
@@ -38,7 +30,6 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
 #app{width:100%;height:100%;max-width:none;margin:0;padding:0;
   display:flex;flex-direction:column;min-height:0;overflow:hidden}
 
-/* top bar */
 .topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;flex-wrap:nowrap;gap:4px;
   padding:4px 0;background:rgba(247,209,225,.94);backdrop-filter:blur(5px);
   border-bottom:2px solid var(--wood)}
@@ -56,9 +47,6 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
 .mute-ico,.flag-ico{display:block;width:18px;height:18px}
 .chip.dropping{background:var(--highlight);transition:transform .42s cubic-bezier(.2,.8,.2,1)}
 
-/* v2.22.4 — one chrome row. v2.24.9: calamity is a thin track above the
-   clients. The icon rides left to right with progress and shifts from calm
-   (success) toward danger as calamityForecast().progress climbs. */
 .topbar .chip{min-height:40px;padding:2px 8px}
 .cal-row{flex:0 0 auto;margin:2px 0 0;height:22px}
 .cal-track{position:relative;display:block;width:100%;height:22px;min-height:22px;
@@ -83,7 +71,6 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
 .hdr-tools{display:flex;flex:0 0 auto;align-items:center;gap:2px;margin-left:auto}
 .hdr-tools .iconbtn{width:40px;height:40px;min-width:40px;min-height:40px;padding:0;font-size:16px;border-radius:10px}
 .hdr-tools .mute-ico,.hdr-tools .flag-ico{width:18px;height:18px}
-/* v2.24.7: every header icon button is the same 40×40 chrome. */
 .topbar .hdr-ico{width:40px;height:40px;min-width:40px;min-height:40px;max-width:40px;padding:0;margin:0;
   border:2px solid var(--ink);border-radius:10px;box-shadow:0 2px 0 var(--wood-dark);
   display:flex;align-items:center;justify-content:center;flex:0 0 auto}
@@ -109,8 +96,6 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
 .tip-table{width:100%;border-collapse:collapse;margin:0 0 10px;font-size:13px;font-variant-numeric:tabular-nums}
 .tip-table th,.tip-table td{padding:3px 6px;text-align:right;font-weight:800;border-bottom:1px solid color-mix(in srgb, var(--ink) 18%, transparent)}
 .tip-table th:first-child,.tip-table td:first-child{text-align:left}
-/* Skill clip: 110×70 art at 2 CSS px, opening inset 5 (200×120). The cat
-   sits above the frame (native left 81, top -13), so the frame overflows. */
 .skill-clip{display:flex;justify-content:center;margin:18px 0 12px;overflow:visible}
 .skill-clip[hidden]{display:none!important}
 .skill-clip-frame{position:relative;width:220px;height:140px;overflow:visible;flex:0 0 auto}
@@ -166,7 +151,6 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
 .foot{text-align:center;font-size:11px;color:var(--ink-soft);font-weight:700;margin:4px 0 2px;flex-shrink:0}
 .order-card.legendary{box-shadow:0 0 0 3px var(--highlight),0 3px 0 var(--shadow)}
 
-/* buttons */
 .btn{font-family:var(--font-ui);font-weight:800;border:2px solid var(--ink);cursor:pointer;border-radius:16px;
   box-shadow:0 4px 0 var(--wood-dark);color:var(--ink);transition:transform .12s,box-shadow .12s,filter .12s;position:relative}
 .btn:hover{filter:brightness(1.05);transform:translateY(-2px)}
@@ -174,13 +158,11 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
 .btn-primary{background:var(--accent);font-family:var(--font-display);font-weight:800;font-size:22px;
   width:100%;min-height:64px;padding:0 24px}
 .btn-sec{background:var(--panel);font-weight:800;font-size:14px;min-height:46px;padding:0 14px}
-/* Import is a file label. Its text matches Export; the button box stays .btn-sec. */
 #saveModal label.btn{display:flex;align-items:center;justify-content:center;text-align:center;
   font-family:var(--font-display);font-weight:800;font-size:19px;color:var(--ink)}
 .btn-sm{min-height:38px;font-size:13px;padding:0 10px;border-radius:12px}
 button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 
-/* menu */
 .menu{min-height:92vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:14px;text-align:center;padding:20px 0}
 .logo{font-family:var(--font-display);font-weight:800;font-size:38px;line-height:1.05;
@@ -190,8 +172,6 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .tableau .o{min-width:46px;min-height:46px}
 .stats{font-size:14px;font-weight:700}
 
-/* scene — column that fills the viewport. The board-wrap takes whatever is left
-   after the header, orders, tray, and skills. */
 .scene{display:none}
 .scene.active{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
 .scene.active>.topbar,.scene.active>.cal-row,.scene.active>.orders,.scene.active>.pool,.scene.active>.preview,
@@ -211,7 +191,6 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   padding:3px 3px 2px;box-shadow:0 3px 0 var(--shadow);text-align:center;cursor:pointer}
 .order-card.served{opacity:.5}
 .order-card.ready{background:var(--highlight);animation:pulse 1.2s infinite}
-/* v2.4: pop del cliente mientras su pedido vuela hasta él */
 .order-card.grabbing{animation:grabPop .8s cubic-bezier(.4,0,.2,1)}
 @keyframes grabPop{0%{transform:scale(1)}40%{transform:scale(1.12);box-shadow:0 0 14px var(--highlight)}100%{transform:scale(1)}}
 .order-card.selected{border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-2),0 3px 0 var(--shadow)}
@@ -219,7 +198,6 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .seltag{color:var(--ink);font-weight:900;font-size:14px;line-height:1;animation:breathe 1s ease-in-out infinite}
 @keyframes pulse{0%,100%{box-shadow:0 3px 0 var(--shadow)}50%{box-shadow:0 0 0 4px rgba(255,245,178,.7)}}
 .catimg{width:32px;height:32px;object-fit:contain;margin:0 auto;display:block;animation:breathe 2s ease-in-out infinite}
-/* Pixel sprites sit at native size. The card, button, and veil boxes stay put. */
 .px{display:block;background-repeat:no-repeat;background-position:0 0;overflow:hidden;
   image-rendering:crisp-edges;image-rendering:pixelated}
 .px-avatar{display:block;width:32px;height:32px;margin:0 auto;line-height:0}
@@ -238,46 +216,27 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .bubble{display:flex;align-items:center;justify-content:center;gap:4px;background:var(--panel);border:2px solid var(--ink);
   border-radius:999px;padding:1px 6px;margin-top:2px;font-family:var(--font-display);font-weight:800;font-size:14px}
 .order-card.ready .bubble{background:var(--highlight)}
-/* hexagonal minitile (same nested clip-path technique as .ttile): outer hex
-   is a 30%-darkened rim, inner ::before hex carries the fill. Color arrives
-   via --mc (inline) so the rim mixes from the tile token. */
 .minitile{width:20px;height:17px;position:relative;display:inline-block;
   clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
   background:color-mix(in srgb,var(--mc),#000 30%)}
 .minitile::before{content:"";position:absolute;inset:2px;background:var(--mc);
   clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
 
-/* board — 2D honeycomb (flat-top hexagons). Axial {q,r} coords group cells into
-   rows. PERFECT honeycomb geometry for the drawn hex (box 2*--hx wide; clip-path
-   3%..97% => visible hex height = 0.94*--ch): same-row center distance must be
-   3*--hx (cell 2*--hx + 1*--hx gap), alternate rows must be offset exactly
-   1.5*--hx, and the row pitch must be 0.47*--ch (= half of the visible hex
-   height) so every slanted AND flat edge of neighbor hexes coincides exactly
-   (zero gaps, zero overlap). Rows are ABSOLUTELY positioned from the axial row
-   index (r - minR); they must NOT be flex-centered per row — independent
-   per-row centering breaks the half-hex offset between rows. */
-/* v2.24.4 — the wrap is the board's budget. JS sets --hx on #board so the
-   lattice, including the stack lift, fits this box. Scroll only if the
-   tappable minimum still cannot. Tray tiles do not inherit this size. */
 .board-wrap{flex:1 1 auto;min-height:0;min-width:0;overflow:hidden;padding:4px 2px;position:relative;z-index:6;
   display:flex;align-items:flex-start;justify-content:center;overflow-anchor:none}
 :root{ --hx:34px; --cw:calc(var(--hx)*1.732); --ch:calc(var(--hx)*2); }
 .board{position:relative;margin:0;flex:0 0 auto;--hexclip:var(--hex-pointy);
   --cw:calc(var(--hx)*1.732);--ch:calc(var(--hx)*2)}
 .board.flat,.cell.hex-flat{--hexclip:var(--hex-flat)}
-.boardrow{position:absolute;display:flex;gap:0} /* pointy: celdas contiguas (centros √3*hx) */
+.boardrow{position:absolute;display:flex;gap:0}
 .cell{position:relative;width:var(--cw);height:var(--ch);cursor:pointer;flex:0 0 auto}
 .hexbg{position:absolute;inset:0;background:var(--wood);clip-path:var(--hexclip)}
 .cell.blocked .hexbg{background:var(--lock)}
-/* true hexagon borders: state colors fill the OUTER hex (--hb) and an inner
-   ::after hex (inset --hbw) re-covers the center -> a perfect 6-sided ring.
-   A box-shadow inset paints a rectangular frame that clip-path only trims. */
 .cell.calm .hexbg{--hb:var(--danger);filter:drop-shadow(0 0 4px var(--danger))}
 .cell.targetable:not(.blocked) .hexbg{--hb:var(--highlight);filter:drop-shadow(0 0 4px var(--highlight))}
 .cell.targetmode .hexbg{--hb:var(--danger);filter:drop-shadow(0 0 4px var(--danger))}
 .cell.swapmode .hexbg{--hb:var(--tile-blue);filter:drop-shadow(0 0 4px var(--tile-blue))}
 .cell.serve-target:not(.blocked) .hexbg{--hb:var(--accent-2);filter:drop-shadow(0 0 4px var(--accent-2))}
-/* v2.21.1 — selected order: glow only on cells the rules already accept. */
 .cell.order-glow:not(.blocked) .hexbg{--hb:var(--highlight);
   filter:drop-shadow(0 0 8px var(--highlight)) drop-shadow(0 0 2px var(--accent-2));
   animation:orderGlow 1.2s ease-in-out infinite}
@@ -298,14 +257,7 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .cell.casc .hexbg::after,.expand-slot .hexbg::after{
   content:"";position:absolute;inset:var(--hbw,3px);background:inherit;
   clip-path:var(--hexclip)}
-/* stacks are CENTERED on the hex and lifted upward via --lift (one shared
-   formula: tile i gets --lift:-i*step) — same clip-path as .hexbg so a single
-   tile covers its hex exactly. */
 .stack{position:absolute;inset:0;z-index:2;pointer-events:none}
-/* v2.1 — ficha 3D por BISEL (opción 2): .tile NO se clipea; dos capas:
-   ::before = costado/extrusión (hex oscuro desplazado hacia abajo) y
-   <i class=tface> = cara superior (rim oscuro + fill --tc via su ::before).
-   Todas las fichas llevan el mismo bisel → el top deja de verse "plano". */
 .tile{position:absolute;left:50%;top:50%;translate:-50% calc(-50% + var(--lift,0px));width:var(--cw);height:var(--ch)}
 .tile::before{content:"";position:absolute;inset:0;background:color-mix(in srgb,var(--tc),#000 30%);
   clip-path:var(--hexclip);
@@ -316,9 +268,6 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .tface::before{content:"";position:absolute;inset:1.5px;
   background:linear-gradient(180deg,color-mix(in srgb,var(--tc),#fff 16%),var(--tc) 55%);
   clip-path:var(--hexclip)}
-/* Guest food on the top face. The drawing is the approved 19×19 sprite
-   (16px grid plus the outline). Hexes of 28 and up show it at 38px, exactly 2×,
-   nearest-neighbor only. The soft tile texture is the same sheet's marks. */
 .ttex{position:absolute;inset:1.5px;z-index:1;pointer-events:none;display:block;
   background-repeat:no-repeat;background-position:center;background-size:100% 100%;
   image-rendering:crisp-edges;image-rendering:pixelated}
@@ -348,8 +297,6 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .tfood[data-food="10"]{background-image:url('./assets/pixel/foods/10.png')}
 .board.food-lg .tile .tfood{width:38px;height:38px;background-size:38px 38px}
 .ttile .tfood{width:19px;height:19px;background-size:19px 19px;transform:translate(-50%,-60%)}
-/* Run count rides the top tile; the total sits on the front lip.
-   Both are board-level so a front hex cannot cover them. */
 .runbadge,.totalbadge{position:absolute;z-index:80;pointer-events:none;display:inline-flex;
   align-items:center;justify-content:center;gap:2px;background:var(--highlight);
   border:2px solid var(--ink);border-radius:999px;color:var(--ink);
@@ -360,9 +307,6 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .totalbadge{translate:-50% -100%}
 .runbadge i{width:0.72em;height:0.72em;flex:0 0 auto;background:var(--tc);
   border:1px solid var(--ink);border-radius:2px}
-/* Hidden tiles of a tall pile. Same box and bevel as the bottom food tile,
-   solid wood, no plank hatch. A hatch on the hex point shows up as a strip
-   on the cell below. */
 .woodbase{position:absolute;left:50%;top:50%;translate:-50% -50%;width:var(--cw);height:var(--ch)}
 .woodside{position:absolute;inset:0;background:var(--wood-dark);clip-path:var(--hexclip);
   transform:translateY(calc(var(--hx)*0.055))}
@@ -378,21 +322,16 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .lockovl::before{content:"";position:absolute;inset:2px;background:var(--lock);
   clip-path:var(--hexclip)}
 .lockovl span{position:relative;z-index:1}
-/* expansion: free adjacent hex positions, highlighted; tap one to place a tile */
 .expand-slot .hexbg{background:var(--accent-2);opacity:.45;--hb:var(--accent)}
 .expand-slot{animation:pulseGlow 1.6s ease-in-out infinite}
 .expand-slot .exicon{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   color:var(--ink);font-size:24px;font-weight:900;pointer-events:none;z-index:2}
 @keyframes pulseGlow{0%,100%{box-shadow:0 0 0 0 rgba(246,167,193,.0)}50%{box-shadow:0 0 0 9px rgba(246,167,193,.4)}}
 
-/* v2 board dual (R14): dormant = visible pero apagada (se activa esta
-   partida, 40×1.6^n); v2.17 actmode solo re-habilita dormants elegibles (≥2 vecinos) */
 .cell.dormant{opacity:.55;pointer-events:none}
 .board.actmode .cell.dormant.act-eligible{pointer-events:auto;cursor:pointer;opacity:.85}
 .board.actmode .cell.dormant.act-eligible .hexbg{--hb:var(--tile-mint);filter:drop-shadow(0 0 4px var(--tile-mint))}
 
-/* v2.19.1 — 90°/270° view: flat-top hexes (pointy lattice rotated 90° = flat lattice).
-   Tiles stay upright; only cell placement + hex orientation change. */
 .board.flat .cell{width:var(--ch);height:var(--cw)}
 .board.flat .tile,.board.flat .woodbase{width:var(--ch);height:var(--cw)}
 .board.flat .hexbg,
@@ -419,13 +358,11 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .cell.hex-flat{width:var(--ch);height:var(--cw)}
 .cell.hex-flat .tile,.cell.hex-flat .woodbase{width:var(--ch);height:var(--cw)}
 
-/* v2 cascada animada (R12.2): anillo + pop en celdas afectadas por eslabón */
 .cell.casc .hexbg{--hb:var(--highlight);--hbw:4px;filter:drop-shadow(0 0 8px var(--highlight))}
 .cell.casc .stack{animation:cascPop .9s cubic-bezier(.4,0,.2,1)}
 .cell.peeking{z-index:80!important}
 .board-wrap.peek-live{overflow:visible!important;z-index:30}
 @keyframes cascPop{0%{transform:scale(1)}40%{transform:scale(1.14)}100%{transform:scale(1)}}
-/* v2.0 merge paso a paso: origen (from) y destino (to) del tirón visible */
 .cell.mergesrc .hexbg{--hb:var(--tile-blue);--hbw:4px;filter:drop-shadow(0 0 8px var(--tile-blue))}
 .cell.mergegoal .hexbg{--hb:var(--success);--hbw:4px;filter:drop-shadow(0 0 10px var(--success))}
 .mergearrow{position:absolute;inset:0;z-index:6;display:flex;align-items:center;justify-content:center;
@@ -435,8 +372,6 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .board.shake{animation:shake .45s cubic-bezier(.4,0,.2,1)}
 @keyframes shake{0%,100%{transform:translate(0,0)}20%{transform:translate(-7px,3px)}
   40%{transform:translate(6px,-4px)}60%{transform:translate(-4px,2px)}80%{transform:translate(3px,-1px)}}
-/* v2.4 — vuelo de ficha (centralizado, reúso: cascada de merge y cliente que
-   toma su pedido): mini-hex volando de un punto a otro del board */
 .flyhex{position:absolute;z-index:40;width:18px;height:15px;pointer-events:none;
   clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
   background:var(--fc,var(--tile-blue));animation:flyhex .8s cubic-bezier(.5,.05,.4,1) forwards}
@@ -445,30 +380,24 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   70%{opacity:1}
   100%{left:var(--x2);top:var(--y2);transform:translate(-50%,-50%) scale(.55);opacity:0}}
 
-/* v2 preview de pizarra (R15.1): fila de N próximas tandas (3 pilas c/u) */
 .preview{display:flex;gap:10px;padding:8px 10px;background:var(--wood);border:2px solid var(--ink);
   border-radius:12px;margin-top:8px;overflow-x:auto;align-items:center;scrollbar-width:none}
 .pv-lbl{font-size:11px;font-weight:800;color:var(--ink-soft);white-space:nowrap}
 .pv-tand{display:flex;gap:6px;flex:0 0 auto}
 .pv-pile{display:flex;flex-direction:column-reverse;gap:1px;align-items:center}
-/* preview tiles use the same hexagon treatment as the board tiles */
 .pv-t{width:22px;height:19px;position:relative;display:block;
   clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
   background:color-mix(in srgb,var(--tc),#000 30%)}
 .pv-t::before{content:"";position:absolute;inset:2px;background:var(--tc);
   clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
-/* nombre de la criatura sobre su pedido (R13.2 ROSTER) */
 .oname{font-size:10px;font-weight:800;color:var(--ink-soft);line-height:1.15;margin-top:2px}
 
-/* pool */
-/* v2.24.8: the tray paints above the board so a tall pile is never covered. */
 .pool{position:relative;z-index:12;overflow:visible;display:flex;align-items:flex-start;gap:6px;padding:8px;background:var(--wood);border:3px solid var(--ink);border-radius:14px;margin-top:6px;flex-shrink:0}
 .poolslot{flex:1;height:64px;display:flex;align-items:flex-end;justify-content:center;overflow:visible;background:rgba(248,241,213,.5);
   border:2px solid transparent;border-radius:10px;cursor:pointer}
 .poolslot.selected{background:var(--highlight);border:2px solid var(--accent)}
 .poolslot.drop{border:2px dashed var(--wood-dark)}
-.tray{position:relative;width:46px;height:100%} /* tiles are absolute, stacked from the bottom like the board */
-/* v2.1 — ttile 3D por bisel (misma técnica que .tile) */
+.tray{position:relative;width:46px;height:100%}
 .ttile{position:absolute;left:50%;bottom:0;translate:-50% 0;width:46px;height:40px}
 .ttile::before{content:"";position:absolute;inset:0;background:color-mix(in srgb,var(--tc),#000 30%);
   clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
@@ -476,7 +405,6 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .ttile .tface,.ttile .tface::before{transform:translateY(calc(var(--hx)*-0.015));clip-path:var(--hex-pointy)}
 .poolempty{font-size:10px;color:var(--wood-dark);font-weight:700;text-align:center;width:100%;align-self:flex-end;padding-bottom:6px}
 
-/* powers — v2.24.5: 9 skills, 5+4, not a carousel. Price sits in the button. */
 .powerbar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;margin:6px 0 4px}
 .pow{min-width:0;min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:1px;background:var(--panel);border:2px solid var(--ink);border-radius:12px;cursor:pointer;font-weight:800;
@@ -503,14 +431,12 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .pow[data-mode=swap].selected{outline:3px solid var(--tile-blue)}
 .pow[data-mode=refresh].selected{outline:3px solid var(--tile-mint)}
 .pow[data-mode=activate].selected{outline:3px solid var(--tile-mint)}
-/* v2.22.1 hold ~500ms: outline while the one-line skill note is about to open */
 .pow.holding{outline:3px solid var(--highlight)}
 .pow .holdfill{position:absolute;inset:0;border-radius:10px;pointer-events:none;
   background:conic-gradient(var(--tile-mint) calc(var(--hold-p,0)*1%), transparent 0);
   opacity:.55;mix-blend-mode:multiply}
-.hint{display:none} /* v2.7: la zona de mensajes bajo el tablero se elimina (#hint fuera del DOM) */
+.hint{display:none}
 
-/* modals */
 .overlay{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;
   background:rgba(121,72,53,.45);backdrop-filter:blur(2px);padding:16px}
 .overlay.show{display:flex}
@@ -523,7 +449,6 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .offreps{display:flex;flex-direction:column;gap:5px;font-size:14px;font-weight:700;margin:10px 0}
 .offreps div{display:flex;justify-content:space-between}
 
-/* toast & fx */
 .toast{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:70;background:var(--panel);
   border:2px solid var(--ink);border-radius:12px;padding:10px 16px;font-weight:800;font-size:13px;
   box-shadow:0 4px 0 var(--shadow);opacity:0;transition:opacity .25s;pointer-events:none;max-width:92%;
@@ -533,7 +458,6 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
   box-shadow:0 0 0 2px var(--ink)}
 @keyframes floatUp{0%{opacity:0;transform:translateY(8px) scale(.6)}20%{opacity:1}100%{opacity:0;transform:translateY(-40px) scale(1)}}
-/* v2.24 — coin gains stay big and readable (~+70 on a 390px phone): pop, hold, then a slow rise and fade. */
 @keyframes coinPop{
   0%{opacity:0;transform:translateY(16px) scale(.55) rotate(-8deg)}
   12%{opacity:1;transform:translateY(-2px) scale(1.22) rotate(4deg)}
@@ -551,50 +475,10 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .cf{position:absolute;width:9px;height:9px;border-radius:2px;opacity:0;animation:conf .85s ease-out forwards}
 @keyframes conf{0%{opacity:1;transform:translate(0,0) rotate(0)}60%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(720deg)}}
 
-/* v2.4: tablero RECTÁNGULO 8×4 pointy (32 celdas, 4 filas de 8) — extensión
-   real del panal ≈ 16.7hx (8 columnas √3·hx + offset de fila impar 0.866·hx,
-   con margen). El criterio es "máximo hx que quepa": hx = floor((vw-20)/16.7),
-   donde 20 = 6px padding #app (x2, móvil) + 4px padding .board-wrap (x2).
-   ESCALERA (v2.2, conservadora — sobre-dimensiona la extensión):
-     vw >= 761  -> 39   (39*16.7=651 <= 660)
-     vw >= 433  -> 23   (23*16.7=384 <= 394, vw 414)
-     vw >= 405  -> 22   (22*16.7=367 <= 370, vw 390)
-     vw >= 378  -> 20   (20*16.7=334 <= 340, vw 360)
-     vw >= 350  -> 17   (17*16.7=284 <= 300, vw 320)
-     vw <  350  -> 14
-   (hx fraccional imposible: el pitch del panal exige enteros) */
-/* v2.14: tablero RECTÁNGULO 6×6 pointy (36 celdas, 6 filas de 6) — extensión
-   REAL medida por renderBoard: boxW = hx·(5·1.732 + 0.866 + 2) = 11.526·hx
-   (6 columnas = 5 pitches √3·hx + 2·hx de la última; filas impares sobresalen
-   0.866·hx a la derecha). hx_max = floor((vw − 20) / 11.526).
-   Máximo honesto en vw 390 => 32px (32·11.526=369 <= 370) — +28% lineal vs
-   v2.13 (27px), +2.4× el área de ficha del 8×4 original (25px).
-   ESCALERA (verificada con audit DOM, sin overflow a los costados):
-     vw >= 761  -> 60   (60·11.526=692 <= 741)
-     vw >= 433  -> 35   (35·11.526=403 <= 421)
-     vw >= 405  -> 33   (33·11.526=380 <= 393)
-     vw >= 388  -> 32   (32·11.526=369 <= 376)
-     vw >= 373  -> 31   (31·11.526=357 <= 361)
-     vw >= 358  -> 30   (30·11.526=346 <= 346)
-     vw >= 342  -> 28
-     vw >= 326  -> 27
-     vw >= 310  -> 25
-     vw >= 294  -> 24
-     vw <  294  -> 23
-   (hx fraccional imposible: el pitch del panal exige enteros)
-   v2.24.4: these breakpoints size the TRAY bevel only (--hx on :root).
-   The board's --hx is computed from .board-wrap (width and height), max 60. */
-:root{ --hx:31px; }                          /* tray bevel at 375px; the board hx is fitted in JS */
+:root{ --hx:31px; }
 
-/* ============================================================
-   MOBILE-FIRST (<=560px): board-first, powerbar sticky inferior,
-   pedidos compactos, densidad -20%, font-ui 14px. El tablero es
-   lo primero: idle queda plegado (<details>) por defecto.
-   ============================================================ */
-/* Phone chrome. The frame is 375px wide, so this is the only layout. */
   #app{padding:0}
   body{font-size:14px}
-  /* v2.24.8 — header is one row. Calamity has its own row above the clients. */
   .topbar{padding:2px 2px;flex-wrap:nowrap;gap:3px}
   .topbar .chip{flex:0 1 auto;white-space:nowrap}
   .topbar .chip{font-size:13px;padding:2px 6px;min-width:0;min-height:36px}
@@ -609,15 +493,11 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   .logo{font-size:26px}
   .menu{min-height:88vh;gap:10px;padding:12px 0}
   .btn-primary{min-height:56px;font-size:19px}
-  /* secciones no críticas: sin márgenes verticales extra */
   .idledecor{margin:4px 0;padding:4px}
-  /* BOARD PRIORITARIO: wrap sin padding extra, centrado (board margin:0 auto) */
   .board-wrap{padding:0;align-items:flex-start}
   .cal-row{margin:1px 2px 0}
   .topbar,.cal-row,.orders,.pool,.preview,.powerbar,.foot,.victory-veil{flex:0 0 auto}
-  /* pedidos densos: 3 tarjetas, sprite chico; >3 => scroll horizontal */
   .orders{gap:4px;padding:1px 2px}
-  /* Same width as before (three across). Height matches that width. */
   .order-card{flex:0 0 calc((100% - 8px)/3);width:calc((100% - 8px)/3);aspect-ratio:1;height:auto;
     align-self:flex-start;min-height:0;padding:4px 3px;position:relative;
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
@@ -625,29 +505,22 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   .order-card .bubble{position:absolute;top:4px;right:4px;margin:0;padding:0 5px;gap:3px;font-size:13px}
   .order-card .bubble .minitile{width:16px;height:14px}
   .order-card .oname{font-size:12px;line-height:1.15;margin-top:0}
-  /* The guest hops inside the card. The card box, art fill, and badge stay put. */
   .order-card{position:relative;overflow:hidden;padding:0}
   .order-swap{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
     justify-content:center;gap:2px;padding:4px 3px;min-height:0}
   .seltag{font-size:12px}
-  /* Tray is a fixed strip. It does not grow into space the board leaves. */
   .pool{gap:4px;padding:4px;margin-top:2px;flex:0 0 auto;align-items:flex-end}
   .poolslot{height:82px;min-height:82px;max-height:82px}
   .tray{width:40px} .ttile{width:40px;height:34px}
   .preview{gap:8px;padding:6px 8px;margin-top:4px}
-  /* Skills stay in flow under the tray. Sticky inside the transformed frame
-     covered the pieces on iOS; the bar does not scroll. */
   .powerbar{position:relative;z-index:15;margin:2px 0 0;flex-shrink:0;
     padding:3px 2px 2px;
     background:var(--bg-primary);border-top:2px solid var(--wood);overflow:visible}
   .pow{min-height:48px;min-width:0}
   .pow-emoji{font-size:26px}
-  /* The first row keeps the 42px face the cropped drawings used.
-     Pixel icons stay 26px inside that face, so the bar keeps its height. */
   .powerbar .pow:nth-child(-n+5) .pow-face{min-height:42px}
   .foot{margin:0}
   .pow-cost{font-size:9px;padding:0 1px}
-  /* colapsables compactos (idle/decor) */
   .collap{margin:4px 0}
   .collap summary{cursor:pointer;font-size:12px;font-weight:800;color:var(--ink-soft);
     padding:4px 2px;list-style:none}
@@ -657,11 +530,6 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 @media(hover:none){.btn:hover{transform:none;filter:none}}
 @media(prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01s!important;transition:none!important}}
 @media(prefers-reduced-motion: reduce){.px-idle{animation:none!important;background-position:0 0!important}}
-/* The name is gone, so the guest art fills the card. The card box stays the
-   same size. The count badge stays in the corner.
-   The idle sheet is four frames (400% of the portrait). Percentage
-   background-position is (box − image) × p, so frame n sits at n/3 — not at
-   calc(100% * -n), which walks the sheet off the card. */
 .order-card .px-avatar{width:auto;height:100%;aspect-ratio:1;flex:1 1 auto;min-height:0;max-width:100%;max-height:100%;overflow:hidden}
 .order-card .px-avatar .px32{display:block!important;width:100%!important;height:100%!important;
   background-size:400% 100%!important;image-rendering:pixelated;animation-name:px-idle-fill}
@@ -673,18 +541,11 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
   79.762%,100%{background-position-x:100%}
 }
 
-/* v2.18 — first-run spotlight tutorial.
-   The dim (#tutOverlay, z-index 80) sits under the playable board and trays
-   (z-index 90) so placing still works. The hole and the step card are
-   siblings of that dim, not children, so their z-index is not trapped:
-   the outline (96) and the card (100) paint above the board. Skip/Next
-   live on the card. Hold 3s is visual-only on its step. */
 #tutOverlay{position:fixed;inset:0;z-index:80;display:none;pointer-events:none;background:transparent}
 #tutOverlay.show{display:block;pointer-events:auto;background:rgba(121,72,53,.55)}
 body.tut-on .board-wrap,body.tut-on .pool{position:relative;z-index:90}
 body.tut-on .tut-spot{position:relative;z-index:90;outline:3px solid var(--highlight);border-radius:12px}
 body.tut-on .tut-spot-block{pointer-events:none!important}
-/* Mute stays tappable during the spotlight. The header sits above the dim. */
 body.tut-on .topbar{z-index:90}
 body.tut-on .topbar .chip,
 body.tut-on .topbar #btnSave,
@@ -703,13 +564,10 @@ body.tut-on .powerbar.tut-spot{z-index:90}
 .tut-actions{display:flex;gap:10px;justify-content:center}
 .tut-actions .btn{flex:1;min-height:44px}
 .tut-step{display:block;text-align:center;font-size:11px;font-weight:700;color:var(--ink-soft);margin-bottom:6px}
-/* Tutorial paw: 32×32 art at 2 CSS px. Hotspot is the leading toe tip. */
 .tut-paw{position:fixed;z-index:97;width:64px;height:64px;pointer-events:none;
   image-rendering:pixelated;background-repeat:no-repeat;background-position:0 0}
 .tut-paw[hidden]{display:none!important}
 
-/* Board and tray skin. Paint only: no width, height, padding, margin, gap, or border-width.
-   1 art px = 2 CSS px. Every image uses image-rendering: pixelated. */
 .board-wrap{
   background:url(./assets/board-tray/img/board_wood_tile.png) 0 0/192px 88px repeat;
   image-rendering:pixelated;
@@ -853,31 +711,20 @@ body.tut-on .powerbar.tut-spot{z-index:90}
 </div></div>
 <script src="./vendor/howler.min.js"></script>
 <script type="module">
-// ===========================================================================
-// Cozy Cat Café × HexaSort — APP (DOM + browser lifecycle only).
-// Pure GAME LOGIC is IMPORTED from ./js/game.js (headless-testable).
-// Sprites come from the sprite map; any MISSING sprite is generated as a code
-// placeholder (solid palette tile) so the game runs 100% without art (G7).
-// ===========================================================================
 import {
   createGame, CONFIG, placeStack, serveOrder, closeRun, openRun, buySkill,
   buyMultiplier, useDestroyPile, useSwapPiles, useRefreshPool, buyExpansion,
-  useUnlockLocks,                    // v2.8 R7.8: Unlock 🔓 (candados de calamidad)
-  useClearBoard, useUndoMove, useRotateBoard, // v2.24 Clear board + Undo + free rotate
+  useUnlockLocks,
+  useClearBoard, useUndoMove, useRotateBoard,
   buyIdleUpgrade, tickIdle, applyOffline, colorsUnlocked,
-  buyColor, colorPrice, colorRunCap, tipPrice, previewPrice, skillUsePrice, skillUseCount, // v2.22 pay-per-use
-  SKILL_BAR_ORDER, // v2.24.7: fixed bar, sorted once by starting price
+  buyColor, colorPrice, colorRunCap, tipPrice, previewPrice, skillUsePrice, skillUseCount,
+  SKILL_BAR_ORDER,
   serializeState, deserializeState, importSave, mulberry32,
-  // v2 — R13/R14/R15: roster, cascada, baldosas, preview
   ROSTER, resolveCascade, activateTile, runTilePrice, previewPool, pay,
-  // v2.17 — 2-neighbor unlock + hold-Tables batch
   isActivateEligible, unlockedNeighborCount, sweepDebrisRuns,
   HEX_ADJ, topGroup, stackVisual, stackStepPx, stackLiftPadPx, trayStackShiftPx, orderReadyOn,
-  // v3 — R12.1: motor de merge hexasort original (espejo cascadeLinks)
   bfsMergeGroups, computeBestChain, r2Target,
-  // v2.1 — R16/R17: cola de clientes
   totalClients, runVictory, useQueueSkip,
-  // v2.21 — meta efímera, pedidos, oleada 2, victoria
   restartRun, beginVictory, clearTables, calamityForecast,
   maybeBoardShuffle, applyBoardShuffle,
   tipLevel, tipPayTable, runFaceColor, guestForColor, topRuns,
@@ -898,31 +745,26 @@ const ui = { slot:false, mode:null, swapFirst:null, servingOrder:null, placeTile
 
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
-// v2.24.6: 1000+ abbreviated (1K, 1.5K, 1M, 1B, 1T, then 1e15 style).
 const fmt = n => {
   const v = Math.max(0, Math.floor(n||0));
   if(v < 1000) return String(v);
   const U = ['K','M','B','T','Qa','Qi','Sx','Sp','Oc','No','Dc'];
   let i = -1, x = v;
   while(x >= 1000 && i < U.length-1){ x /= 1000; i++; }
-  // floor to 1 decimal so the label never overstates the purse
   let d = Math.floor(x*10)/10;
   if(d >= 1000 && i < U.length-1){ d = 1; i++; }
   const t = (d >= 100 ? Math.floor(d) : d).toString();
   return t.replace(/\.0$/,'')+U[i];
 };
 const TILE_CSS = {1:'--tile-mint',2:'--tile-blue',3:'--tile-pink',4:'--tile-blush',5:'--tile-lavender',6:'--tile-cream',
-  7:'--tile-denim',8:'--tile-teal',9:'--tile-pine',10:'--tile-orchid'}; // v2.6.1: 7..10 existian en game.js pero caian al fallback mint
+  7:'--tile-denim',8:'--tile-teal',9:'--tile-pine',10:'--tile-orchid'};
 function faceColor(logical){ return runFaceColor(state, logical); }
 const tileVar = c => TILE_CSS[faceColor(c)]||'--tile-mint';
-// A face id's own swatch. Logical colors go through tileVar; a face that was
-// already resolved must not be looked up in the run palette a second time.
 function faceToken(face){ return TILE_CSS[face]||'--tile-mint'; }
 function creatureName(logical){
   return guestForColor(state, logical).name;
 }
 
-// ---------------- sprite registry + placeholder fallback --------------------
 const SPR = { byId:{}, img:null, w:0, h:0 };
 const PLH = { idle_tips_plate:'#e6c87c', idle_fame_star:'var(--tile-blue)', worker_tray:'var(--tile-mint)' };
 async function loadSprites(){
@@ -934,10 +776,6 @@ async function loadSprites(){
   await new Promise(ok=>{ const im=new Image();
     im.onload=()=>{SPR.img=im; ok()}; im.onerror=()=>ok(); im.src='./assets/sprites.png'; });
 }
-// returns an HTML element for an existing sprite (cropped from sheet), or a
-// palette placeholder <div> for any sprite MISSING from assets/sprites.json.
-// Opaque drawing inside each 128px skill cell, so the icon can fill the button
-// instead of shrinking a mostly empty tile. Same visual weight as the emoji skills.
 const SKILL_ART = {
   power_destroy: {x:44, y:54, w:40, h:64},
   power_swap: {x:36, y:81, w:56, h:38},
@@ -948,8 +786,6 @@ function skillArt(id){
   const s = SPR.byId[id];
   const art = SKILL_ART[id];
   if(!s || !SPR.img || !art) return spr(id, 26);
-  // Match the 26px emoji skills. The short side reaches that size, and a
-  // very wide or tall drawing stops at the button instead of spilling out.
   const BOX = 28, MIN = 26, MAXW = 64, MAXH = 42;
   let scale = BOX / Math.max(art.w, art.h);
   if(Math.min(art.w, art.h) * scale < MIN) scale = MIN / Math.min(art.w, art.h);
@@ -964,7 +800,6 @@ function spr(id, size=44){
   const s = SPR.byId[id];
   if(s){
     if(SPR.img){
-      // crop the cell to `size` px by scaling the whole sheet to match cell scale
       const scale = size/128;
       return `<div class="o" title="${id}" style="width:${size}px;height:${size}px;
         background:url('${SPR.img.src}') no-repeat;
@@ -973,7 +808,6 @@ function spr(id, size=44){
     }
     return `<div class="o" style="width:${size}px;height:${size}px;border-radius:10px;border:2px solid var(--ink)"></div>`;
   }
-  // CODE PLACEHOLDER — solid palette tile faithful to the style guide
   const col = PLH[id] || 'var(--lock)';
   const sh = short(id);
   return `<div class="o" title="${id} (placeholder)" style="width:${size}px;height:${size}px;
@@ -983,7 +817,6 @@ function spr(id, size=44){
 }
 function short(id){ return id.split('_').map(w=>w[0]).join('').toUpperCase(); }
 
-// Pixel roster + skill icons (assets/pixel/manifest.json). Sizes stay 1:1.
 const PIXEL = { customers:{}, skills:{}, host:null };
 function packPixel(size, urlFor){
   if(!size) return null;
@@ -1052,7 +885,6 @@ async function loadPixelArt(){
   }catch(e){}
 }
 
-// ---------------- fx & toast ------------------------------------------------
 function toast(msg, colorId){
   const t=$('#toast');
   t.replaceChildren();
@@ -1069,9 +901,6 @@ function toast(msg, colorId){
   t._h=setTimeout(()=>t.classList.remove('show'), colorId?2400:1500);
 }
 const COIN_GAIN_MS = 2400;
-// coinPop stays opaque while it rises ~22px and scales past 1. Keep that travel
-// inside the viewport: the counter sits on the top edge, and a cell at the
-// board's side would otherwise lose a 36px "+70 🪙" to overflow.
 const COIN_GAIN_RISE = 28;
 const DESIGN_W = 375;
 const DESIGN_H = 812;
@@ -1082,10 +911,6 @@ function frameMetrics(){
   const s=r.width/(frame.offsetWidth||DESIGN_W)||1;
   return {s,w:frame.clientWidth,h:frame.clientHeight,l:r.left,t:r.top,host:frame};
 }
-// The stage tracks the visual viewport (Safari chrome changes its height and
-// offset). Its padding is the notch / home indicator, so the column itself is
-// only the area the player can see. A phone fills that box; a larger screen
-// scales the 375×812 column from the top-left of the same box.
 function fitFrame(){
   const stage=document.getElementById('stage');
   const frame=document.getElementById('frame');
@@ -1099,8 +924,6 @@ function fitFrame(){
   stage.style.height=vh+'px';
   stage.style.right='auto';
   stage.style.bottom='auto';
-  // clientWidth includes padding. Absolute children are placed from the
-  // padding edge, so the column has to be inset by the safe area itself.
   const cs=getComputedStyle(stage);
   const padL=parseFloat(cs.paddingLeft)||0;
   const padT=parseFloat(cs.paddingTop)||0;
@@ -1110,7 +933,6 @@ function fitFrame(){
   const boxH=stage.clientHeight-padT-padB;
   if(!(boxW>0) || !(boxH>0)) return;
   const app=document.getElementById('app');
-  // Subpixel visual viewports (375.8×812.7) are still the phone, not a scale-up.
   const phone=boxW<=DESIGN_W+2 && boxH<=DESIGN_H+2;
   frame.style.transformOrigin='0 0';
   if(phone){
@@ -1133,8 +955,6 @@ function fitFrame(){
   }
   stage.style.visibility='visible';
   if(!state || !state.run || ui.fitting) return;
-  // The tray is pinned to the board, so the wrap's box does not change when
-  // the viewport shrinks. Refit from the frame size or the column overflows.
   const sig=Math.round(frame.offsetWidth)+'x'+Math.round(frame.offsetHeight);
   if(sig===ui.frameBox){ placeBoardDecor(); return; }
   ui.frameBox=sig;
@@ -1147,7 +967,6 @@ function pinCoinGain(el, e){
   box.host.appendChild(e);
   const r = el.getBoundingClientRect();
   const w = e.offsetWidth, h = e.offsetHeight;
-  // coinPop peaks at scale 1.22, which paints past the layout box.
   const padX = 8 + Math.ceil(w * 0.11);
   const padY = 8;
   let left = (r.left - box.l) / box.s + (r.width / box.s) / 2 - w / 2;
@@ -1195,12 +1014,10 @@ const ERRT={ noFunds:'Not enough coins', blocked:'That tile is locked', locked:'
   noUses:'No uses left this café', notReady:'Those pieces don\'t match it / wrong color', emptyPool:'Nothing to place',
   emptySlot:'Tray slot is empty', noOrder:'No order there', noCell:'No tile there', same:'Pick two different tiles', owned:'Already owned',
   noKind:'Unknown expansion', noSystem:'Unknown system', maxed:'Maxed out',
-  maxUses:'Max uses per run reached (5)',   // v2.4 tope de usos por skill
+  maxUses:'Max uses per run reached (5)',
   needTwoNeighbors:'Need 2 unlocked neighbor tables', noneEligible:'No eligible tables nearby',
   nothingToUndo:'Nothing to undo.', empty:'The board is already clear.' };
 const err = r => toast(ERRT[(r&&r.error)||''] || (r&&r.error)||'');
-// v2.4.1 — pasadas de estabilización "apenas entre": resuelve cascadas pendientes
-// (clientes recién entrados con tope servible) con animación, hasta estabilizar.
 async function settlePasses(){
   for(let guard=0; guard<5; guard++){
     const nxt=resolveCascade(state);
@@ -1346,19 +1163,10 @@ function glideBoard(from, oldPos, token){
   setTimeout(finish, 2100);
 }
 
-// ============================================================================
-// MENU
-// ============================================================================
-// v2.21 — there is no menu. renderMenu stays as a name so old hooks fall
-// through into the single play screen.
 function renderMenu(){ renderRun(); }
 
-// ============================================================================
-// RUN SCENE
-// ============================================================================
 function renderRun(){
   const won = state.run && state.run.phase === 'victory';
-  // A guest leave/enter is already running. Rebuilding the row would restart it.
   const prevOrders = document.getElementById('orders');
   const keepOrders = !!(prevOrders && ui.guestSlots && ui.guestSlots.some(s =>
     (s.phase==='out' || s.phase==='in') && s.el && s.el.isConnected));
@@ -1437,7 +1245,6 @@ function renderCalamity(){
   } else {
     ico.textContent = mark;
   }
-  // The line runs under the icon. 0 sits on the left end, 1 on the right.
   ico.style.left = `calc(11px + (100% - 22px) * ${p.toFixed(3)})`;
   btn.dataset.tone = tone;
   btn.style.setProperty('--cal-p', p.toFixed(3));
@@ -1480,11 +1287,9 @@ function bindMute(){
   });
 }
 function renderIdle(){
-  // colapsable mobile-first: plegado por defecto <=560px (el tablero es lo primero)
   const wrap=document.getElementById('idleWrap'); if(wrap) wrap.open = window.innerWidth>560;
   const box=$('#idleDecor'); if(!box) return;
   const w=Math.min(state.idle.workers.level,3), f=Math.min(state.idle.fame.level,2), m=Math.min(state.idle.machines.level,2);
-  // v2.1: el café arranca VACÍO — todo el decor/idle se compra en la tienda
   if(!w&&!f&&!m){
     box.innerHTML='<div class="idleempty">Empty café</div>';
     return;
@@ -1500,7 +1305,6 @@ function renderIdle(){
 function renderOrders(){
   const box=$('#orders'); if(!box) return;
   const r=state.run;
-  // v2.1 R16.4: solo los 3 clientes VISIBLES (activeClients); contador de cola X/TOTAL
   const vis = Array.isArray(r.activeClients) ? r.activeClients : (r.orders||[]);
   const cnt = $('#queueCount');
   if(cnt){
@@ -1576,8 +1380,6 @@ function guestMotion(){
     : [{opacity:0,transform:'translateY(14px)'},{opacity:1,transform:'translateY(0px)'}];
   return {reduce, ms, leave, enter, easing:reduce?'ease':'cubic-bezier(.4,0,.2,1)'};
 }
-// Guest and hex both come from guestForColor, the same lookup as the
-// unlock announcement. The face id is not passed through the palette again.
 function paintGuest(el, snap, live){
   const src=live||snap;
   const ready=!!(live && !live.served && orderIsReady(live));
@@ -1702,7 +1504,6 @@ function bindOrderClicks(box){
 }
 function colorName(c){ return {1:'peppermint',2:'sky',3:'rose',4:'blush',5:'lavender',6:'vanilla',
   7:'denim',8:'teal',9:'pine',10:'orchid'}[c]||'tile'; }
-// an order is "ready" when ANY non-blocked cell currently holds the exact top run
 function orderIsReady(o){
   const r=state.run; if(!r) return false;
   return r.board.some(c=>{
@@ -1722,9 +1523,6 @@ function visibleOrder(id){
   }
   return null;
 }
-// Selected order lights cells the rules already accept: a pile that can serve
-// it (orderReadyOn: top color + count), or an empty table where a tray pile
-// of that color can be placed (same empty/unlocked gate as placing).
 function orderGlowKind(cell, idx){
   const o=visibleOrder(ui.servingOrder);
   if(!o || o.served || !cell || cell.blocked || cell.dormant) return '';
@@ -1735,8 +1533,6 @@ function orderGlowKind(cell, idx){
   return toward ? 'place' : '';
 }
 
-// :root --hx is the tray bevel (the old width breakpoints). The board sets its
-// own --hx so a short phone can shrink the lattice without resizing the trays.
 const HX_MAX = 60;
 const HX_MIN = 16;
 function rootHx(){
@@ -1753,12 +1549,8 @@ function boardHx(){
   return rootHx();
 }
 function hx(){ return boardHx(); }
-// vertical offset between stacked hex tiles. The board uses its fitted hx.
-// The tray keeps rootHx so its piles stay the size the breakpoints chose.
 function stackStep(){ return stackStepPx(boardHx()); }
 function trayStep(){ return Math.max(5,Math.round(rootHx()*0.225)); }
-// Same pixel box renderBoard paints. Pointy: width (maxX-minX)+√3·hx,
-// height (maxY-minY)+2·hx+liftPad. Flat (90/270) swaps the cell box.
 function boardMetrics(pts, hxN, rot){
   const SQ3=Math.sqrt(3);
   const view=(q,r)=>{
@@ -1781,7 +1573,6 @@ function boardMetrics(pts, hxN, rot){
   }
   if(!pts.length){ minX=minY=maxX=maxY=0; }
   const liftPad=stackLiftPadPx(hxN);
-  // The tile bevel shifts down by 0.055*hx and must stay inside this box.
   const bevel=Math.ceil(hxN*0.055);
   return { w:(maxX-minX)+cw, h:(maxY-minY)+ch+liftPad+bevel, cw, ch, liftPad, flat, view, minX, minY };
 }
@@ -1789,8 +1580,6 @@ function fitBoardHx(pts, rot, availW, availH){
   const slack=1;
   const fits=(n)=>{
     const m=boardMetrics(pts, n, rot);
-    // Every cell of the lattice, dormant rows included. The empty stack
-    // reserve sits above the top hex and does not shrink the tiles.
     return m.w<=availW-slack && (m.h-m.liftPad)<=availH-slack;
   };
   if(!(availW>40) || !(availH>40)) return Math.min(HX_MAX, Math.max(HX_MIN, Math.round(rootHx())));
@@ -1828,7 +1617,6 @@ function watchBoardWrap(wrap){
 }
 const HEX_DIRS=[[1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]];
 const key=(q,r)=>q+','+r;
-// axial honeycomb for cells that lack explicit {q,r} (fallback for old saves).
 function assignHoneycomb(n){
   if(n===7) return [{q:0,r:-1},{q:1,r:-1},{q:-1,r:0},{q:0,r:0},{q:1,r:0},{q:-1,r:1},{q:0,r:1}];
   const out=[{q:0,r:0}], seen=new Set(['0,0']), queue=[{q:0,r:0}];
@@ -1842,18 +1630,14 @@ function assignHoneycomb(n){
 function cellHTML(cell, idx){
   let cls='cell';
   if(cell.blocked) cls+=' blocked';
-  if(cell.dormant) cls+=' dormant';          // v2 R14.2: apagada (32-baldosa dual board, v2-shape)
-  if(cell.dormant && ui.mode==='activate' && isActivateEligible(state, cell)) cls+=' act-eligible'; // v2.17 R14.6
-  // v2.8: calamidad SIN marcador visual (ni rombo ni anillo) — se ve 100% normal
+  if(cell.dormant) cls+=' dormant';
+  if(cell.dormant && ui.mode==='activate' && isActivateEligible(state, cell)) cls+=' act-eligible';
   if(ui.mode==='destroy') cls+=' targetmode';
   if(ui.mode==='unlock') cls+=' targetmode';
   if(ui.mode==='swap') cls+=' swapmode';
-  // v2.2 R3.5: colocar solo apunta a celdas vacías. v2.21.1: el pedido
-  // seleccionado enciende solo las celdas que el juego ya acepta.
   if(ui.slot!==false && !cell.blocked && !cell.dormant && !(cell.stack&&cell.stack.length)) cls+=' targetable';
   const glowKind=orderGlowKind(cell, idx);
   if(glowKind) cls+=' order-glow';
-  // tooltip: dormant se activa esta partida (curva ×1.6); blocked => calamidad
   const tip = cell.dormant ? 'Activate for this café'
             : cell.blocked ? 'Blocked tile (calamity)' : '';
   let stack='';
@@ -1861,16 +1645,11 @@ function cellHTML(cell, idx){
   return `<div class="${cls}" data-id="${idx}"${glowKind?` data-order-glow="${glowKind}"`:''}${tip?` title="${tip}"`:''}><div class="hexbg"></div>${stack}
     ${cell.blocked?'<div class="lockovl"><span>🔒</span></div>':''}</div>`;
 }
-// One food per roster color (colorIndex = ROSTER position + 1).
-// Native 19×19 PNGs from the approved sheet. A hex of 28 or more shows the same pixels at 38, nearest neighbor.
 function foodMarkup(color){
   const face = faceColor(color);
   return `<i class="ttex" data-food="${face}"></i><i class="tfood" data-food="${face}"></i>`;
 }
 
-// Top 6 tiles, each one step above the last, bottom tile on the cell.
-// A taller pile paints one wood slab on that same footprint, under the
-// bottom tile, instead of another step. Badges are painted later, on the board.
 function stackBodyHTML(cell){
   const view=stackVisual(cell.stack);
   const step=stackStep();
@@ -1896,9 +1675,6 @@ function stackBadgeHTML(cell, idx, left, top, m){
   }
   return html;
 }
-// Edge details sit on free wood around the cells. Every candidate is tested
-// against the real hexes, and measured rects are converted back through the
-// frame's CSS scale.
 function placeBoardDecor(opts){
   opts = opts || {};
   var SIZE = { cat: [68, 44], cup: [36, 48], petal: [18, 16] };
@@ -1992,7 +1768,6 @@ function renderBoard(){
   stopBoardMotion();
   const r=state.run;
   const board=r.board||[];
-  // axial coords: prefer cell.{q,r}; fall back to a generated honeycomb for indexes
   const coords=assignHoneycomb(board.length);
   const coord=(c,i)=> (c.q!==undefined&&c.r!==undefined)?{q:c.q,r:c.r}:coords[i];
   const occ=new Map();
@@ -2000,11 +1775,8 @@ function renderBoard(){
     const p=coord(c,i);
     occ.set(key(p.q,p.r),{cell:c, idx:i, p});
   });
-  // free adjacent hex positions for expansion, highlighted for the player to
-  // position — bounded: snapshot the original cell coords; never mutate occ while
-  // iterating it (that would spawn slots outward forever -> infinite loop).
   if(ui.placeTile){
-    const cellCoords=[...occ.values()].map(v=>v.p);   // snapshot — never mutate occ while iterating it
+    const cellCoords=[...occ.values()].map(v=>v.p);
     for(const p of cellCoords){
       for(const [dq,dr] of HEX_DIRS){
         const q=p.q+dq, r=p.r+dr, k=key(q,r);
@@ -2012,15 +1784,10 @@ function renderBoard(){
       }
     }
   }
-  // v2.19.1 — view rotation remaps hex CENTERS (not a CSS rotate of the board).
-  // Pointy world (q,r) → pixel; 90/270 swap axes so the lattice becomes flat-top
-  // and we draw flat hexes. 0/180 stay pointy. Tiles stay upright in the cell.
   const rot=((state.settings&&state.settings.boardRot)|0)%360;
   const axial=[...occ.values()].map(v=>v.p);
   const wrap=box.parentElement;
   let availW=0, availH=0;
-  // The tray height is fixed in CSS. Leftover height stays on the board so
-  // the lattice is the largest hex that still fits the frame.
   const poolEl=document.getElementById('pool');
   const appEl=document.getElementById('app');
   if(wrap){
@@ -2045,9 +1812,6 @@ function renderBoard(){
         }else used+=outer(el);
       }
       const budget=appEl.clientHeight-used-(parseFloat(cs.paddingTop)||0)-(parseFloat(cs.paddingBottom)||0);
-      // offsetHeight rounds the siblings, so the budget can sit a fraction
-      // under the wrap that is already on screen. Trust the laid-out box
-      // when the two agree, which keeps the next integer hex when it fits.
       const laid=wrap.clientHeight-(parseFloat(cs.paddingTop)||0)-(parseFloat(cs.paddingBottom)||0);
       if(budget>40) availH=(laid>40 && Math.abs(laid-budget)<2)?Math.max(budget, laid):budget;
     }
@@ -2055,8 +1819,6 @@ function renderBoard(){
   const hxN=fitBoardHx(axial, rot, availW, availH);
   if(wrap){ wrap.style.flex=''; wrap.style.height=''; }
   const m=boardMetrics(axial, hxN, rot);
-  // Park the empty stack reserve above the wrap. Every cell stays inside it,
-  // so none of the lattice sits behind the tray or the skills.
   const cellsH=m.h-m.liftPad;
   let shift=0;
   if(m.h>availH+0.5) shift=Math.min(m.liftPad, Math.max(0, m.h-availH));
@@ -2065,7 +1827,6 @@ function renderBoard(){
   box.style.setProperty('--hx', hxN+'px');
   box.classList.toggle('food-lg', hxN >= 28);
   if(wrap){
-    // Visible, not a scrollport: a tall top pile must not drag the lattice down.
     wrap.style.overflow=needsScroll?'auto':'visible';
     wrap.style.overflowAnchor='none';
     if(!needsScroll) wrap.scrollTop=0;
@@ -2087,7 +1848,6 @@ function renderBoard(){
   placed.forEach((v,zi)=>{
     const left=(v.x-m.minX);
     const top=(v.y-m.minY)+m.liftPad;
-    // A tall pile on the top row paints over the clients. It does not move the lattice.
     const overhang=!v.slot && v.cell && v.cell.stack && v.cell.stack.length>=6 && v.y<=topY+0.01;
     const z=overhang?40+zi:zi;
     const cellBox=`position:absolute;left:${left}px;top:${top}px;width:${m.cw}px;height:${m.ch}px;z-index:${z}`;
@@ -2117,9 +1877,7 @@ function renderBoard(){
 function renderPool(){
   const box=$('#pool'); if(!box) return;
   const r=state.run;
-  const step=trayStep(); // tray size follows :root --hx, not the fitted board
-  // v2.0: SIN reordenamiento — las bandejas se muestran en su orden real
-  // (data-slot === posición); al colocar una, las demás NO se corren.
+  const step=trayStep();
   box.innerHTML = r.pool.map((pile,i)=>{
     let inner = pile&&pile.length ? '<div class="tray">'+pile.map((c,ci)=>
       `<div class="ttile" style="bottom:${ci*step}px;--tc:var(${tileVar(c)})"><i class="tface">${foodMarkup(c)}</i></div>`).join('')+'</div>'
@@ -2159,7 +1917,6 @@ function skillNextPrice(id){
   if(id==='previewPool') return previewPrice(state);
   return skillUsePrice(state, id);
 }
-// Undo spends from the purse the move returns to, not from the coins on screen.
 function skillUnaffordable(id, priceN){
   if(id==='undoMove'){
     const top=undoTopCoins(state);
@@ -2168,8 +1925,6 @@ function skillUnaffordable(id, priceN){
   }
   return state.progress.coins < priceN;
 }
-// v2.22.1 — hold a skill ~500ms (inside 400–600) to read one sentence.
-// A shorter tap still spends the skill. The note does not spend coins.
 const SKILL_HELP_MS = 500;
 const SKILL_BLURB = {
   destroyPile: 'Clear every tile off one table.',
@@ -2278,7 +2033,6 @@ function bindSkillHold(p){
 }
 function renderPowers(){
   const box=$('#powerbar'); if(!box) return;
-  // v2.22.1 — two rows, icon only. The next coin price sits under the icon.
   const meta=[
     {skill:'destroyPile',icon:'power_destroy',mode:'destroy'},
     {skill:'swapPiles',icon:'power_swap',mode:'swap'},
@@ -2291,8 +2045,6 @@ function renderPowers(){
     {skill:'undoMove',icon:'↩️',mode:'undo'},
     {skill:'rotateBoard',icon:'↻',mode:'rotate'},
   ];
-  // v2.24.7: one fixed order, sorted once by starting price. A price that
-  // grows during the run does not move the button.
   const arr=SKILL_BAR_ORDER.map(id=>meta.find(d=>d.skill===id));
   box.innerHTML = arr.map(d=>{
     const priceN = skillNextPrice(d.skill);
@@ -2374,20 +2126,12 @@ function undoFlow(){
   renderAll();
 }
 
-// ============================================================================
-// v2 — MOTOR DE CASCADA (R12.2/R15.2) + PREVIEW (R15.1) + monedas en vivo
-// ============================================================================
 const sleepMs = ms => new Promise(res=>setTimeout(res, ms));
-// v2 R15.2: resolveCascade SOLO auto-sirve pedidos flotantes (order.cell===null).
-// Los saves viejos y los pedidos nuevos pueden llegar sin `cell` => normaliza a
-// null. Es normalización del APP (nunca de game.js). Idempotente.
 function normalizeOrders(s){
   if(s&&s.run&&Array.isArray(s.run.orders))
     s.run.orders.forEach(o=>{ if(o && o.cell===undefined) o.cell=null; });
   return s;
 }
-// match determinista para auto-serve — espejo de bestServeCell (privada en
-// game.js): gana la celda servible con count MÁS CERCANO a qty; empate => menor índice.
 function serveCellFor(board, order){
   let best=-1, bestCount=Infinity;
   board.forEach((c,i)=>{
@@ -2398,30 +2142,16 @@ function serveCellFor(board, order){
   });
   return best;
 }
-// cascadeLinks(state) — ESPEJO del bucle interno de resolveCascade (game.js):
-// retorna la LISTA de estados intermedios, un eslabón por entrada:
-//   { snap, served:[{cell,amount}], debris:[cell], merged:[{from,to}] }
-// snap es el estado completo tras ESE eslabón (merge / auto-serve / escombros).
-// v2.0: merge PASO A PASO — un tirón por eslabón; merged marca celdas
-// (vecino→destino) para animar el paso. Solo alimenta la animación: el estado
-// autoritativo SIEMPRE se adopta de resolveCascade al final (playCascade).
 function cascadeLinks(state){
   const s=structuredClone(state);
-  const links=[]; const received=new Set();      // v3: tie-break no-receptor
+  const links=[]; const received=new Set();
   for(let guard=0; guard<1000; guard++){
     let acted=false; const served=[], debris=[], merged=[];
-    // (i) merge HEXASORT ORIGINAL (v3): barrido global — grupos contiguos BFS
-    // (mismo color de tope, ≥2 celdas); UN grupo por eslabón; destino elegido
-    // por T1 (computeBestChain) o R2 (tie-break cozy: preferir no-receptor).
-    // La fuente conserva su sub-pila (solo cede el run del tope).
     {
       const groups=bfsMergeGroups(s.run.board);
       if(groups.length>0){
         const group=groups[0];
         const tg=topGroup(s.run.board[group[0]].stack);
-        // v2.12.1 FIX: arbiterTarget vive DENTRO del bloque (como game.js) —
-        // definido fuera, su closure no veía `group` => ReferenceError en el
-        // 2º eslabón de una cascada con imán y grupo sin pura => congelamiento.
         const arbiterTarget=(tg)=>{
           const plan=computeBestChain(s.run.board);
           const step=plan.find(p=>p.color===tg.color&&p.source.every(si=>group.includes(si)));
@@ -2429,8 +2159,6 @@ function cascadeLinks(state){
           return r2Target(s.run.board,group,tg.color,received);
         };
         let target;
-        // v2.11 R12.4: espejo del ancla del jugador (misma lógica que resolveCascade)
-        // v2.12 R12.4c: espejo del imán monocolor (pura más alta gana)
         if(s.run.anchor!=null&&group.includes(s.run.anchor)) target=s.run.anchor;
         else if(s.run.monoSink){
           const pures=group.filter(gi=>{const st2=s.run.board[gi].stack;return st2.length>0&&st2.every(c=>c===st2[0]);});
@@ -2452,12 +2180,6 @@ function cascadeLinks(state){
         acted=true;
       }
     }
-    // (ii) auto-serve: pedidos flotantes (cell===null). Siempre: no hay toggle.
-    // v2.4: el tirón del cliente se marca para volarlo (flyToClient en playCascade)
-    // v2.12.2 FIX: SOLO activeClients (R16.4) — como el oráculo resolveCascade.
-    // Iterar run.orders phantom-servía pedidos NO visibles: los snaps mostraban
-    // pilas comidas que el estado autoritativo conservaba => "pilas que
-    // desaparecen y vuelven" al adoptar el final.
     const vis=(Array.isArray(s.run.activeClients)&&s.run.activeClients.length)?s.run.activeClients:s.run.orders;
     if(Array.isArray(vis)){
       for(const order of vis){
@@ -2465,19 +2187,17 @@ function cascadeLinks(state){
         const idx=serveCellFor(s.run.board,order);
         if(idx<0) continue;
         const cell=s.run.board[idx];
-        cell.stack.splice(cell.stack.length-order.qty,order.qty);   // exacto
+        cell.stack.splice(cell.stack.length-order.qty,order.qty);
         order.served=true;
-        const amount=pay(order, tipLevel(s));                       // R5.1
-        s.progress.coins+=amount; served.push({cell:idx,amount,order});  // v2.4: order para flyToClient
+        const amount=pay(order, tipLevel(s));
+        s.progress.coins+=amount; served.push({cell:idx,amount,order});
         acted=true;
       }
       if(Array.isArray(s.run.activeClients)) s.run.activeClients=s.run.activeClients.filter(o=>!o.served);
     }
-    // v2.17: sin escombros en el eslabón — 10+ siguen participando en merges
     if(!acted) break;
     links.push({snap:structuredClone(s),served,debris,merged});
   }
-  // (iii) v2.17 R12.3 — barrido de escombros SOLO tras estabilizar la cadena
   if(s.run&&Array.isArray(s.run.board)){
     const before=s.progress.coins;
     const hit=sweepDebrisRuns(s.run.board, s.progress);
@@ -2488,16 +2208,12 @@ function cascadeLinks(state){
   }
   return links;
 }
-// floaters '+N coins' sobre las celdas servidas por auto-serve en un eslabón
 function floatOrders(servedList){
   (servedList||[]).forEach(({cell,amount})=>{
     const el=$(`#board .cell[data-id="${cell}"]`);
     showCoinGain(amount, el);
   });
 }
-// v2.4 — vuelo de fichas ENTRE celdas del board (helper centralizado):
-// se reúsa en la cascada (merge) y en el serve (ficha → cliente). Ancla al
-// .board (position:relative), coordenadas en px del centro de cada celda.
 function flyHexes(fromIds,toId,color,qty){
   const board=$('#board'); if(!board) return;
   const to=document.querySelector(`#board .cell[data-id="${toId}"]`);
@@ -2521,11 +2237,9 @@ function flyHexes(fromIds,toId,color,qty){
       e.style.setProperty('--fc',`var(${c})`);
       board.appendChild(e);
       setTimeout(()=>e.remove(),850);
-    }, i*70);   // vuelan en tandas escalonadas
+    }, i*70);
   }
 }
-// v2.4 — cliente que TOMA su pedido: N fichas del tope vuelan del stack al
-// cliente (misma animación que el merge, centralizada) + pop del cliente.
 function flyToClient(order,cellId){
   const board=$('#board'); if(!board) return;
   const cell=document.querySelector(`#board .cell[data-id="${cellId}"]`);
@@ -2535,7 +2249,6 @@ function flyToClient(order,cellId){
   const bR=board.getBoundingClientRect();
   const cR=cell.getBoundingClientRect(), kR=card.getBoundingClientRect();
   const x1=(cR.left-bR.left)/box.s+cR.width/box.s/2, y1=(cR.top-bR.top)/box.s+cR.height/box.s/2;
-  // el cliente vive FUERA del board => volar hacia la esquina superior (dir de la fila de pedidos)
   const x2=(kR.left-bR.left)/box.s+kR.width/box.s/2, y2=(kR.top-bR.top)/box.s+kR.height/box.s/2;
   const c=tileVar(order.color);
   const n=Math.max(1,Math.min(order.qty||1,6));
@@ -2548,19 +2261,14 @@ function flyToClient(order,cellId){
       e.style.setProperty('--fc',`var(${c})`);
       board.appendChild(e);
       setTimeout(()=>e.remove(),850);
-    }, i*140);  // una ficha por nivel del pedido, bien legible
+    }, i*140);
   }
   card.classList.add('grabbing');
   setTimeout(()=>card.classList.remove('grabbing'),800);
 }
-// updateCoins — monedas + chip de desbloqueo (placedCounter/3) EN VIVO,
-// entre eslabones de la cascada (sin re-render completo ni persist).
 function updateCoins(){
   const cn=$('#coinNum'); if(cn) cn.textContent=fmt(state.progress.coins);
 }
-// playCascade(base, authoritative) — renderiza cada eslabón intermedio con
-// sleep(CONFIG.CASCADE_STEP_MS) entre ellos; al final adopta el estado
-// AUTORITATIVO de resolveCascade. Lock de UI (ui.anim) durante toda la cascada.
 async function playCascade(base,authoritative){
   const links=cascadeLinks(base);
   if(!links.length){ state=authoritative||base; return; }
@@ -2569,13 +2277,11 @@ async function playCascade(base,authoritative){
   try{
     for(const L of links){
       state=L.snap;
-      renderOrders(); renderBoard(); renderPool(); updateCoins(); renderPowers();  // v2.4: usos siempre frescos
+      renderOrders(); renderBoard(); renderPool(); updateCoins(); renderPowers();
       floatOrders(L.served);
-      // anillo+pop en celdas afectadas por el eslabón (.cell.casc)
       [...L.served.map(x=>x.cell),...L.debris,...(L.merged||[]).flatMap(m=>[m.from,m.to])].forEach(i=>{
         const el=$(`#board .cell[data-id="${i}"]`); if(el) el.classList.add('casc');
       });
-      // v2.0: marca ORIGEN/DESTINO del tirón de merge + flecha sobre el destino
       (L.merged||[]).forEach(m=>{
         const src=$(`#board .cell[data-id="${m.from}"]`); if(src) src.classList.add('mergesrc');
         const dst=$(`#board .cell[data-id="${m.to}"]`);
@@ -2583,31 +2289,23 @@ async function playCascade(base,authoritative){
           const ar=document.createElement('div'); ar.className='mergearrow'; ar.textContent='⤵';
           dst.appendChild(ar); }
       });
-      // v2.4: fichas volando origen→destino (misma animación que el serve)
       (L.merged||[]).forEach(m=>{ const tg=topGroup(L.snap.run.board[m.from].stack);
         if(tg.color) flyHexes([m.from],m.to,tg.color,Math.min(tg.count,3)); });
-      // v2.4: el cliente VUELA su pedido desde la pila (foco del jugador)
       (L.served||[]).forEach(x=>{ if(x.order) flyToClient(x.order,x.cell); });
-      if(L.debris.length){                       // destrucción por umbral: shake + confetti
+      if(L.debris.length){
         L.debris.forEach(i=>{ const el=$(`#board .cell[data-id="${i}"]`); if(el) floatOn(el,'💥'); });
         if((L.debrisCoins||0)>0) showCoinGain(L.debrisCoins, $(`#board .cell[data-id="${L.debris[0]}"]`));
         if(bEl){ bEl.classList.add('shake'); setTimeout(()=>{ if(bEl) bEl.classList.remove('shake'); },480); }
         confetti();
       }
-      // A 10+ clear is its own end-of-chain step (debris), not the merge click.
-      // That step plays the destroy payoff instead of merge. A merge that
-      // does not clear stays on the merge effect. Serve is its own event.
       if((L.debris||[]).length) playCafeSfx('destroy');
       else if((L.merged||[]).length) playCafeSfx('merge');
       if((L.served||[]).length) playCafeSfx('serve');
       await sleepMs(CONFIG.CASCADE_STEP_MS);
     }
   } finally { ui.anim=false; }
-  state=authoritative||resolveCascade(base).state;   // estado autoritativo
+  state=authoritative||resolveCascade(base).state;
 }
-// renderPreview (R15.1): N tandas próximas (3 pilas c/u) si skills.previewPool
-// .level>0; rng SEMILLADO POR RUN (ui.previewSeed, fijado al abrir el café) así
-// el render es estático y estable ante re-renders. level 0 => oculto.
 function trayMarkup(tandas){
   return (tandas||[]).map(t=>
     '<div class="pv-tand">'+t.map(pile=>
@@ -2618,7 +2316,6 @@ function trayMarkup(tandas){
 function renderPreview(){
   const box=$('#preview'); if(!box) return;
   const lvl=(state.skills&&state.skills.previewPool&&state.skills.previewPool.level)||0;
-  // v2.24.5: Peek removed; old saves with a level stay hidden.
   if(true||!state.run||lvl<=0){ box.style.display='none'; box.innerHTML=''; return; }
   const tandas=previewPool(state,mulberry32(ui.previewSeed||1))||[];
   box.style.display='flex';
@@ -2646,7 +2343,6 @@ function closePeekModal(){
   pop.setAttribute('aria-hidden','true');
 }
 
-// ---- tile interaction ------------------------------------------------------
 function cafeLocked(){
   return ui.anim || ui.restarting || !!(state && state.run && state.run.phase==='victory');
 }
@@ -2656,8 +2352,7 @@ function tapTile(id){
   if(ui.mode==='destroy'){ destroyFlow(id); return; }
   if(ui.mode==='swap'){ swapFlow(id); return; }
   if(ui.mode==='activate'){ activateFlow(id); return; }
-  if(ui.mode==='unlock'){ unlockFlow(id); return; }   // v2.8 R7.8
-  // v2.2 R3.5: en modo colocar, una celda ocupada NO recibe pilas
+  if(ui.mode==='unlock'){ unlockFlow(id); return; }
   if(ui.slot!==false){
     if(cell.stack&&cell.stack.length){ toast(ERRT.occupied); return; }
     placeFlow(id, ui.slot); return;
@@ -2752,9 +2447,6 @@ function peekStack(id){
   }, PEEK_MOVE_MS + PEEK_HOLD_MS + PEEK_MOVE_MS);
   ui.peek[id]=rec;
 }
-// Same resolution a tray placement uses: merge, serve, pay, and chain.
-// One pass sees every pile revealed in `base`, so several unlocks at once
-// each join their matching neighbors.
 async function cascadeAfterReveal(base){
   const fin=resolveCascade(base);
   if(fin.steps===0){ state=fin.state; renderAll(); checkFull(); checkServedAll(); return; }
@@ -2762,8 +2454,6 @@ async function cascadeAfterReveal(base){
   await settlePasses();
   renderAll(); checkFull(); checkServedAll();
 }
-// v2.20 R14.3 — activar UNA baldosa dormant por partida (paga runTilePrice).
-// A hidden calamity pile is revealed here; the cascade starts from that cell.
 async function activateFlow(id){
   const cell=state.run.board[id];
   if(!cell||!cell.dormant){ toast('That tile is already active'); return; }
@@ -2776,8 +2466,6 @@ async function activateFlow(id){
   toast(`Table activated ✨ (${fmt(paid)}🪙)`);
   await cascadeAfterReveal(res);
 }
-// v2.8 R7.8 — Unlock: desbloquea UN candado y revela su pila oculta; la cascada
-// se dispara aquí (mutación de topes, R12.2) igual que place/swap.
 async function unlockFlow(id){
   const res=useUnlockLocks(state,id);
   ui.mode=null;
@@ -2798,12 +2486,10 @@ async function swapFlow(id){ if(ui.swapFirst===null){ ui.swapFirst=id; toast('No
   state=res; toast('Swapped!');
   const elA=$(`[data-id="${a}"]`), elB=$(`[data-id="${id}"]`);
   if(elA) floatOn(elA,'🔄'); if(elB) floatOn(elB,'🔄');
-  // v2.6 R12.2: el swap muta topes => dispara la cascada (espejo de placeFlow);
-  // antes solo re-renderizaba y el merge pendiente quedaba congelado en pantalla.
   const fin=resolveCascade(state);
   if(fin.steps===0){ state=fin.state; renderAll(); checkFull(); checkServedAll(); return; }
   await playCascade(res,fin.state);
-  await settlePasses();                          // v2.4.1: clientes "apenas entre"
+  await settlePasses();
   renderAll(); checkFull(); checkServedAll(); }
 async function placeFlow(cell,slot){
   if(cafeLocked()) return;
@@ -2811,23 +2497,16 @@ async function placeFlow(cell,slot){
   if(res.error){ err(res); return; }
   playCafeSfx('stack');
   const el=$(`[data-id="${cell}"]`); if(el) floatOn(el,'📥');
-  normalizeOrders(res);                          // v2: pedidos nuevos nacen flotantes
+  normalizeOrders(res);
   state=res; ui.slot=false;
-  const fin=resolveCascade(state);               // autoritativo (puro)
-  if(fin.steps===0){                             // estable: render directo, sin delays
+  const fin=resolveCascade(state);
+  if(fin.steps===0){
     state=fin.state; renderAll(); checkFull(); checkServedAll(); return;
   }
-  await playCascade(res,fin.state);              // anima eslabones (600ms c/u)
-  // v2.4.1 "apenas entre": los clientes que entraron en el refill FINAL de la
-  // cascada con tope ya servible toman su pedido de INMEDIATO (animado)
+  await playCascade(res,fin.state);
   await settlePasses();
   renderAll(); checkFull(); checkServedAll();
 }
-// 2-step serve: a client was already chosen (ui.servingOrder); tapping any pile
-// (cellId) tries to serve that order to it — the target cell is NOT bound to the order.
-// axial free neighbors of the current board — the highlighted expansion positions.
-// NOTE: bounded — iterate the ORIGINAL cell coords; never insert into the occupancy
-// set while iterating it, or slots would spawn outward forever (infinite loop).
 function freeSlots(boardCells){
   const coords=assignHoneycomb((boardCells||[]).length);
   const occ=new Set();
@@ -2851,9 +2530,6 @@ function serveOrderFlow(o,cellId){ const res=serveOrder(state,o,cellId);
   if(res && res.error){ err(res); renderAll(); return; }
   playCafeSfx('serve');
   const got=res.progress.coins-state.progress.coins;
-  // v2.4: ANIMACIÓN ENFOCADA — las fichas del pedido vuelan de la pila al
-  // cliente (misma animación que el merge); el estado se adopta tras el vuelo
-  // para que el jugador vea que no se le desaparecieron fichas.
   ui.anim=true;
   flyToClient(o,cellId);
   setTimeout(()=>{
@@ -2864,35 +2540,25 @@ function serveOrderFlow(o,cellId){ const res=serveOrder(state,o,cellId);
     checkServedAll();
   }, Math.min(o.qty,6)*140+500);
 }
-// A full floor is still not a lose screen. Hold 3s mid-run plays the short
-// defeat (playDefeat) and then restarts. Victory keeps its own veil.
 function checkFull(){ return; }
-// Victoria = los N clientes servidos. No hay pantalla pesada: cascada, luces,
-// gato anfitrión. Tap en el velo, o el hold, abren otra run.
 function checkServedAll(){ const r=state.run; if(!r || r.phase==='victory') return;
   if(runVictory(state)) playVictory(); }
 function openTheCafe(){
   state=openRun(state, Math.random);
   ui.slot=false; ui.mode=null; ui.servingOrder=null; ui.placeTile=false;
-  ui.previewSeed=Math.floor(Math.random()*2147483647);   // semilla del preview ESTA run
-  normalizeOrders(state);                                 // v2 R15.2: pedidos flotantes
-  // Resume and play in this same click, after the run exists. Doing it earlier
-  // leaves play() for a later turn, and some browsers drop that gesture.
+  ui.previewSeed=Math.floor(Math.random()*2147483647);
+  normalizeOrders(state);
   noteCafeOpen();
   unlockCafeAudio();
-  // v2.4.1 "apenas entre": los 3 visibles iniciales pueden llegar con tope ya
-  // servible — pasadas de estabilización animadas (vuelo de fichas al cliente).
   settlePasses();
   persist(); renderAll();
-  maybeStartTutorial(); // v2.18: first-run overlay after café is open
+  maybeStartTutorial();
 }
 function rotateBoard(){
   const r = useRotateBoard(state);
   if(r && r.error){ err(r); return; }
   state = r;
   if(!state.settings) state.settings={ reducedMotion:false, seenTutorial:true, boardRot:0 };
-  // Free rotate toggles the pointy view between 0° and 180°. A saved 90°/270°
-  // still draws (flat-top) until the next tap, which lands on 180°.
   const cur=((state.settings.boardRot|0)%360+360)%360;
   state.settings.boardRot = cur===180 ? 0 : 180;
   persist();
@@ -3023,9 +2689,6 @@ async function playVictory(){
   if(calamityGain>0) showCoinGain(calamityGain, $('#victoryVeil') || document.querySelector('.topbar .chip'));
 }
 
-// ============================================================================
-// MODALS
-// ============================================================================
 const RH_NAME = {
   destroyPile:'Destroy', swapPiles:'Swap', refreshPool:'Refresh', tables:'Tables',
   unlockLocks:'Unlock', color:'Color', tips:'Tips', clearBoard:'Clear',
@@ -3074,12 +2737,7 @@ function renderRunHistory(){
 function showSave(){ renderRunHistory(); $('#saveModal').classList.add('show'); }
 
 
-// ============================================================================
-// IDLE LOOP + PERSISTENCE + GLOBAL
-// ============================================================================
 function startLoop(){
-  // v2.21 — no passive minting. Offline income is neutralized in game.js.
-  // The open café still snapshots on each action (renderAll) and on leave.
 }
 function bindGlobal(){
   document.addEventListener('click', e=>{
@@ -3099,8 +2757,6 @@ function bindGlobal(){
     }; rd.readAsText(f);
   });
   $('#offCollect').addEventListener('click',()=>{ $('#offModal').classList.remove('show'); renderAll(); });
-  // v2.0 — Reset: empezar una partida NUEVA desde 0 (borra el save completo).
-  // Confirmación de doble tap: el 1º arma el botón 4s; el 2º ejecuta el reset.
   $('#resetBtn').addEventListener('click',()=>{
     const b=$('#resetBtn');
     if(!b.dataset.armed){
@@ -3111,7 +2767,7 @@ function bindGlobal(){
       return;
     }
     localStorage.removeItem(KEY);
-    flushMeta(true); // write a game that just ended before the totals restart
+    flushMeta(true);
     state=createGame();
     state.meta.exportId='ccc-1-'+Date.now();
     metaTotalsStart(META_SLUG, state);
@@ -3148,17 +2804,11 @@ function bindGlobal(){
     if(e.target === peekPop) closePeekModal();
   });
   if(peekPopClose) peekPopClose.addEventListener('click', closePeekModal);
-  // v2.18 tutorial controls (overlay lives outside #app)
   const tutSkip=$('#tutSkip'), tutNextBtn=$('#tutNext');
   if(tutSkip) tutSkip.addEventListener('click', finishTutorial);
   if(tutNextBtn) tutNextBtn.addEventListener('click', tutNext);
 }
 
-// ============================================================================
-// v2.18 — FIRST-RUN TUTORIAL (spotlight overlay)
-// ============================================================================
-// v2.22.3 — copy matches the live run: auto-serve, serve 100, Hold 3s
-// restarts (coins reset), tap a skill / hold for a one-line tip.
 const TUT_STEPS = [
   { sel: '#pool', gesture: 'tap', target: ['#pool .poolslot', '#board .cell:not(.dormant):not(.blocked)'], text: 'Tap a tray, then a table — stack food.' },
   { sel: '#orders', text: 'Matching tops serve themselves — cats take the food.' },
@@ -3166,11 +2816,6 @@ const TUT_STEPS = [
   { sel: '#btnClose', gesture: 'hold', target: '#btnClose', text: 'Stuck? Hold 3s to restart this run. Coins reset.' },
   { sel: '#powerbar', gesture: 'tap-hold', target: '#powerbar .pow', text: 'Tap a skill to spend coins. Hold one for a one-line tip.' },
 ];
-// Cat paw, 32×32 art at 2 CSS px. Hotspot is the leading toe tip, pixel centre
-// (hx + 0.5) * PAW_SCALE. Hold (9,9) at 2x is left = tx - 19px, top = ty - 19px.
-// A press drops the tip 3 native px; the lower hotspot raises the sprite so
-// the tip stays on the target. Leftward drag mirrors with scaleX(-1) and
-// hotspot x' = 31 - x.
 const PAW_SCALE = 2;
 const PAW_HOT = {
   idle_0:[9,6], idle_1:[9,5],
@@ -3203,8 +2848,6 @@ function pawPoint(el, frameName, mirror){
     y: ty - (hy + 0.5) * PAW_SCALE,
   };
 }
-// The board rebuilds its cells when the wrap changes size. Look the target
-// up on each frame so the toe stays on the live tray or table.
 function pawTarget(sel){
   const el = $(sel);
   if(!el || !el.isConnected) return null;
@@ -3326,7 +2969,7 @@ function startTutorial(){
   const ov = $('#tutOverlay'); if(ov) ov.classList.add('show');
   const card = $('#tutCard'); if(card) card.hidden = false;
   showTutStep();
-  requestAnimationFrame(()=>showTutStep()); // layout after paint
+  requestAnimationFrame(()=>showTutStep());
 }
 function applyTutLayer(){
   document.body.classList.toggle('tut-on', tutActive);
@@ -3418,11 +3061,9 @@ async function boot(){
   }
   const raw = localStorage.getItem(KEY);
   state = raw ? deserializeState(raw) : createGame();
-  normalizeOrders(state);          // v2: saves viejos pueden traer pedidos sin cell
+  normalizeOrders(state);
   if(!state.meta.exportId || state.meta.exportId.indexOf('-0')>=0 || state.meta.exportId.length<8)
     state.meta.exportId = 'ccc-1-'+Date.now();
-  // v2.21: siempre en juego. Un save viejo llega sin run (meta descartada).
-  // La run en curso de esta versión se conserva. El mute no se toca.
   if(!state.run) state = openRun(state, Math.random);
   metaBackfill(META_SLUG, GAME_VERSION, metaFromState(state));
   metaTotalsStart(META_SLUG, state);
@@ -3435,17 +3076,9 @@ async function boot(){
   window.addEventListener('beforeunload', leaveCafe);
   window.addEventListener('pagehide', hideCafe);
   document.addEventListener('visibilitychange', onCafeVisibility);
-  // v2.22.3: show the spotlight when this save has not finished it.
-  // A finished flag stays finished — this does not clear seenTutorial.
   maybeStartTutorial();
 }
-// v2.20: mesas solo por partida (40 × 1.6^n, reset al reabrir). Sin tienda permanente.
-// v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
-// economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
-// vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.39';
-// Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
-// computar resolveCascade/placeStack para comparar el estado final de cascada.
+const GAME_VERSION = 'v2.24.40';
 window.__dbg = { get state(){ return state; }, set state(v){ state=v; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, maybeBoardShuffle, applyBoardShuffle, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, stackVisual, stackLiftPadPx, get boardHx(){ return boardHx(); } };
 fitFrame();
 window.addEventListener('load', boot);

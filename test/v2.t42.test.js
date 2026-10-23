@@ -1,5 +1,3 @@
-// v2.24.29 — a revealed hidden pile merges with its neighbors, and the
-// color-unlock announcement names the guest who actually orders that color.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -47,7 +45,7 @@ function clearPiles(board) {
 }
 
 test('unlocking a hidden pile merges it, and undo puts the lock back', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.39'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.40'/);
   assert.match(html, /async function cascadeAfterReveal/);
   const unlock = html.slice(html.indexOf('async function unlockFlow'), html.indexOf('function destroyFlow'));
   const activate = html.slice(html.indexOf('async function activateFlow'), html.indexOf('async function unlockFlow'));
@@ -160,8 +158,6 @@ test('every unlocked color announces the guest and hex that guest orders', () =>
   assert.doesNotMatch(html, /tileVar\(colorId\)/);
   assert.doesNotMatch(powers, /faceColor\(n\)/);
 
-  // Logical 8 is Delivery bot (face 7, denim blue). Feeding that face back
-  // through the palette lands on Dragonling (face 4, blush orange).
   const s = open(4);
   s.run.palette = [1, 2, 3, 5, 6, 8, 4, 7];
   s.progress.colorsOwned = 7;

@@ -1,11 +1,3 @@
-// ============================================================================
-// Cozy Cat Café × HexaSort — TDD suite v2.2 (node:test, no deps).
-// Block T18 — placeStack SOLO en espacios VACÍOS [R3.5 v2.2] + merge deja la
-// celda vecina VACÍA [R12.1 v2.2] (reemplaza el contrato T11a "conserva una
-// ficha": el vecino cede su racha completa y queda stack []).
-// Fuente de verdad: RULES.md §R3.5 v2.2 / §R12.1 v2.2.
-// Run: node --test test/v2.t18.test.js
-// ============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -31,10 +23,6 @@ const mkGame = (seed = 1) => {
   return parkOrders(unwind(G.openRun(s, rng(seed)), s));
 };
 
-// ---------------------------------------------------------------------------
-// T18a — placeStack sobre celda OCUPADA => {error:'occupied'} sin mutar
-// [R3.5 v2.2: pilas del pool SOLO en baldosas con stack vacío]
-// ---------------------------------------------------------------------------
 test('T18a [R3.5 v2.2] placeStack sobre celda ocupada => {error:"occupied"} sin mutar (firma explícita)', () => {
   need('placeStack');
   const s = mkGame(1);
@@ -59,32 +47,20 @@ test('T18b [R3.5 v2.2] placeStack (pool) sobre celda ocupada => {error:"occupied
   assert.equal(JSON.stringify(s), before, 'RED: occupied no debe mutar el estado');
 });
 
-// ---------------------------------------------------------------------------
-// T18c — Fuente conserva su sub-pila [R12.1 v3] (motor hexasort original):
-// A=[2,2] torre; D=[1] recibe la colocación [2] => grupo {A,D}; tie-break
-// no-receptor => target=A: A=[2,2,2], D conserva [1].
-// v2.11 R12.4: [2] es MONOCOLOR => ancla. Para probar el árbitro SIN ancla la
-// colocación usa pila multicolor [2,5] (tope 2, fusiona igual); el caso ancla
-// vive en test/v2.t21.test.js (T21a).
-// ---------------------------------------------------------------------------
 test('T18c [R12.1 v3] fuente conserva sub-pila; la colocada es absorbida por la torre (no-receptor)', () => {
   need('placeStack'); need('resolveCascade');
   const s = mkGame(1);
   const A = s.run.board[0], D = s.run.board[1];
   A.stack = [2, 2];
   D.stack = [1];
-  const ret = G.placeStack(s, 1, 0, [5, 2]);   // multicolor (tope 2) => sin ancla
+  const ret = G.placeStack(s, 1, 0, [5, 2]);
   const src = unwind(ret, s);
   const res = G.resolveCascade(src);
   const st = unwind(res, src);
-  // D tras colocar = [1,5,2]: cede su run de tope [2] a A => A=[2,2,2], D=[1,5]
   assert.deepEqual(st.run.board[0].stack, [2, 2, 2], 'RED: A (no-receptor) absorbe la racha => [2,2,2]');
   assert.deepEqual(st.run.board[1].stack, [1, 5], 'RED: D (fuente) conserva su sub-pila [1,5]');
 });
 
-// ---------------------------------------------------------------------------
-// T18d — Colocar en baldosa VACÍA sigue funcionando (regresión del flujo base)
-// ---------------------------------------------------------------------------
 test('T18d [R3.5 v2.2] colocar pila en baldosa vacía sigue OK (regresión)', () => {
   need('placeStack'); need('resolveCascade');
   const s = mkGame(1);
@@ -92,17 +68,14 @@ test('T18d [R3.5 v2.2] colocar pila en baldosa vacía sigue OK (regresión)', ()
   assert.equal(s.run.board[idx].stack.length, 0, 'GIVEN: la celda debe estar vacía');
   const ret = G.placeStack(s, idx, 0);
   assert.ok(!ret.error, `RED: colocar en vacía no debe dar error, dio ${JSON.stringify(ret && ret.error)}`);
-  const placed = s.run.board[idx].stack.length + ((s.run.pool[0] || []).length); // GIVEN info
-  const pileLen = unwind(ret, s).run.board[idx].stack.length;                    // tras colocar
-  const st = unwind(G.resolveCascade(unwind(ret, s)), s);   // v2.0: cascada tras colocar
+  const placed = s.run.board[idx].stack.length + ((s.run.pool[0] || []).length);
+  const pileLen = unwind(ret, s).run.board[idx].stack.length;
+  const st = unwind(G.resolveCascade(unwind(ret, s)), s);
   assert.equal(st.run.board[idx].stack.length, pileLen, 'RED: la pila del pool debe quedar en la celda');
   assert.ok(pileLen >= 1 && pileLen <= 7, 'RED: tamaño de pila v2.0 en 1..7');
   assert.equal(st.run.poolPlaced, 1, 'RED: poolPlaced debe contar la colocación');
 });
 
-// ---------------------------------------------------------------------------
-// T18e — placeStack en celda DORMANT => {error:'dormant'} (regresión R14.2)
-// ---------------------------------------------------------------------------
 test('T18e [R14.2] placeStack en celda dormant => {error:"dormant"}', () => {
   need('placeStack');
   const s = mkGame(1);

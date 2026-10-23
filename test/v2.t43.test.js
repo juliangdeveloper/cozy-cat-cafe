@@ -1,5 +1,3 @@
-// v2.24.30 — a served guest leaves, then the next guest enters.
-// The cascade does not wait. A raised stack stays up for 1s.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -14,8 +12,8 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(root, 'index.html'), 'utf8');
 const css = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
 
-test('version footer is v2.24.39', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.39'/);
+test('version footer is v2.24.40', () => {
+  assert.match(html, /GAME_VERSION = 'v2\.24\.40'/);
 });
 
 test('every served guest is replaced in their own card', () => {

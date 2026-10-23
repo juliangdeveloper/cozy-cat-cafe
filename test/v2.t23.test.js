@@ -1,8 +1,3 @@
-// ============================================================================
-// Cozy Cat Café × HexaSort — TDD suite v2.17 (node:test, no deps).
-// Block T23 — delayed 10+ debris after chain; 2-neighbor unlock; hold-Tables batch.
-// Run: node --test test/v2.t23.test.js
-// ============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -32,18 +27,11 @@ const eligibleDormant = (s) =>
 const ineligibleDormant = (s) =>
   s.run.board.find(c => c.dormant && !c.blocked && !G.isActivateEligible(s, c));
 
-// ---------------------------------------------------------------------------
-// T23a — debris 10+ survives mid-chain, destroyed only after settle [R12.3]
-// ---------------------------------------------------------------------------
 test('T23a [R12.3 v2.17] pile ≥10 survives merge steps; destroyed only after chain settles', () => {
   need('resolveCascade'); need('sweepDebrisRuns'); need('placeStack');
   assert.equal(G.CONFIG.DEBRIS_THRESHOLD, 10);
   const s = mkGame(2);
-  // Build a chain that merges into a 10+ pile across steps, then keep a
-  // neighbor that can still merge INTO that 10+ before settle.
-  // Board core indices: use adjacent cells 0 and a neighbor.
   const board = s.run.board;
-  // Find two adjacent unlocked cells
   let a = -1, b = -1;
   for (let i = 0; i < board.length; i++) {
     if (board[i].dormant || board[i].blocked) continue;
@@ -55,9 +43,6 @@ test('T23a [R12.3 v2.17] pile ≥10 survives merge steps; destroyed only after c
   }
   assert.ok(a >= 0 && b >= 0, 'need two adjacent unlocked cells');
 
-  // A starts with 9 of color 4; B has 1 of color 4 → merge creates 10.
-  // Also place a third adjacent unlocked with color 4 so AFTER the first merge
-  // to 10, another merge can still pull into the 10+ pile (proving it survived).
   let c = -1;
   for (let k = 0; k < board.length; k++) {
     if (k === a || k === b) continue;
@@ -76,8 +61,6 @@ test('T23a [R12.3 v2.17] pile ≥10 survives merge steps; destroyed only after c
   const res = G.resolveCascade(s);
   const st = unwind(res, s);
 
-  // After full cascade: all three runs should have merged into one pile of 11,
-  // then sweepDebris destroys the ≥10 run → empty (or remnant if mixed — here pure).
   const lens = [a, b, c].map(i => st.run.board[i].stack.length);
   const totalLeft = lens.reduce((x, y) => x + y, 0);
   assert.equal(totalLeft, 0, `RED: after settle, 11-of-color-4 must be destroyed; left ${lens}`);
@@ -102,12 +85,8 @@ test('T23a3 [R12.3 v2.17] during chain a 10+ pile can still receive merges (not 
   need('resolveCascade'); need('bfsMergeGroups');
   const s = mkGame(4);
   const board = s.run.board;
-  // Pick three mutually-chainable unlocked cells in a line/cluster
   const unlocked = board.map((c, i) => ({ c, i })).filter(x => !x.c.dormant && !x.c.blocked);
   assert.ok(unlocked.length >= 3);
-  // Place: cell0 = 10 of color 5 (would have been destroyed instantly under old rules),
-  // neighbor = 2 of color 5. If mid-destroy happened, neighbor couldn't merge into 10.
-  // After settle: 12 destroyed together.
   let i0 = unlocked[0].i;
   let i1 = -1;
   for (const u of unlocked) {
@@ -126,9 +105,6 @@ test('T23a3 [R12.3 v2.17] during chain a 10+ pile can still receive merges (not 
     'RED: proving the 10+ survived long enough to absorb +2 before destroy');
 });
 
-// ---------------------------------------------------------------------------
-// T23b — 2-neighbor unlock [R14.6]
-// ---------------------------------------------------------------------------
 test('T23b [R14.6] activateTile with <2 unlocked neighbors => needTwoNeighbors', () => {
   need('activateTile'); need('isActivateEligible'); need('unlockedNeighborCount');
   const s = mkGame(5);
@@ -155,9 +131,6 @@ test('T23b2 [R14.6] activateTile with ≥2 unlocked neighbors => ok; core alread
   assert.ok(Math.abs((coins0 - st.progress.coins) - G.CONFIG.RUN_TILE_BASE) < 1e-6);
 });
 
-// ---------------------------------------------------------------------------
-// T23c — hold-batch activateAroundUnlocked [R14.3b]
-// ---------------------------------------------------------------------------
 test('T23c [R14.3b v2.20] activateAroundUnlocked: board-index order, snapshot only, each ×1.6', () => {
   need('activateAroundUnlocked');
   const s = mkGame(6);
@@ -192,7 +165,6 @@ test('T23c [R14.3b v2.20] activateAroundUnlocked: board-index order, snapshot on
 test('T23c2 [R14.3b] activateAroundUnlocked skips cells not adjacent to unlocked set', () => {
   need('activateAroundUnlocked');
   const s = mkGame(7);
-  // Far dormant with 0 neighbors to unlocked must stay dormant
   const far = s.run.board.find(c => c.dormant && G.unlockedNeighborCount(s, c) === 0);
   assert.ok(far);
   const st = unwind(G.activateAroundUnlocked(s, rng(1)), s);
@@ -203,7 +175,7 @@ test('T23c2 [R14.3b] activateAroundUnlocked skips cells not adjacent to unlocked
 test('T23c3 [R14.3b v2.20] noFunds stops a batch; noneEligible when the snapshot is empty', () => {
   need('activateAroundUnlocked');
   const broke = mkGame(8);
-  broke.progress.coins = 40 + 64; // exactly two activations (40 × 1.6^0 + 40 × 1.6^1)
+  broke.progress.coins = 40 + 64;
   const partial = unwind(G.activateAroundUnlocked(broke, rng(1)), broke);
   assert.equal(partial.run.runTilesActivated, 2, 'stops when the next ×1.6 price is unaffordable');
   assert.ok(partial.progress.coins < 1);

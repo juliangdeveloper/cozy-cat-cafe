@@ -1,5 +1,3 @@
-// meta.v1 lifetime totals in the running café: a game that ends less than a
-// second before an import or a reset is still counted.
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync, unlinkSync } from 'node:fs';
@@ -31,8 +29,6 @@ async function until(check, label) {
   throw new Error('timed out: ' + label);
 }
 
-// Boots the real app in jsdom with Date.now frozen, so every write after the
-// first one stays inside the one-second window until something forces it.
 async function bootCafe(name) {
   const page = html
     .replace(/<script src="\.\/vendor\/howler\.min\.js"><\/script>\s*/, '')
@@ -79,7 +75,6 @@ async function bootCafe(name) {
     .replace(/from '\.\/js\/ambience\.js'/g, "from '../js/ambience.js'")
     .replace(/from '\.\/js\/meta\.js'/g, `from '../js/meta.js?${name}'`);
   const tmp = join(root, 'test', `.app_lifetime_${name}.mjs`);
-  // Each café gets its own meta.js instance so one test cannot see another's pending write.
   writeFileSync(tmp, `import {${importBlock}} from '../js/game.js';\n${appBody}\nwindow.__boot = boot;\n`);
   const cleanup = () => {
     for (const id of timers) clearTimeout(id);
@@ -100,7 +95,6 @@ async function bootCafe(name) {
   return { window, dbg: window.__dbg, stored, cleanup };
 }
 
-// Ends the open game with 5 guests through "Open again" and waits for the new one.
 async function finishGame(cafe) {
   const { window, dbg } = cafe;
   dbg.state.run.clientsServed = 5;
@@ -119,7 +113,6 @@ describe('meta.v1 lifetime totals in the café', { concurrency: false }, () => {
       const { window, dbg, stored } = cafe;
       assert.equal(stored().runs_finished, 0);
       await finishGame(cafe);
-      // Reset well inside one second of the last write: the finished game is still pending.
       const reset = window.document.getElementById('resetBtn');
       reset.click();
       reset.click();

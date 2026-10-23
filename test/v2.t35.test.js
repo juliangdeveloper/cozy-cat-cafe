@@ -1,5 +1,3 @@
-// v2.24.9 — calamity is a moving icon on a thin track, rotate is the last
-// free skill, and the header icons sit on the right.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -12,7 +10,7 @@ const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'i
 const css = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
 
 test('v2.24.9 puts a moving calamity icon on a thin track above the clients', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.39'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.40'/);
   const run = html.slice(html.indexOf('function renderRun'), html.indexOf('function renderCalamity'));
   const top = run.indexOf('class="topbar"');
   const cal = run.indexOf('class="cal-row"');

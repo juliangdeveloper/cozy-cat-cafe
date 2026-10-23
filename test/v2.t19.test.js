@@ -1,8 +1,3 @@
-// ============================================================================
-// Block T19 — v2.4: tope de usos (MAX_USES_PER_SKILL=5). v2.20: tables ya no es skill de usos.
-// refresh multicolor (v2Pile + poolMaxColor), badge run del tope (topRunCount).
-// Run: node --test test/v2.t19.test.js
-// ============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -17,7 +12,6 @@ const mulberry32 = (a) => () => {
   t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 };
-// buySkill puede retornar {error} o el estado nuevo — normaliza ambos
 const unwind = (ret, fallback) => (ret && ret.error) ? fallback : ret;
 
 test('T19a [v2.4] CONFIG: MAX_USES_PER_SKILL=5 y USES_SKILLS completo', () => {
@@ -70,12 +64,10 @@ test('T19d [v2.4] useRefreshPool genera multicolor igual que openRun (bug monoco
   st.run.pool.forEach((p) => p.forEach((c) => colors.add(c)));
   assert.ok(colors.size >= 1 && Math.max(...colors) <= cu,
     'RED: los colores del pool deben ser <= cu (poolMaxColor)');
-  // con 200 refreshes sobre la MISMA semilla el multicolor es estadístico: pilas
-  // grandes (>=4) no pueden ser de un solo color SIEMPRE (prob monocolor < 1)
   let monocolorBig = 0, big = 0, refreshErrors = 0;
   let cur = st;
   for (let i = 0; i < 60; i++) {
-    cur.progress.coins = 1e15;                  // v2.22 cada refresh cobra; el sondeo no testa la curva
+    cur.progress.coins = 1e15;
     if (cur.run) cur.run.skillUses = {};
     const r = G.useRefreshPool(cur, mulberry32(100 + i));
     if (r.error) { refreshErrors++; continue; }

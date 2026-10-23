@@ -1,4 +1,3 @@
-// meta.v1 lifetime totals: runHistory keeps 20 sittings, the record keeps counting.
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -10,7 +9,7 @@ import {
 
 const SLUG = 'cozy-cat-cafe';
 const META_KEY = 'meta.v1.' + SLUG;
-const VERSION = '2.24.39';
+const VERSION = '2.24.40';
 
 function useStorage(initial) {
   const bag = Object.assign({}, initial);
@@ -39,7 +38,6 @@ function write(state) {
   return metaUpdate(SLUG, VERSION, metaFromState(state));
 }
 
-// Plays one sitting to `clients` guests and restarts, like Hold 3s.
 function finishByRestart(state, rng, clients) {
   state.run.clientsServed = clients;
   state.run.moneyStacks = 2;
@@ -53,7 +51,7 @@ function finishByRestart(state, rng, clients) {
 describe('meta.v1 lifetime totals', { concurrency: false }, () => {
   test.beforeEach(() => {
     metaResetClock();
-    metaTotalsStart(SLUG, null); // forget the previous test's counters
+    metaTotalsStart(SLUG, null);
   });
 
   test('totals keep counting past the 20 sittings kept in runHistory', () => {
@@ -74,7 +72,6 @@ describe('meta.v1 lifetime totals', { concurrency: false }, () => {
     assert.equal(stats.trays_total, 75 + state.run.pilesDealt);
     assert.equal(stats.victories, 0);
 
-    // The open sitting counts while it is played and is not counted twice.
     state.run.clientsServed = 4;
     write(state);
     assert.equal(stored().clients_total, 179);
@@ -89,7 +86,6 @@ describe('meta.v1 lifetime totals', { concurrency: false }, () => {
     assert.equal(stats.victories, 1);
     assert.equal(stats.clients_total, 175 + totalClients(state));
 
-    // Restarting after a victory opens a new sitting without counting the old one again.
     const finishing = state.run.archived ? null : state;
     state = restartRun(state, rng);
     if (finishing) metaRunFinished(finishing);
@@ -112,7 +108,6 @@ describe('meta.v1 lifetime totals', { concurrency: false }, () => {
     write(state);
     assert.equal(stored().clients_total, 113);
 
-    // New page load from the save.
     state = deserializeState(serializeState(state));
     metaResetClock();
     metaBackfill(SLUG, VERSION, metaFromState(state));
@@ -138,7 +133,6 @@ describe('meta.v1 lifetime totals', { concurrency: false }, () => {
     }
     assert.equal(stored().runs_finished, 3);
 
-    // A save from another device with 20 kept sittings of 50 guests.
     let other = openRun(createGame(), rng);
     for (let i = 0; i < 20; i++) {
       other.run.clientsServed = 50;
@@ -168,13 +162,11 @@ describe('meta.v1 lifetime totals', { concurrency: false }, () => {
       state = finishByRestart(state, rng, 5);
       write(state);
     }
-    // A sitting left open with 4 guests when the player resets.
     state.run.clientsServed = 4;
     write(state);
     assert.equal(stored().runs_finished, 3);
     assert.equal(stored().clients_total, 19);
 
-    // New game (reset): the save is replaced by a fresh café.
     state = createGame();
     metaTotalsStart(SLUG, state);
     write(state);
