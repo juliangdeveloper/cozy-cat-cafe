@@ -25,7 +25,7 @@ test.after(() => metaSetProyecto(null));
 test('PROYECTO is a valid block within the shared ranges', () => {
   assert.deepEqual(metaProyecto(PROYECTO), { ...PROYECTO });
   assert.ok(Array.from(PROYECTO.objetivo).length <= 140);
-  assert.equal(STATS.some((s) => s.key === 'proyecto' || s.key.startsWith('fase')), false);
+  assert.equal(Object.keys(STATS).some((key) => key === 'proyecto' || key.startsWith('fase')), false);
 });
 
 test('backfill and updates write the proyecto block outside stats', () => {

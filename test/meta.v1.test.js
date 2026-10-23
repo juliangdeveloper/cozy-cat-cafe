@@ -13,8 +13,8 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(root, 'index.html'), 'utf8');
 const SAVE_KEY = 'cozy-cat-cafe.save.v1';
 const META_KEY = 'meta.v1.cozy-cat-cafe';
-const VERSION = 'v2.24.41';
-const PLAIN = '2.24.41';
+const VERSION = 'v2.24.42';
+const PLAIN = '2.24.42';
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
 function memoryStorage(initial) {
@@ -275,13 +275,13 @@ test('stat keys and achievement ids stay inside the shared limits', () => {
 });
 
 test('declared stats are capped at 20 and undeclared keys are dropped', () => {
-  assert.ok(STATS.length >= 1 && STATS.length <= 20);
+  assert.ok(Object.keys(STATS).length >= 1 && Object.keys(STATS).length <= 20);
   const given = { photo: 'a'.repeat(8000) };
   for (let i = 0; i < 25; i++) given['extra_' + i] = i;
-  for (const spec of STATS) given[spec.key] = 3;
+  for (const key of Object.keys(STATS)) given[key] = 3;
   useStorage({});
   const record = metaUpdate('cozy-cat-cafe', VERSION, { stats: given, logros: [] });
-  assert.deepEqual(Object.keys(record.stats), STATS.map((spec) => spec.key));
+  assert.deepEqual(Object.keys(record.stats), Object.keys(STATS));
   assert.equal(record.stats.photo, undefined);
   assert.equal(record.stats.extra_0, undefined);
   assert.ok(JSON.stringify(record).length < 4000);
@@ -547,7 +547,7 @@ test('pagehide and a hidden tab flush a pending change inside one second', async
 });
 
 test('the café schedules one meta write and flushes a pending hide immediately', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.41'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.42'/);
   assert.match(html, /import \{ metaBackfill, metaFromState, metaSchedule, metaFlush, metaTotalsStart, metaRunFinished \} from '\.\/js\/meta\.js'/);
   assert.match(html, /const META_SLUG = 'cozy-cat-cafe'/);
   assert.match(html, /metaBackfill\(META_SLUG, GAME_VERSION, metaFromState\(state\)\);\s*metaTotalsStart\(META_SLUG, state\);/);

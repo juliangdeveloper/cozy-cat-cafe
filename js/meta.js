@@ -3,10 +3,14 @@ let metaWroteAt = 0;
 let metaTimer = 0;
 let metaPending = null;
 
+export const FASE = Object.freeze({ IDEA: 1, DEFINICION: 2, DISENO: 3, CONSTRUCCION: 4, VALIDACION: 5, LANZAMIENTO_Y_MANTENIMIENTO: 6, DESCARTADA: 7 });
+export const ESTADO_FASE = Object.freeze({ PENDIENTE: 0, EN_CURSO: 1, BLOQUEADA: 2, EN_REVISION: 3, COMPLETADA: 4 });
+export const TIPO_STAT = Object.freeze({ TOTAL_ACUMULADO: 'total_acumulado', MEJOR_MARCA: 'mejor_marca', VALOR_ACTUAL: 'valor_actual' });
+
 export const PROYECTO = {
   objetivo: 'Juego cozy de café publicado en la App Store: apilar comida en hexágonos y servir clientes, con tutorial y habilidades.',
-  fase: 4,
-  fase_estado: 1,
+  fase: FASE.CONSTRUCCION,
+  fase_estado: ESTADO_FASE.EN_CURSO,
   fases_completadas: 3
 };
 
@@ -16,12 +20,26 @@ function proyectoInt(n, lo, hi) {
   return typeof n === 'number' && Number.isInteger(n) && n >= lo && n <= hi;
 }
 
+export function enumValido(enumeracion, valor) {
+  return Object.values(enumeracion).indexOf(valor) !== -1;
+}
+
+export function statConservaMaximo(tipo) {
+  return tipo === TIPO_STAT.TOTAL_ACUMULADO || tipo === TIPO_STAT.MEJOR_MARCA;
+}
+
+export function statsDeclarados(stats) {
+  if (Array.isArray(stats)) return stats;
+  if (!stats || typeof stats !== 'object') return [];
+  return Object.keys(stats).map(function (key) { return { key: key, tipo: stats[key] && stats[key].tipo }; });
+}
+
 export function metaProyecto(p) {
   try {
     if (!p || typeof p !== 'object' || Array.isArray(p)) return null;
     const o = p.objetivo;
     if (typeof o !== 'string' || !o.trim() || Array.from(o).length > 140) return null;
-    if (!proyectoInt(p.fase, 1, 7) || !proyectoInt(p.fase_estado, 0, 4) || !proyectoInt(p.fases_completadas, 0, 6)) return null;
+    if (!enumValido(FASE, p.fase) || !enumValido(ESTADO_FASE, p.fase_estado) || !proyectoInt(p.fases_completadas, 0, FASE.LANZAMIENTO_Y_MANTENIMIENTO)) return null;
     return { objetivo: o, fase: p.fase, fase_estado: p.fase_estado, fases_completadas: p.fases_completadas };
   } catch (e) {
     return null;
@@ -66,11 +84,11 @@ function metaMergeStats(prevStats, given) {
   const prev = prevStats && typeof prevStats === 'object' && !Array.isArray(prevStats) ? prevStats : {};
   const next = given && typeof given === 'object' && !Array.isArray(given) ? given : {};
   const stats = {};
-  const list = STATS.slice(0, 20);
+  const list = statsDeclarados(STATS).slice(0, 20);
   for (const spec of list) {
     const hasNew = Object.prototype.hasOwnProperty.call(next, spec.key) && metaFinite(next[spec.key]);
     const hasOld = metaFinite(prev[spec.key]);
-    if (hasNew && spec.monotonic && hasOld) stats[spec.key] = Math.max(prev[spec.key], next[spec.key]);
+    if (hasNew && statConservaMaximo(spec.tipo) && hasOld) stats[spec.key] = Math.max(prev[spec.key], next[spec.key]);
     else if (hasNew) stats[spec.key] = next[spec.key];
     else if (hasOld) stats[spec.key] = prev[spec.key];
   }
@@ -227,30 +245,30 @@ function metaTipLevel(state) {
   return Math.floor(n);
 }
 
-export const STATS = [
-  { key: 'runs_finished', monotonic: true },
-  { key: 'victories', monotonic: true },
-  { key: 'best_clients', monotonic: true },
-  { key: 'clients_total', monotonic: true },
-  { key: 'guests_now', monotonic: false },
-  { key: 'best_coins', monotonic: true },
-  { key: 'coins', monotonic: false },
-  { key: 'best_stacks', monotonic: true },
-  { key: 'stacks_total', monotonic: true },
-  { key: 'best_trays', monotonic: true },
-  { key: 'trays_total', monotonic: true },
-  { key: 'colors_owned', monotonic: true },
-  { key: 'tip_level', monotonic: true },
-  { key: 'tables_opened', monotonic: true },
-  { key: 'skills_used', monotonic: true },
-  { key: 'best_skill_uses', monotonic: true },
-  { key: 'calamities_seen', monotonic: false },
-  { key: 'tutorial_done', monotonic: true },
-];
+export const STATS = Object.freeze({
+  runs_finished: { tipo: TIPO_STAT.TOTAL_ACUMULADO, unidad: 'partidas terminadas' },
+  victories: { tipo: TIPO_STAT.TOTAL_ACUMULADO, unidad: 'partidas ganadas' },
+  best_clients: { tipo: TIPO_STAT.MEJOR_MARCA, unidad: 'clientes servidos en una partida' },
+  clients_total: { tipo: TIPO_STAT.TOTAL_ACUMULADO, unidad: 'clientes servidos' },
+  guests_now: { tipo: TIPO_STAT.VALOR_ACTUAL, unidad: 'clientes servidos en la partida en curso' },
+  best_coins: { tipo: TIPO_STAT.MEJOR_MARCA, unidad: 'monedas' },
+  coins: { tipo: TIPO_STAT.VALOR_ACTUAL, unidad: 'monedas' },
+  best_stacks: { tipo: TIPO_STAT.MEJOR_MARCA, unidad: 'pilas cobradas en una partida' },
+  stacks_total: { tipo: TIPO_STAT.TOTAL_ACUMULADO, unidad: 'pilas cobradas' },
+  best_trays: { tipo: TIPO_STAT.MEJOR_MARCA, unidad: 'bandejas repartidas en una partida' },
+  trays_total: { tipo: TIPO_STAT.TOTAL_ACUMULADO, unidad: 'bandejas repartidas' },
+  colors_owned: { tipo: TIPO_STAT.MEJOR_MARCA, unidad: 'colores de comida desbloqueados' },
+  tip_level: { tipo: TIPO_STAT.MEJOR_MARCA, unidad: 'nivel de mejora de propinas' },
+  tables_opened: { tipo: TIPO_STAT.MEJOR_MARCA, unidad: 'mesas abiertas en una partida' },
+  skills_used: { tipo: TIPO_STAT.TOTAL_ACUMULADO, unidad: 'usos de habilidades' },
+  best_skill_uses: { tipo: TIPO_STAT.MEJOR_MARCA, unidad: 'usos de una misma habilidad en una partida' },
+  calamities_seen: { tipo: TIPO_STAT.VALOR_ACTUAL, unidad: 'calamidades en la partida en curso' },
+  tutorial_done: { tipo: TIPO_STAT.MEJOR_MARCA, unidad: 'tutorial completado: 1 sí, 0 no' }
+});
 
 function metaBlankStats() {
   const stats = {};
-  for (const spec of STATS) stats[spec.key] = 0;
+  for (const key of Object.keys(STATS)) stats[key] = 0;
   return stats;
 }
 
@@ -316,7 +334,7 @@ function metaSitting(state) {
   };
 }
 
-const META_TOTALS = ['runs_finished', 'victories', 'clients_total', 'stacks_total', 'trays_total', 'skills_used'];
+const META_TOTALS = Object.keys(STATS).filter((key) => STATS[key].tipo === TIPO_STAT.TOTAL_ACUMULADO);
 
 let metaBase = null;
 

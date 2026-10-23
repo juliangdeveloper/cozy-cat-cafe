@@ -1,11 +1,11 @@
 {
   "type": "module",
   "name": "cozy-cat-cafe",
-  "version": "2.24.41",
+  "version": "2.24.42",
   "description": "Cozy Cat Café × HexaSort — Warm Vintage Café idle × hex-sort",
   "main": "index.html",
   "scripts": {
-    "test": "node --test test/rules.test.js test/audio.test.js test/ui.v2211.test.js test/v2.t27.test.js test/v2.t28.test.js test/v2.t29.test.js test/v2.t30.test.js test/v2.t31.test.js test/v2.t32.test.js test/v2.t33.test.js test/v2.t34.test.js test/v2.t35.test.js test/v2.t36.test.js test/v2.t37.test.js test/v2.t38.test.js test/v2.t39.test.js test/v2.t40.test.js test/v2.t41.test.js test/v2.t42.test.js test/v2.t43.test.js test/v2.t44.test.js test/v2.t45.test.js test/meta.v1.test.js test/meta.proyecto.test.js test/meta.lifetime.test.js test/meta.lifetime.app.test.js",
+    "test": "node --test test/rules.test.js test/audio.test.js test/ui.v2211.test.js test/v2.t27.test.js test/v2.t28.test.js test/v2.t29.test.js test/v2.t30.test.js test/v2.t31.test.js test/v2.t32.test.js test/v2.t33.test.js test/v2.t34.test.js test/v2.t35.test.js test/v2.t36.test.js test/v2.t37.test.js test/v2.t38.test.js test/v2.t39.test.js test/v2.t40.test.js test/v2.t41.test.js test/v2.t42.test.js test/v2.t43.test.js test/v2.t44.test.js test/v2.t45.test.js test/meta.v1.test.js test/meta.proyecto.test.js test/meta.tipos.test.js test/meta.lifetime.test.js test/meta.lifetime.app.test.js",
     "test:e2e": "node test/e2e.playthrough.js",
     "build": "node build.js"
   },
