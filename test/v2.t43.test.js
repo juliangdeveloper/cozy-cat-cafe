@@ -12,8 +12,8 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(root, 'index.html'), 'utf8');
 const css = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
 
-test('version footer is v2.24.40', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.40'/);
+test('version footer is v2.24.41', () => {
+  assert.match(html, /GAME_VERSION = 'v2\.24\.41'/);
 });
 
 test('every served guest is replaced in their own card', () => {

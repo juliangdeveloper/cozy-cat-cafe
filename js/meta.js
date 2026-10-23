@@ -4,10 +4,10 @@ let metaTimer = 0;
 let metaPending = null;
 
 export const PROYECTO = {
-  objetivo: 'Juego cozy de café para móvil: apilar comida en hexágonos y servir a 100 clientes, con tutorial y habilidades.',
-  fase: 6,
+  objetivo: 'Juego cozy de café publicado en la App Store: apilar comida en hexágonos y servir clientes, con tutorial y habilidades.',
+  fase: 4,
   fase_estado: 1,
-  fases_completadas: 5
+  fases_completadas: 3
 };
 
 let proyectoSource = PROYECTO;
@@ -21,7 +21,7 @@ export function metaProyecto(p) {
     if (!p || typeof p !== 'object' || Array.isArray(p)) return null;
     const o = p.objetivo;
     if (typeof o !== 'string' || !o.trim() || Array.from(o).length > 140) return null;
-    if (!proyectoInt(p.fase, 1, 6) || !proyectoInt(p.fase_estado, 0, 4) || !proyectoInt(p.fases_completadas, 0, 6)) return null;
+    if (!proyectoInt(p.fase, 1, 7) || !proyectoInt(p.fase_estado, 0, 4) || !proyectoInt(p.fases_completadas, 0, 6)) return null;
     return { objetivo: o, fase: p.fase, fase_estado: p.fase_estado, fases_completadas: p.fases_completadas };
   } catch (e) {
     return null;
