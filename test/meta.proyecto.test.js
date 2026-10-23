@@ -79,3 +79,24 @@ test('an old record without proyecto is still valid and gains the block', () => 
   assert.equal(rec.stats.coins, 7);
   assert.deepEqual(rec.proyecto, { ...PROYECTO });
 });
+
+test('a stored record with a different proyecto gets the current block on the next write', () => {
+  const old = {
+    v: 1, slug: SLUG, version: '2.24.37', updatedAt: '2026-01-01T00:00:00.000Z',
+    stats: { coins: 7 }, logros: ['first_service'], hitos: { first_service: '2026-01-01T00:00:00.000Z' },
+    proyecto: { extra: 1, objetivo: 'Objetivo anterior.', fase: 2, fase_estado: 3, fases_completadas: 1 },
+  };
+  const bag = useStorage({ [KEY]: JSON.stringify(old) });
+  metaUpdate(SLUG, 'v9.9.9', { stats: {}, logros: [] });
+  const rec = JSON.parse(bag[KEY]);
+  assert.deepEqual(rec.proyecto, { ...PROYECTO });
+  assert.equal(rec.hitos.first_service, '2026-01-01T00:00:00.000Z');
+  assert.equal(bag[KEY + '.corrupt'], undefined);
+
+  // With an invalid current block the stale one is dropped, not kept.
+  metaSetProyecto({ fase: 9 });
+  metaResetClock();
+  const second = useStorage({ [KEY]: JSON.stringify(old) });
+  metaUpdate(SLUG, 'v9.9.9', { stats: {}, logros: [] });
+  assert.equal('proyecto' in JSON.parse(second[KEY]), false);
+});
