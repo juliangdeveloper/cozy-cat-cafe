@@ -158,6 +158,39 @@ describe('meta.v1 lifetime totals', { concurrency: false }, () => {
     assert.equal(stored().clients_total, 1006);
   });
 
+  test('a reset (new game) keeps counting from the record', () => {
+    useStorage();
+    const rng = seeded();
+    let state = openRun(createGame(), rng);
+    metaBackfill(SLUG, VERSION, metaFromState(state));
+    metaTotalsStart(SLUG, state);
+    for (let i = 0; i < 3; i++) {
+      state = finishByRestart(state, rng, 5);
+      write(state);
+    }
+    // A sitting left open with 4 guests when the player resets.
+    state.run.clientsServed = 4;
+    write(state);
+    assert.equal(stored().runs_finished, 3);
+    assert.equal(stored().clients_total, 19);
+
+    // New game (reset): the save is replaced by a fresh café.
+    state = createGame();
+    metaTotalsStart(SLUG, state);
+    write(state);
+    assert.equal(stored().runs_finished, 3);
+    assert.equal(stored().clients_total, 19);
+
+    state = openRun(state, rng);
+    for (let i = 0; i < 2; i++) {
+      state = finishByRestart(state, rng, 5);
+      write(state);
+    }
+    assert.equal(state.runHistory.length, 2);
+    assert.equal(stored().runs_finished, 5);
+    assert.equal(stored().clients_total, 29);
+  });
+
   test('an old capped record is the best estimate and the totals never go down', () => {
     const rng = seeded();
     let state = openRun(createGame(), rng);

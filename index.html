@@ -3113,6 +3113,7 @@ function bindGlobal(){
     localStorage.removeItem(KEY);
     state=createGame();
     state.meta.exportId='ccc-1-'+Date.now();
+    metaTotalsStart(META_SLUG, state);
     persist();
     $('#saveModal').classList.remove('show');
     renderAll();
