@@ -1,5 +1,3 @@
-// v2.24.6 — big debris ×4, Color from 1000, unlimited Undo, price-sorted bar,
-// help button, abbreviated money, client colors = owned + next.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -79,7 +77,7 @@ test('clients only ask for owned colors plus the next one', () => {
 });
 
 test('page: v2.24.7, help button, fixed skill bar, abbreviated money', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.39'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.40'/);
   assert.match(html, /id="btnHelp"/);
   assert.match(html, /startTutorial\(\); \};/);
   assert.match(html, /SKILL_BAR_ORDER\.map\(id=>meta\.find/);

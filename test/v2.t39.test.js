@@ -1,4 +1,3 @@
-// v2.24.24 — board shuffle fires once at 100,000 coins and keeps each stack with its tile.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 

@@ -1,9 +1,3 @@
-// ============================================================================
-// Cozy Cat Café × HexaSort — TDD suite v2.20 (node:test, no deps).
-// Economía de mesas: solo curva temporal 40 × 1.6^n, reset entre runs.
-// Sin tienda permanente. Saves viejos con permTiles / skills.tables cargan.
-// Run: node --test test/v2.t25.test.js
-// ============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -74,7 +68,7 @@ test('T25b no permanent table purchase is available', () => {
   assert.equal(html.includes('buyTablesUp'), false);
   assert.equal(html.includes('permTilePrice'), false);
   assert.equal(html.includes('data-tables'), false);
-  assert.match(html, /GAME_VERSION = 'v2\.24\.39'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.40'/);
 });
 
 test('T25c old save loads without throwing; v2.21 drops persistent meta, keeps the per-run price', () => {

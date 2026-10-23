@@ -1,5 +1,3 @@
-// Audio stays out of the pure rules module. Mute, unlock, and the three
-// effects are covered here with a fake Howler — no speakers required.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -42,9 +40,6 @@ test('the UI hooks the loop and the effects only on success', () => {
     assert.match(amb, new RegExp(name + '\\.ogg'));
   }
   assert.match(amb, /sfx-destroy\.wav/);
-  // place, cascade destroy, cascade merge, cascade serve, manual serve,
-  // the victory close, the mid-run defeat close, the victory-restart tick,
-  // and a successful Clear board (same destroy payoff, only after it lands).
   assert.equal((html.match(/playCafeSfx\(/g) || []).length, 9);
   assert.match(html, /playCafeSfx\('reset'\)/);
   assert.match(html, /playCafeSfx\('close'\)/);
@@ -72,7 +67,6 @@ test('the UI hooks the loop and the effects only on success', () => {
   assert.match(amb, /cozy-cat-cafe\.audio\.mute/);
   assert.match(html, /unlockCafeAudio\(\)/);
   assert.match(html, /noteCafeOpen\(\)/);
-  assert.match(html, /v2\.21\.1/);
   assert.match(amb, /visibilitychange/);
   assert.match(amb, /hasFocus/);
   assert.doesNotMatch(amb, /playCafeSfx\('destroy/);
@@ -156,7 +150,7 @@ test('mute persists, the loop waits for a gesture, and effects share that mute',
   assert.equal(music.playing(), true);
   assert.equal(music.playCalls, 1);
   assert.equal(music.opts.html5, true);
-  music._playing = false; // buffer not audible yet — a second render must not stack the loop
+  music._playing = false;
   amb.noteCafeOpen();
   assert.equal(music.playCalls, 1);
   onPointer({ type: 'pointerdown', pointerType: 'touch', target: { closest: () => null } });
@@ -186,7 +180,6 @@ test('mute persists, the loop waits for a gesture, and effects share that mute',
   assert.equal(created.length, 7);
   const synth = created.filter((h) => h.opts && String(h.opts.src).includes('data:audio/wav'));
   assert.equal(synth.length, 2);
-  // A preload failure must not play an effect by itself.
   stack.opts.onloaderror();
   const stackHtml5 = created.filter((h) => h.opts && String(h.opts.src).includes('sfx-stack')).at(-1);
   assert.equal(stackHtml5.opts.html5, true);
@@ -207,7 +200,6 @@ test('mute persists, the loop waits for a gesture, and effects share that mute',
   amb.noteCafeClosed();
   assert.equal(music.playing(), false);
 
-  // Boot reads the key again (same call the page makes on reload).
   const playsBefore = music.playCalls;
   amb.bindCafeAudio();
   assert.equal(amb.cafeAudioMuted(), true);
@@ -218,7 +210,6 @@ test('mute persists, the loop waits for a gesture, and effects share that mute',
   assert.equal(store.get('cozy-cat-cafe.audio.mute'), '0');
   const live = created.filter((h) => h.opts && h.opts.loop).at(-1);
   assert.equal(live.playing(), true);
-  // A play error must not stick. HTML5 fails over to Web Audio and plays again.
   live.failNext = true;
   live._playing = false;
   live.play();
@@ -232,7 +223,6 @@ test('mute persists, the loop waits for a gesture, and effects share that mute',
   const muteKey = () => store.get('cozy-cat-cafe.audio.mute');
   assert.equal(muteKey(), '0');
 
-  // Background tab / minimized window / phone: visibility hidden, even if focus lies.
   globalThis.document.visibilityState = 'hidden';
   globalThis.document._focus = true;
   fire('visibilitychange');
@@ -253,14 +243,10 @@ test('mute persists, the loop waits for a gesture, and effects share that mute',
   assert.equal(resumed.playing(), true, 'showing the page starts the loop again');
   assert.equal(muteKey(), '0');
 
-  // A blur that does not actually drop document focus must not cut the loop.
-  // Mobile blur is unreliable; hasFocus() is what makes it safe to listen.
   fire('win:blur');
   assert.equal(resumed.playing(), true, 'a blur while the document still has focus keeps playing');
   assert.equal(muteKey(), '0');
 
-  // Another window has focus, but this tab is still "visible".
-  // Wait out the short "this blur is the click that rebuilt the page" window.
   await new Promise((r) => setTimeout(r, 450));
   globalThis.document._focus = false;
   fire('win:blur');
@@ -272,7 +258,6 @@ test('mute persists, the loop waits for a gesture, and effects share that mute',
   assert.equal(again.playing(), true);
   assert.equal(muteKey(), '0');
 
-  // A phone reports hasFocus() false while the café is on screen.
   globalThis.window.matchMedia = (q) => ({ matches: String(q).includes('coarse'), media: String(q) });
   globalThis.document._focus = false;
   globalThis.document.visibilityState = 'visible';

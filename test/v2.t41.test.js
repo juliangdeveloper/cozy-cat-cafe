@@ -1,5 +1,3 @@
-// v2.24.28 — after the board shuffle, every stack is drawn on its own cell.
-// A save whose 36 cells no longer have unique positions is repaired on load.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync, unlinkSync } from 'node:fs';
@@ -21,7 +19,7 @@ function slotKey(cell) {
 }
 
 test('a shuffle keeps 36 unique cells, and a broken save is repaired on load', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.39'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.40'/);
   assert.match(html, /function stopBoardMotion/);
   assert.match(html, /fill:'backwards'/);
   assert.doesNotMatch(html, /fill:'both'/);

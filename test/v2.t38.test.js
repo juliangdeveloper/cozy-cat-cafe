@@ -1,5 +1,3 @@
-// v2.24.24 — a finished run remembers how many times each skill was used.
-// Undo puts that count back, including the free 180° rotate.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -24,7 +22,6 @@ const open = (coins = 1e9, seed = 1) => {
   return G.openRun(s, rng(seed));
 };
 
-// Same turn the page applies after useRotateBoard counts the free skill.
 function turn(s) {
   const next = G.useRotateBoard(s);
   assert.ok(!next.error);
@@ -104,7 +101,7 @@ test('finished runs store a count for every skill, and undo removes that use', (
 });
 
 test('history rows use icons, and a run without skill counts shows a dash', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.39'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.40'/);
   assert.match(html, /useRotateBoard\(state\)/);
   assert.match(game, /skillUses: snapshotSkillUses\(state\)/);
   assert.match(html, /Skill uses unknown/);

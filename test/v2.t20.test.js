@@ -1,12 +1,3 @@
-// ============================================================================
-// Block T20 — v2.8: calamidades v2 (R8 reescrita) + skill unlockLocks (R7.8).
-// (1) candado con pila OCULTA (hiddenStack, stack vacío, no fusiona/sirve);
-// (2) useUnlockLocks revela + cascada (merge real tras desbloquear);
-// (3) pila de calamidad se CONCATENA sobre stack existente (no sobrescribe);
-// (4) calamidades en cualquier celda de las 32 (incluye dormant);
-// (5) applyCalamities sigue 1 vez por partida, rango [1/5, 1/3] jugables.
-// Run: node --test test/v2.t20.test.js
-// ============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -31,16 +22,11 @@ function parkOrders(s) {
   }
   return s;
 }
-// estado base con run abierta (36 celdas, núcleo jugable). Pedidos aparcados
-// para que un tope de fixture no se sirva solo (cafeLevel 7: unlockLocks LV5).
 const base = () => {
   const s = G.openRun(G.createGame({ progress: { coins: 1e9, totalGames: 50, cafeLevel: 7 } }), mulberry32(3));
   return parkOrders(s);
 };
 
-// ---------------------------------------------------------------------------
-// T20.a — CONFIG + catálogo del skill nuevo
-// ---------------------------------------------------------------------------
 test('T20.a [v2.8] CONFIG: USES_SKILLS incluye unlockLocks (tope 5 aplica)', () => {
   needCfg('USES_SKILLS'); needCfg('MAX_USES_PER_SKILL');
   assert.deepEqual(G.CONFIG.USES_SKILLS,
@@ -69,19 +55,14 @@ test('T20.c [v2.8] buySkill unlockLocks: 1ª compra ES 1er uso; tope 5; precio 2
   assert.equal(r6.skills.unlockLocks.usesBought, 6);
 });
 
-// ---------------------------------------------------------------------------
-// T20.d — R8.4 v2: candado con pila OCULTA
-// ---------------------------------------------------------------------------
 test('T20.d [v2.8] candado sembrado guarda hiddenStack y NO participa en merge/serve', () => {
   const s = base();
   const B = s.run.board;
-  const locked = B.findIndex((c) => c.dormant);          // dormant a mano = candado futuro
+  const locked = B.findIndex((c) => c.dormant);
   B[locked].dormant = false;
-  // sembrar a mano con la semántica nueva: blocked + hiddenStack
   B[locked].blocked = true;
   B[locked].hiddenStack = [1, 1];
   B[locked].stack = [];
-  // vecino jugable con tope 1 => si la pila fuera visible, habría merge
   const nb = B.findIndex((c) => c && !c.dormant && !c.blocked && !c.stack.length);
   B[nb].stack = [1];
   const fin = G.resolveCascade(s);
@@ -90,9 +71,6 @@ test('T20.d [v2.8] candado sembrado guarda hiddenStack y NO participa en merge/s
   assert.equal(fin.steps, 0, 'sin merge: la pila oculta no participa');
 });
 
-// ---------------------------------------------------------------------------
-// T20.e — R7.8 v2: useUnlockLocks
-// ---------------------------------------------------------------------------
 test('T20.e1 [v2.8] useUnlockLocks: revela hiddenStack y desbloquea (cascada la dispara la APP)', () => {
   need('useUnlockLocks');
   const s = base();
@@ -117,11 +95,9 @@ test('T20.e2 [v2.8] useUnlockLocks: error en celda no bloqueada y sin usos/owned
   const s = base();
   const B = s.run.board;
   const free = B.findIndex((c) => c && !c.dormant && !c.blocked);
-  // CON skill comprada: celda libre => notBlocked (el guard owned corre primero por convención)
   s.skills.unlockLocks = { owned: true, uses: 1, usesBought: 1 };
   const r1 = G.useUnlockLocks(s, free);
   assert.equal(r1.error, 'notBlocked');
-  // v2.22: sin saldo no abre el candado (ya no hay gate de owned)
   const s2 = base();
   s2.progress.coins = 0;
   const lk2 = s2.run.board.findIndex((c) => c && !c.dormant);
@@ -131,16 +107,11 @@ test('T20.e2 [v2.8] useUnlockLocks: error en celda no bloqueada y sin usos/owned
   assert.equal(s2.run.board[lk2].blocked, true);
 });
 
-// ---------------------------------------------------------------------------
-// T20.f — R8.3 v2: pila de calamidad se CONCATENA (no sobrescribe)
-// ---------------------------------------------------------------------------
 test('T20.f [v2.8] applyCalamities: pila pre-colocada sobre ocupada concatena', () => {
   const s = base();
   const B = s.run.board;
-  B.forEach((c) => { if (c.dormant) c.dormant = false; });   // 32 jugables
-  // TODAS las celdas con base [2,2]: cualquier calamidad de pila debe apilar encima
+  B.forEach((c) => { if (c.dormant) c.dormant = false; });
   B.forEach((c) => { c.stack = [2, 2]; c.calamity = false; });
-  // rng SIEMPRE rama pila (r()>=BLOCK_PROB): rngInt estable tras cada r()
   let z = 0.75;
   const rng = () => { z = (z * 9301 + 0.2113) % 1; return 0.5 + z * 0.5; };
   const fin = G.applyCalamities(s, rng);
@@ -152,20 +123,13 @@ test('T20.f [v2.8] applyCalamities: pila pre-colocada sobre ocupada concatena', 
   }
 });
 
-// ---------------------------------------------------------------------------
-// T20.g — R8.1 v2: calamidades en CUALQUIER celda (incluye dormant)
-// ---------------------------------------------------------------------------
 test('T20.g [v2.8] applyCalamities alcanza celdas dormant (pila oculta revelable)', () => {
   const s = base();
   const B = s.run.board;
-  // activar hasta 16 jugables: 7 núcleo + 9 baldosas
   let act = 0;
   for (const c of B) { if (c.dormant && act < 9) { c.dormant = false; act++; } }
   const dormantes = B.filter((c) => c.dormant).length;
   assert.equal(dormantes, 20, '20 dormant restantes (36-16 jugables)');
-  // rng SIEMPRE rama pila: con pool de candidatos 36 y count ~[4,10], dormant
-  // tiene ~50% de ser alcanzada; verificación robusta = EXPECT a nivel de API:
-  // si alguna dormant recibió calamidad, DEBE llevar hiddenStack (nunca stack).
   const rng = mulberry32(21);
   const fin = G.applyCalamities(s, rng);
   assert.equal(fin.run.calamitiesApplied, true);
@@ -175,7 +139,6 @@ test('T20.g [v2.8] applyCalamities alcanza celdas dormant (pila oculta revelable
     assert.equal(c.blocked, false, 'dormant no se vuelve blocked');
     assert.equal(c.stack.length, 0, 'dormant sin stack visible');
   }
-  // y la determinista: sembrar a mano y verificar el ciclo completo
   const d = fin.run.board.find((c) => c.dormant && !c.calamity && G.isActivateEligible(fin, c))
     || fin.run.board.find((c) => c.dormant && !c.calamity);
   d.calamity = true; d.hiddenStack = [3];
@@ -190,7 +153,7 @@ test('T20.h [v2.8] one-shot y rango [ceil(n/5), floor(n/3)] intactos', () => {
   B.forEach((c) => { if (c.dormant) c.dormant = false; });
   const rng = mulberry32(31);
   const fin = G.applyCalamities(s, rng);
-  const n = 36;   // v2.24.18: tablero 6×6
+  const n = 36;
   const lo = Math.ceil(n / 5), hi = Math.floor(n / 3);
   assert.ok(fin.run.calamities >= lo && fin.run.calamities <= hi, `count=${fin.run.calamities} fuera de [${lo},${hi}]`);
   const fin2 = G.applyCalamities(fin, rng);

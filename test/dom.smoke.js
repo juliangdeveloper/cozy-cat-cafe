@@ -1,11 +1,8 @@
-// DOM-level smoke test: run the ACTUAL index.html app module inside jsdom,
-// with the REAL js/game.js logic imported, then simulate a play session.
 import { readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { JSDOM } from 'jsdom';
 
-// capture async failures instead of crashing mysteriously
 const reset = { fired:false };
 process.on('uncaughtExceptionMonitor', (e)=>{ global.__asyncErr = (e&&e.message)||String(e); });
 process.on('uncaughtException', (e)=>{ console.log('UNCAUGHT-STACK:', (e&&e.stack)||String(e)); try{ unlinkSync(join(base,'test','.app_runner.mjs'));}catch(_){} process.exit(1); });
@@ -24,17 +21,13 @@ const dom = new JSDOM(html
 const { window } = dom;
 const { document } = window;
 
-// polyfills jsdom lacks
 window.matchMedia = (q) => ({ matches:false, media:q, addEventListener(){}, removeEventListener(){},
   addListener(){}, removeListener(){} });
 window.Image = class { set src(v){ if(v&&this.onload) setTimeout(()=>this.onload(),0);} constructor(){this.onload=null;this.onerror=null;} };
 window.fetch = async () => { throw new Error('no-network'); };
 
-// export module globals to jsdom window so the app sees them
-// jsdom provides localStorage (http origin); ensure available
 if(!window.localStorage){ const s={}; try{ Object.defineProperty(window,'localStorage',{value:{getItem:k=>s[k]||null,setItem:(k,v)=>{s[k]=String(v);},removeItem:k=>{delete s[k]; }},configurable:true});}catch(_){} }
 
-// jsdom provides localStorage already; ensure it
 if(globalThis.localStorage && typeof globalThis.localStorage=== 'object'){};
 window.setInterval = global.setInterval.bind(global);
 window.setTimeout  = global.setTimeout.bind(global);
@@ -43,7 +36,6 @@ window.clearTimeout  = global.clearTimeout.bind(global);
 window.requestAnimationFrame = (cb) => setTimeout(() => cb(Date.now()), 16);
 window.cancelAnimationFrame = (id) => clearTimeout(id);
 
-// expose jsdom as Node globals so the app module's bare refs resolve
 globalThis.window = window;
 globalThis.document = window.document;
 globalThis.localStorage = window.localStorage;
@@ -58,8 +50,6 @@ globalThis.clearTimeout  = global.clearTimeout.bind(global);
 globalThis.requestAnimationFrame = window.requestAnimationFrame;
 globalThis.cancelAnimationFrame = window.cancelAnimationFrame;
 
-// Build bridge module: real imports + app body + exposed boot.
-// Take the game import from the page so new skills stay in the smoke boot.
 const appCode = m[1];
 const gameImp = appCode.match(/import\s*\{([\s\S]*?)\}\s*from\s*'\.\/js\/game\.js'/);
 if (!gameImp) throw new Error('no game import');
@@ -104,7 +94,6 @@ try {
   results.shopGone = !document.getElementById('btnShop') && !document.getElementById('shopModal');
   results.powerCount = document.querySelectorAll('#powerbar .pow').length;
   results.headerKids = document.querySelector('.topbar') ? document.querySelector('.topbar').children.length : 0;
-  // a click is not a restart; the hold is 3s and must not open a lose modal
   document.getElementById('btnClose').click(); await sleep(20);
   results.closeOpens = document.getElementById('closeModal').classList.contains('show');
 } catch(e) {

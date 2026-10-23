@@ -1,4 +1,3 @@
-// Pixel customers, host cat, and skill icons. Version footer is v2.24.39.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -18,8 +17,8 @@ function pngSize(buf) {
   return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
 }
 
-test('version footer is v2.24.39', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.39'/);
+test('version footer is v2.24.40', () => {
+  assert.match(html, /GAME_VERSION = 'v2\.24\.40'/);
   assert.match(html, /☕ Cozy Cat Café \$\{GAME_VERSION\}/);
 });
 

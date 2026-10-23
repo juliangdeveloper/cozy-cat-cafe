@@ -1,5 +1,3 @@
-// v2.24.7 — debris ×4 from 10 inclusive, skill bar frozen at starting price,
-// restart is a white flag, header icon buttons share one size.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -67,7 +65,7 @@ test('the skill bar is sorted once by starting price and stays put', () => {
 });
 
 test('restart is a white flag with a hold label, and header buttons match', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.39'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.40'/);
   assert.match(html, /aria-label="Hold 3s to restart"/);
   assert.match(html, /class="flag-ico"/);
   assert.match(html, /fill="#fff"/);

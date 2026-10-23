@@ -1,8 +1,3 @@
-// ============================================================================
-// Cozy Cat Café × HexaSort — TDD suite (node:test, no deps).
-// Source of truth: RULES.md §3 (T1..T10) + §2 (R1..R11).
-// Tests exercise the REAL pure functions from js/game.js. Run: node --test test/
-// ============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -12,22 +7,17 @@ import {
   colorsUnlocked, generateBoard, orderReadyOn, topGroup, pay,
   serializeState, deserializeState, importSave, mulberry32,
   expandTile, freeSlots, activateTile, unlockedNeighborCount, applyCalamities,
-  previewPool,                     // v2.9 R3.1: pizarra usa la tabla ponderada
-  drawPoolPiles, initBag,          // v2.10 R18: bolsita de pool
+  previewPool,
+  drawPoolPiles, initBag,
 } from '../js/game.js';
 
 const rng = (n) => mulberry32(n);
 
-// helper: open a fresh run from a givens state
 const fresh = (seed = 1) => createGame({ progress: { coins: 1000 } });
 const openWith = (s, seed) => openRun(s, rng(seed));
 
-// ---------------------------------------------------------------------------
-// R1 — persistence
-// ---------------------------------------------------------------------------
 test('R1.2 roundtrip: deserialize(serialize(s)) igual JSON', () => {
   let s = openRun(createGame(), rng(2));
-  // make the first order ready on cell 0, then serve it with the REAL logic fn
   const oid = s.run.orders[0].id;
   const cellIdx = 0;
   const col = s.run.orders[0].color, qty = s.run.orders[0].qty;
@@ -56,25 +46,18 @@ test('R1.1 export id embebido y no vacio', () => {
   assert.ok(s.meta.exportId && s.meta.exportId.length > 0);
 });
 
-// ---------------------------------------------------------------------------
-// T1 — pool y colocacion
-// ---------------------------------------------------------------------------
 test('T1.1 pool 3 pilas al abrir', () => {
-  // v2.1-clients: openRun v2.1 da 3 pilas MONOCROMAS de 1..colorsOwned (R13.3
-  // v2.1: rosterIndex arranca en 5 = rosterMax(4)+...; presión R13.5: pool <
-  // roster) y la cola perezosa dibuja los 3 clientes VISIBLES (R16.3/R16.4).
   const s = openRun(createGame(), rng(1));
   assert.equal(s.run.pool.length, 3);
   assert.equal(s.run.poolPlaced, 0);
-  assert.equal(s.run.rosterIndex, 5);            // R13.3 v2.1: arranque en 5
-  assert.equal(s.run.activeClients.length, 3);   // R16.4: 3 visibles
-  assert.equal(s.run.clientsDrawn, 3);           // R16.3: llegada perezosa
-  const owned = s.progress.colorsOwned;          // 4 de inicio (R13.7)
+  assert.equal(s.run.rosterIndex, 5);
+  assert.equal(s.run.activeClients.length, 3);
+  assert.equal(s.run.clientsDrawn, 3);
+  const owned = s.progress.colorsOwned;
   for (const p of s.run.pool) {
     assert.ok(p.length >= 1 && p.length <= 7, 'v2.0: pila de tamaño 1..7');
-    for (const c of p) assert.ok(c >= 1 && c <= owned); // colores 1..colorsOwned (multicolor OK)
+    for (const c of p) assert.ok(c >= 1 && c <= owned);
   }
-  // v2.24.1: 1..min(colorsOwned+1, palette), not 1..rosterIndex
   const clientCap = Math.min(owned + 1, s.run.palette.length);
   for (const o of s.run.orders) assert.ok(o.color >= 1 && o.color <= clientCap);
 });
@@ -114,34 +97,29 @@ test('T1.3 refill al colocar la 3a', () => {
   s = placeStack(s, 1, 1);
   assert.equal(s.run.poolPlaced, 2);
   s = placeStack(s, 2, 2);
-  // pool refilled
   assert.equal(s.run.pool.length, 3);
 });
 
-// ---------------------------------------------------------------------------
-// T2 — pedidos / servir  (nueva firma: orderReadyOn/serveOrder reciben cellId
-// cliente→pila; los pedidos YA NO tienen campo `cell`)
-// ---------------------------------------------------------------------------
 test('T2.1 listo cuando tope color Y cantidad suficiente', () => {
   let s = baseRun();
   s.run.board[0].stack = [2, 2, 2];
   assert.equal(orderReadyOn(s, 'o0', 0), true);
 });
 test('T2.2 NO listo si cantidad inferior; SÍ listo si hay de sobra', () => {
-  let a = baseRun(); a.run.board[0].stack = [2, 2];       // too few
-  let b = baseRun(); b.run.board[0].stack = [2, 2, 2, 2]; // more than qty -> servable
+  let a = baseRun(); a.run.board[0].stack = [2, 2];
+  let b = baseRun(); b.run.board[0].stack = [2, 2, 2, 2];
   assert.equal(orderReadyOn(a, 'o0', 0), false);
   assert.equal(orderReadyOn(b, 'o0', 0), true);
 });
 test('T2.3 NO listo si color tope difiere', () => {
-  let a = baseRun(); a.run.board[0].stack = [1, 1, 1];      // wrong color
-  let b = baseRun(); b.run.board[0].stack = [2, 2, 1, 1, 1];// top color 1
+  let a = baseRun(); a.run.board[0].stack = [1, 1, 1];
+  let b = baseRun(); b.run.board[0].stack = [2, 2, 1, 1, 1];
   assert.equal(orderReadyOn(a, 'o0', 0), false);
   assert.equal(orderReadyOn(b, 'o0', 0), false);
 });
 test('T2.4 servir consume solo qty, marca served, paga', () => {
   let s = baseRun();
-  s.run.board[0].stack = [2, 2, 2]; // count === qty
+  s.run.board[0].stack = [2, 2, 2];
   const before = s.progress.coins;
   const served = serveOrder(s, 'o0', 0);
   assert.ok(!served.error, 'servable');
@@ -156,22 +134,18 @@ test('T2.5 servir in-servible => error', () => {
   assert.ok(res.error);
 });
 
-// ---------------------------------------------------------------------------
-// REDESIGN (mayor) — sistema de servir (click cliente→pila) y tablero hex 2-3-2
-// ---------------------------------------------------------------------------
 test('REDESIGN (a) servir consume SOLO qty del tope (pila 4, pide 3 -> queda 1)', () => {
-  let s = baseRun(); // o0 = color2 qty3
-  s.run.board[0].stack = [1, 2, 2, 2, 2]; // topGroup color2 count4
+  let s = baseRun();
+  s.run.board[0].stack = [1, 2, 2, 2, 2];
   const before = s.progress.coins;
   const served = serveOrder(s, 'o0', 0);
   assert.ok(!served.error, 'debe servir con pila mayor');
-  assert.deepEqual(served.run.board[0].stack, [1, 2]); // se consumen solo 3 rojos
+  assert.deepEqual(served.run.board[0].stack, [1, 2]);
   assert.equal(served.run.orders[0].served, true);
   assert.equal(served.progress.coins, before + pay({ qty: 3, color: 2 }));
 });
 
 test('REDESIGN (b) pila insuficiente o color distinto => error sin consumir ni servir', () => {
-  // color distinto
   let a = baseRun(); a.run.board[0].stack = [1, 1, 1];
   const preA = a.run.orders[0].served;
   const resA = serveOrder(a, 'o0', 0);
@@ -179,19 +153,15 @@ test('REDESIGN (b) pila insuficiente o color distinto => error sin consumir ni s
   assert.deepEqual(a.run.board[0].stack, [1, 1, 1]);
   assert.equal(a.run.orders[0].served, preA);
   assert.equal(a.progress.coins, 1000);
-  // cantidad insuficiente (count < qty)
   let b = baseRun(); b.run.board[0].stack = [2, 2];
   const beforeB = JSON.stringify(b);
   const resB = serveOrder(b, 'o0', 0);
   assert.equal(resB.error, 'notEnough');
-  assert.equal(JSON.stringify(b), beforeB); // no muta
+  assert.equal(JSON.stringify(b), beforeB);
   assert.equal(b.run.orders[0].served, false);
 });
 
 test('REDESIGN (c) tablero v2.24.18 = 36 celdas: núcleo 2-3-2 jugable + 29 dormant', () => {
-  // v2.24.18: rectángulo 6×6 pointy = 36 celdas; el núcleo 2-3-2
-  // (7 celdas, coords de initialHexCells) nace jugable y dentro del marco.
-  // Las otras 29 quedan dormant.
   const s = openRun(createGame(), rng(1));
   assert.equal(s.run.board.length, 36);
   const playable = s.run.board.filter((c) => !c.dormant);
@@ -270,34 +240,25 @@ test('REDESIGN (d) expandTile: slot vecino válido funciona; no-vecino/ocupado d
   const added = res.run.board[res.run.board.length - 1];
   assert.equal(added.q, target.q);
   assert.equal(added.r, target.r);
-  // ocupado -> error
   assert.equal(expandTile(s, s.run.board[0].q, s.run.board[0].r).error, 'occupied');
-  // libre pero NO vecino -> error
   assert.equal(expandTile(s, 100, 100).error, 'notAdjacent');
-  // sin saldo -> noFunds
   const poorRun = openRun(createGame({ progress: { coins: 0 } }), rng(2));
   const pRes = expandTile(poorRun, freeSlots(poorRun)[0].q, freeSlots(poorRun)[0].r);
   assert.equal(pRes.error, 'noFunds');
 });
 
 test('REDESIGN (e) contrato §0: signatures públicas siguen operativas', () => {
-  // orderReadyOn / serveOrder aceptan (state, orderId, cellId), cliente→pila
   let s = baseRun(); s.run.board[0].stack = [2, 2, 2];
   assert.equal(orderReadyOn(s, 'o0', 0), true);
   assert.equal(orderReadyOn(s, 'o0', 1), false);
   const sv = serveOrder(s, 'o0', 0);
   assert.ok(!sv.error);
-  // helpers intactos
   assert.equal(pay({ qty: 3, color: 2 }), 20);
   assert.deepEqual(topGroup([2, 2, 2]), { color: 2, count: 3 });
-  // buyExpansion('board') legada sigue operativa sobre la base 7 (7+3=10)
   const exp = buyExpansion(createGame({ progress: { coins: 100000 } }), 'board');
   assert.equal(exp.progress.boardCells, 10);
 });
 
-// ---------------------------------------------------------------------------
-// T3 — cierres
-// ---------------------------------------------------------------------------
 test('T3.1 cierre full: run null, totalGames+1', () => {
   let s = baseRun();
   const t = s.progress.totalGames;
@@ -339,12 +300,9 @@ test('T3.5 solo allServed es victoria', () => {
   assert.equal(closeRun(s, 'allServed').metaClose.victory, true);
 });
 
-// ---------------------------------------------------------------------------
-// T4 — economia
-// ---------------------------------------------------------------------------
 test('T4.1 pago base', () => {
-  assert.equal(pay({ qty: 2 }), 12);   // round(5*2^1.25)=12
-  assert.equal(pay({ qty: 3 }), 20);   // round(5*3.948)=20
+  assert.equal(pay({ qty: 2 }), 12);
+  assert.equal(pay({ qty: 3 }), 20);
 });
 test('T4.2 superlinealidad 4 > 2*2', () => {
   assert.ok(pay({ qty: 4 }) > 2 * pay({ qty: 2 }));
@@ -364,13 +322,10 @@ test('T4.4 bonus calamidad al cerrar', () => {
   assert.equal(s.metaClose.bonus, 6 * 15);
 });
 test('R5.2 buyMultiplier sin saldo => error', () => {
-  let s = createGame(); // coins 0
+  let s = createGame();
   assert.equal(buyMultiplier(s).error, 'noFunds');
 });
 
-// ---------------------------------------------------------------------------
-// T5 — expansiones
-// ---------------------------------------------------------------------------
 test('T5.1 clients +1', () => {
   let s = richState();
   const b = s.progress.clients;
@@ -393,9 +348,6 @@ test('T5.4 sin saldo => error noFunds', () => {
   assert.equal(buyExpansion(createGame(), 'clients').error, 'noFunds');
 });
 
-// ---------------------------------------------------------------------------
-// T6 — poderes / arbol
-// ---------------------------------------------------------------------------
 test('T6.1 v2.16 sin gate cafeLevel: skills comprables desde el inicio', () => {
   let s = richState(); s.progress.cafeLevel = 1; s.progress.coins = 1e9;
   assert.ok(!buySkill(s, 'swapPiles').error, 'v2.16: swapPiles comprable sin LV');
@@ -407,15 +359,13 @@ test('T6.2 compra exige nivel + saldo (v2.3: compra = 1 uso, uses=usesBought=1)'
   s.progress.cafeLevel = 6;
   s = buySkill(s, 'destroyPile');
   assert.equal(s.skills.destroyPile.owned, true);
-  assert.equal(s.skills.destroyPile.uses, 1);          // v2.3: la compra ES el 1er uso
+  assert.equal(s.skills.destroyPile.uses, 1);
   assert.equal(s.skills.destroyPile.usesBought, 1);
-  // recomprar = +1 uso por partida, precio exponencial 250*1.35^1
   const before = s.progress.coins;
   s = buySkill(s, 'destroyPile');
   assert.equal(s.skills.destroyPile.usesBought, 2);
-  assert.equal(s.skills.destroyPile.uses, 2);          // v2.15: +1 por compra (sin gastar aún)
+  assert.equal(s.skills.destroyPile.uses, 2);
   assert.ok(before - s.progress.coins === Math.round(250 * 1.35));
-  // mid-run: gastar 2, recomprar → uses=1 (no 3)
   s.skills.destroyPile.uses = 0;
   s = buySkill(s, 'destroyPile');
   assert.equal(s.skills.destroyPile.usesBought, 3);
@@ -468,23 +418,15 @@ test('T6.7 sin saldo => noFunds; con saldo se usa desde el inicio', () => {
 });
 test('T6.8 usos se reponen al reabrir (v2.3: uses = usesBought, sin base)', () => {
   let s = createGame({ progress: { coins: 100000, totalGames: 6 } });
-  s.progress.cafeLevel = 6; // unlock destroyPile
-  s = buySkill(s, 'destroyPile');          // usesBought=1
-  s = buySkill(s, 'destroyPile');          // usesBought=2
+  s.progress.cafeLevel = 6;
+  s = buySkill(s, 'destroyPile');
+  s = buySkill(s, 'destroyPile');
   s.skills.destroyPile.uses = 0;
   s = openRun(s, rng(1));
-  assert.equal(s.skills.destroyPile.uses, 2);   // = usesBought (v2.3)
+  assert.equal(s.skills.destroyPile.uses, 2);
 });
 
-// ---------------------------------------------------------------------------
-// T7 — calamidades (R8 v2 → R14.5: sobre celdas JUGABLES, umbral > 15)
-// ---------------------------------------------------------------------------
-// v2: R14.5 reemplaza R8.1-R8.4 — el rango se calcula sobre celdas JUGABLES
-// (núcleo 7 + activadas vía activateTile). Las calamidades NO entran al abrir
-// (7 jugables < 15); entran UNA vez por partida cuando activateTile cruza el
-// umbral (flag run.calamitiesApplied, implementado en applyCalamities).
 const T7 = () => {
-  // activar `k` baldosas dormant con rng determinista por (seed, paso)
   const act = (st, k, seed) => {
     for (let j = 0; j < k; j++) {
       const d = st.run.board.map((c, i) => ({ c, i }))
@@ -498,26 +440,23 @@ const T7 = () => {
   const open = (seed) => openRun(createGame({ progress: { coins: 1000000, permTiles: 30 } }), rng(seed));
   return { act, open };
 };
-// T7.1 — solo si jugables > 15: con 15 (7+8) NO entran; con 16 (7+9) sí
 test('T7.1 solo si >15 (v2: sobre JUGABLES tras activar)', () => {
   const { act, open } = T7();
   const s15 = act(open(1), 8, 1);
   assert.equal(s15.run.calamities, 0, 'con 15 jugables NO hay calamidades');
   assert.equal(s15.run.board.filter(c => c.blocked).length, 0, 'sin calamidades no hay blocked');
-  const s16 = act(s15, 1, 1);                    // una activación más cruza a 16
+  const s16 = act(s15, 1, 1);
   assert.ok(s16.run.calamities > 0, 'con 16 jugables entran calamidades');
   assert.equal(s16.run.calamitiesApplied, true, 'flag una-sola-vez marcado al cruzar');
 });
-// T7.2 — count en [lo,hi] y variable: lo=ceil(n/5), hi=floor(n/3) sobre
-// JUGABLES n (16 => [4,5], 18 => [4,6], 21 => [5,7]); ≥2 valores distintos
 test('T7.2 count en [lo,hi] y variable (v2: rango sobre jugables)', () => {
   const { act, open } = T7();
   const seen = new Set();
   for (let seed = 1; seed <= 60; seed++) {
-    const k = [9, 10, 11, 14][seed % 4];           // jugables 16/17/18/21
+    const k = [9, 10, 11, 14][seed % 4];
     const s = act(open(seed), k, seed);
     if (!s.run.calamitiesApplied) continue;
-    const n = 16;                                  // jugables AL CRUZAR el umbral (7+9)
+    const n = 16;
     const lo = Math.ceil(n / 5), hi = Math.floor(n / 3);
     assert.ok(s.run.calamities >= lo && s.run.calamities <= hi,
       `calamities=${s.run.calamities} fuera de [${lo},${hi}] (jugables ${n})`);
@@ -526,7 +465,6 @@ test('T7.2 count en [lo,hi] y variable (v2: rango sobre jugables)', () => {
   }
   assert.ok(seen.size >= 2, `debe observarse variabilidad, hubo ${[...seen].join(',')}`);
 });
-// T7.3 — ≈50% blocked / ≈50% pre-pila; cada calamidad es blocked XOR calamityStack
 test('T7.3 conteo brutal: tipos v2.8 (blocked-oculta / pila visible / dormant-oculta)', () => {
   const { act, open } = T7();
   let blocked = 0, pre = 0;
@@ -535,15 +473,15 @@ test('T7.3 conteo brutal: tipos v2.8 (blocked-oculta / pila visible / dormant-oc
     if (!s.run.calamitiesApplied) continue;
     for (const c of s.run.board) {
       if (!c.calamity) continue;
-      if (c.blocked) { // v2.8: candado con pila oculta (hiddenStack), stack vacío
+      if (c.blocked) {
         assert.equal(c.calamityStack, false, 'blocked => sin pila visible');
         assert.ok(Array.isArray(c.hiddenStack) && c.hiddenStack.length >= 1, 'v2.8: candado lleva hiddenStack');
         assert.equal(c.stack.length, 0, 'v2.8: candado sin stack visible');
         blocked++;
-      } else if (c.dormant) { // v2.8: dormant con pila oculta revelable
+      } else if (c.dormant) {
         assert.equal(c.stack.length, 0, 'dormant sin stack visible');
         assert.ok(Array.isArray(c.hiddenStack) && c.hiddenStack.length >= 1, 'dormant => hiddenStack');
-      } else { // pila visible (jugable)
+      } else {
         assert.ok(c.stack.length >= 1, 'pre-pila => stack>=1'); assert.equal(c.blocked, false); pre++;
       }
     }
@@ -552,8 +490,6 @@ test('T7.3 conteo brutal: tipos v2.8 (blocked-oculta / pila visible / dormant-oc
   const frac = blocked / (blocked + pre);
   assert.ok(frac >= 0.3 && frac <= 0.7, `fracción blocked=${frac.toFixed(2)} fuera de [0.3,0.7]`);
 });
-// T7.4 — celda de calamidad con pila pre-colocada: NO bloqueada, pero v2.2
-// placeStack SOLO en espacios vacíos => {error:'occupied'} sin mutar
 test('T7.4 pre-pila de calamidad NO acepta pilas del pool (occupied) — v2.2', () => {
   const { act, open } = T7();
   let done = false;
@@ -564,7 +500,7 @@ test('T7.4 pre-pila de calamidad NO acepta pilas del pool (occupied) — v2.2', 
     if (i < 0) continue;
     assert.ok(s.run.board[i].stack.length >= 1, 'pre-pila => stack>=1');
     const before = serializeState(s);
-    const res = placeStack(s, i);                 // v2.2: pilas solo en VACÍAS
+    const res = placeStack(s, i);
     assert.ok(res && res.error === 'occupied',
       `placeStack sobre pre-pila debe dar {error:"occupied"}, dio ${JSON.stringify(res && res.error)}`);
     assert.equal(serializeState(s), before, 'occupied no debe mutar el estado');
@@ -574,12 +510,7 @@ test('T7.4 pre-pila de calamidad NO acepta pilas del pool (occupied) — v2.2', 
 });
 
 
-// ---------------------------------------------------------------------------
-// T8 — idle / offline
-// ---------------------------------------------------------------------------
 test('T8.1 v2.1 idle comprado suma online (café arranca vacío: 0 income sin mejoras)', () => {
-  // v2.1: createGame arranca con idle level 0 (sin income); tras comprar las 3
-  // mejoras (level 1) la suma es 0.5+0.3+0.8 = 1.6/s (R9.1).
   let s = createGame({ progress: { coins: 1000 } });
   const before = s.progress.coins;
   s = tickIdle(s, 10);
@@ -589,7 +520,6 @@ test('T8.1 v2.1 idle comprado suma online (café arranca vacío: 0 income sin me
   s = buyIdleUpgrade(s, 'machines');
   s.progress.coins = 0;
   s = tickIdle(s, 10);
-  // rates default 0.5/0.3/0.8 = 1.6/s -> 16 coins in 10s
   assert.ok(Math.abs(s.progress.coins - 16) < 1e-6);
 });
 test('T8.2 v2.21 offline no acumula monedas', () => {
@@ -607,20 +537,16 @@ test('T8.2 v2.21 offline no acumula monedas', () => {
   assert.equal(s.progress.coins, 0);
 });
 test('T8.3 v2.1 comprar 1er nivel: rate/cap suben (desde level 0, precio 50*(lv+1)^2)', () => {
-  let s = createGame({ progress: { coins: 100000 } });   // idle level 0 (café vacío)
+  let s = createGame({ progress: { coins: 100000 } });
   s = buyIdleUpgrade(s, 'machines');
   assert.equal(s.idle.machines.level, 1);
   assert.equal(s.idle.machines.ratePerSec, CONFIG.IDLE_RATE.machines);
   assert.equal(s.idle.machines.cap, CONFIG.IDLE_CAP.machines);
-  // y la 2ª compra sale más cara (50*4=200 con la nueva curva)
   const before = s.progress.coins;
   s = buyIdleUpgrade(s, 'machines');
   assert.equal(s.progress.coins, before - CONFIG.IDLE_PRICE * 2 * 2);
 });
 
-// ---------------------------------------------------------------------------
-// T9 — colores
-// ---------------------------------------------------------------------------
 test('T9.1 +1 color cada 3 productos', () => {
   assert.equal(colorsUnlocked(0), 1);
   assert.equal(colorsUnlocked(2), 1);
@@ -630,25 +556,20 @@ test('T9.1 +1 color cada 3 productos', () => {
   assert.equal(colorsUnlocked(15), 6);
 });
 test('T9.2 solo colores desbloqueados', () => {
-  // v2.1-clients: el pool genera 1..colorsOwned. v2.24.1: el cliente pide
-  // 1..min(colorsOwned+1, palette) — aquí 1..3, el siguiente de buyColor.
   let s = createGame({ progress: { boardCells: 16, productsBought: 0, colorsOwned: 2 } });
   s.progress.colorsUnlocked = 2;
   s = openRun(s, rng(4));
-  assert.equal(s.run.rosterIndex, 3);            // rosterMax = colorsOwned+1 = 3
+  assert.equal(s.run.rosterIndex, 3);
   for (const pile of s.run.pool) for (const c of pile) assert.ok(c >= 1 && c <= 2);
   const clientCap = Math.min(s.progress.colorsOwned + 1, s.run.palette.length);
   assert.equal(clientCap, 3);
   for (const o of s.run.activeClients) assert.ok(o.color >= 1 && o.color <= clientCap);
 });
 test('T9.3 tope 10 colores (MAX_COLORS v2)', () => {
-  // v2-reconcile: R13.7 (MAX_COLORS=10) reemplaza el tope v1 de 6 en
-  // colorsUnlocked; la progresión permanente v2 es colorsOwned vía buyColor.
   assert.equal(CONFIG.MAX_COLORS, 10);
   assert.equal(colorsUnlocked(0), 1);
-  assert.equal(colorsUnlocked(27), 10);   // 1+floor(27/3)=10
-  assert.equal(colorsUnlocked(1000), 10); // clamp a MAX_COLORS=10
-  // Sin run, el techo de Color es MAX_COLORS. Con paleta, es 7 (v2.24.1).
+  assert.equal(colorsUnlocked(27), 10);
+  assert.equal(colorsUnlocked(1000), 10);
   let s = createGame({ progress: { coins: 1000000, colorsOwned: 9 } });
   s = buyColor(s);
   assert.equal(s.progress.colorsOwned, 10);
@@ -660,13 +581,7 @@ test('T9.3 tope 10 colores (MAX_COLORS v2)', () => {
   assert.equal(s.progress.coins, coins);
 });
 
-// ---------------------------------------------------------------------------
-// R3.1 — pool mono-color (regression: multicolor-pool bug)
-// ---------------------------------------------------------------------------
 test('R3.1 pool de openRun v2: pilas de tamaño 1..7, colores 1..owned (multicolor v2.0)', () => {
-  // v2-reconcile: la firma v2 de generateBoard es (n, rng) y retorna el BOARD
-  // (R14.1, sin pool); el pool nace en openRun (R13.3). v2.0: tamaño 1..7 y
-  // color POR FICHA (multicolor). Se testea sobre 32 semillas.
   let sawMulti = false;
   for (let g = 1; g <= 32; g++) {
     const s = openRun(createGame({ progress: { coins: 1000 } }), rng(g));
@@ -684,7 +599,7 @@ test('R3.1 refill en placeStack: pilas nuevas tamaño 1..7, colores 1..owned (v2
   let s = baseRun(); s.progress.colorsUnlocked = 3;
   s = placeStack(s, 0, 0);
   s = placeStack(s, 1, 1);
-  s = placeStack(s, 2, 2, rng(9)); // 3a coloca -> refill con rng inyectado
+  s = placeStack(s, 2, 2, rng(9));
   assert.equal(s.run.pool.length, 3);
   for (const pile of s.run.pool) {
     assert.ok(pile.length >= 1 && pile.length <= 7, 'v2.0: tamaño 1..7');
@@ -704,12 +619,6 @@ test('R3.1 determinismo: misma semilla -> mismo pool tras refill', () => {
   assert.deepEqual(refill(11), refill(11));
 });
 
-// ---------------------------------------------------------------------------
-// v2.9 R3.1 — tamaño de pila PONDERADO (tabla CONFIG.PILE_SIZE_WEIGHTS):
-// más común MENOS fichas, pero sutil (7 sigue ocurriendo). Aplica a TODOS los
-// generadores de pool: v2Pile (openRun/refill), pile (legacy) y previewPool.
-// Calamidades ocultas siguen 1..3 fijo (R8.4b, sin cambio).
-// ---------------------------------------------------------------------------
 test('R3.1 v2.9 CONFIG.PILE_SIZE_WEIGHTS existe: 7 pesos positivos', () => {
   const w = CONFIG.PILE_SIZE_WEIGHTS;
   assert.ok(Array.isArray(w) && w.length === 7, 'tabla de 7 pesos (tamaños 1..7)');
@@ -733,7 +642,6 @@ test('R3.1 v2.9 REFRESH y pizarra (previewPool) usan la misma tabla ponderada', 
     for (let g = 1; g <= 200; g++) for (const p of gen(g)) counts[p.length]++;
     return counts;
   };
-  // refresh: skill con usos; rosterIndex undefined => cu=1, solo importa el tamaño
   const refresh = dist((g) => {
     let s = baseRun();
     s.skills.refreshPool.owned = true; s.skills.refreshPool.uses = 9;
@@ -742,7 +650,6 @@ test('R3.1 v2.9 REFRESH y pizarra (previewPool) usan la misma tabla ponderada', 
   assert.ok(refresh[1] > refresh[4] && refresh[4] > refresh[7],
     `refresh ponderado: 1s=${refresh[1]} 4s=${refresh[4]} 7s=${refresh[7]}`);
   assert.ok(refresh[7] > 0, 'refresh: siete ocurre');
-  // pizarra: level 3 => 3 tandas de 3 pilas por semilla
   const prev = dist((g) => {
     let s = baseRun();
     s.skills.previewPool.owned = true; s.skills.previewPool.level = 3;
@@ -767,9 +674,6 @@ test('R7.7 REFRESH pool genera pilas deterministas tamaño 1..7 (v2.0)', () => {
   }
 });
 
-// ---------------------------------------------------------------------------
-// R18 v2.10 — Bolsita de colores en el pool (bag de inventario por color)
-// ---------------------------------------------------------------------------
 test('R18.1 v2.10 openRun inicializa run.bag con 4 colores y puñados 7-18', () => {
   assert.equal(CONFIG.BAG_INITIAL_MIN, 7);
   assert.equal(CONFIG.BAG_INITIAL_MAX, 18);
@@ -843,12 +747,6 @@ test('R18.7 v2.10 compatibilidad: save sin bag inicializa bag en refill', () => 
   assert.ok(s.run.bag, 'refill debe inicializar bag si no existía');
 });
 
-// ---------------------------------------------------------------------------
-// R18 v2.10.1 — anti-colapso: la cuota viva se repara, la recarga NO cae en
-// vivos. El save real del jugador colapsó a bag {"10":4} (1 vivo) porque la
-// recarga v2.10.0 podía caer en un color VIVO: el nº de vivos era monótono
-// decreciente. Invariante nuevo: vivos === min(4, cu) tras cualquier draw.
-// ---------------------------------------------------------------------------
 const aliveOf = (bag) => Object.values(bag).filter(c => c > 0).length;
 
 test('R18.8 v2.10.1 invariante: vivos === 4 tras cualquier draw (nunca colapsa)', () => {
@@ -864,14 +762,9 @@ test('R18.8 v2.10.1 invariante: vivos === 4 tras cualquier draw (nunca colapsa)'
 });
 
 test('R18.9 v2.10.1 la recarga NUNCA cae en un color vivo', () => {
-  // cu=4 con los 4 vivos y puñados asimétricos: el único color que puede
-  // morir es el 4 (1 ficha). Si la recarga cayera en un vivo, un superviviente
-  // crecería por encima de su valor inicial — eso es lo que se verifica.
-  // (El 4 puede renacer y ser parcialmente consumido en el mismo draw, por eso
-  // su valor final no se afirma contra 7..18 exacto, solo >0 y <= 18.)
   let sawReload = false;
   for (let g = 1; g <= 60; g++) {
-    const bag0 = { 1: 20, 2: 20, 3: 20, 4: 1 }; // solo el 4 puede morir
+    const bag0 = { 1: 20, 2: 20, 3: 20, 4: 1 };
     const res = drawPoolPiles(rng(g), bag0, 4);
     for (const c of [1, 2, 3]) {
       assert.ok((res.nextBag[c] || 0) <= 20,
@@ -886,7 +779,6 @@ test('R18.9 v2.10.1 la recarga NUNCA cae en un color vivo', () => {
 });
 
 test('R18.10 v2.10.1 bolsa colapsada heredada se sana al primer draw (save del jugador)', () => {
-  // réplica literal del save: bag {"10": 4}, cu=10
   const collapsed = { 10: 4 };
   const res = drawPoolPiles(rng(7), collapsed, 10);
   const alive = Object.entries(res.nextBag).filter(([_, n]) => n > 0);
@@ -894,15 +786,11 @@ test('R18.10 v2.10.1 bolsa colapsada heredada se sana al primer draw (save del j
   assert.ok(res.nextBag[10] > 0 || res.piles.flat().includes(10) || true,
     'sanity: el color 10 puede seguir vivo o haber sido re-sortado');
   assert.ok(res.piles.length === 3, 'el draw entrega 3 pilas');
-  // la segunda tanda ya opera normal sobre la bolsa sana
   const res2 = drawPoolPiles(rng(8), res.nextBag, 10);
   assert.equal(Object.values(res2.nextBag).filter(c => c > 0).length, 4,
     'RED: la bolsa sana se mantiene en 4 vivos');
 });
 
-// ---------------------------------------------------------------------------
-// helpers
-// ---------------------------------------------------------------------------
 function baseRun() {
   const s = createGame({ progress: { coins: 1000 } });
   s.run = {

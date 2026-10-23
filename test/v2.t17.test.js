@@ -1,26 +1,12 @@
-// ============================================================================
-// Cozy Cat Café × HexaSort — TDD suite v2.1 (node:test, no deps).
-// Block T17 — COLA DE CLIENTES v2.1 — [R16.1..R16.5, R17.1..R17.3].
-// Patrón de v2.t14.test.js: import dinámico en before(), need(), mulberry32,
-// unwind(). TDD ROJO: ../js/game.js aún NO implementa la cola de clientes;
-// cada test falla con mensaje `RED:` claro.
-//
-// v2.1 NOTA roster (corrección): rosterMax = colorsOwned < 10
-// ? colorsOwned + 1 : 10. Con colorsOwned=4 el roster ARRANCA en 5 (tope) y
-// NO avanza; avanzar exige comprar colores (presión de compra R13.5).
-// Run: node --test test/v2.t17.test.js
-// ============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-let G; // módulo ../js/game.js (cargado en before())
+let G;
 test.before(async () => { G = await import('../js/game.js'); });
 
-// RED gate: assert que un export existe, si no falla con mensaje claro
 const need = n => assert.ok(typeof G[n] === 'function', `RED: export ${n} no implementado`);
 const needCfg = k => assert.ok(G.CONFIG && G.CONFIG[k] !== undefined, `RED: CONFIG.${k} no definido`);
 
-// rng determinista (misma implementación mulberry32 que rules.test.js)
 const mulberry32 = s => () => { s|=0; s=s+0x6D2B79F5|0; let t=Math.imul(s^s>>>15,1|s); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; };
 const rng = n => mulberry32(n);
 const unwind = (ret, s) => (ret && ret.state) ? ret.state : (ret || s);
@@ -31,10 +17,6 @@ const mkGame = (seed = 1, coins = 1e9) => {
   return s;
 };
 
-// ---------------------------------------------------------------------------
-// T17a — Arranque v2.1 [R16.1-R16.3]: rosterIndex===5, 3 visibles, clientsDrawn
-// 3, TOTAL efectivo 20 (capacidad level 0), pool solo colorsOwned (presión).
-// ---------------------------------------------------------------------------
 test('T17a [R16.1-R16.3] openRun: rosterIndex 5, activeClients 3, clientsDrawn 3, TOTAL 20', () => {
   need('createGame'); need('openRun'); need('totalClients'); need('runVictory');
   needCfg('MIN_CLIENTS'); needCfg('MAX_CLIENTS');
@@ -52,14 +34,12 @@ test('T17a [R16.1-R16.3] openRun: rosterIndex 5, activeClients 3, clientsDrawn 3
   assert.equal(run.clientsServed, 0, 'RED: clientsServed nace en 0 [R16.3]');
   assert.deepEqual(run.queueBack, [], 'RED: queueBack nace vacía [R17.1]');
   assert.equal(G.totalClients(s), 100, 'v2.21: TOTAL = 100, capacidad no suma');
-  // tamaños de arranque: 3, 5, 8, o legendario 10
   for (const c of run.activeClients) {
     assert.ok(c && typeof c.id === 'string' && c.color >= 1
       && [3, 5, 8, 10].includes(c.qty) && c.served === false,
       `cliente flotante con qty de arranque, hay ${JSON.stringify(c)}`);
     assert.equal(c.cell, undefined, 'RED: clientes flotantes SIN celda [R16.2]');
   }
-  // presión de compra [R13.5]: pool genera SOLO colorsOwned (4) < roster (5)
   const poolColors = new Set((run.pool || []).flat());
   assert.ok(poolColors.size > 0, 'RED: run.pool debe tener fichas al abrir');
   for (const c of poolColors) {
@@ -68,17 +48,11 @@ test('T17a [R16.1-R16.3] openRun: rosterIndex 5, activeClients 3, clientsDrawn 3
   }
 });
 
-// ---------------------------------------------------------------------------
-// T17b — [R16.4] solo los 3 VISIBLES se sirven: resolveCascade ignora pedidos
-// no visibles aunque tengan tope válido.
-// ---------------------------------------------------------------------------
 test('T17b [R16.4] resolveCascade auto-serve SOLO itera activeClients (ignora no visibles)', () => {
   need('createGame'); need('openRun'); need('resolveCascade');
   const s = mkGame(2);
-  // pedido NO visible (está en orders pero NO en activeClients) con tope válido
   s.run.orders.push({ id: 'hidden-x', color: 2, qty: 3, served: false });
-  s.run.board[0].stack = [2, 2, 2];                 // tope válido para hidden-x
-  // neutralizar los visibles: color imposible → nada más puede auto-servirse
+  s.run.board[0].stack = [2, 2, 2];
   for (const c of s.run.activeClients) { c.color = 98; c.qty = 2; }
   const res = G.resolveCascade(s);
   const st = res.state;
@@ -88,10 +62,6 @@ test('T17b [R16.4] resolveCascade auto-serve SOLO itera activeClients (ignora no
   assert.equal(st.run.clientsServed, 0, 'RED: nada servido → clientsServed se mantiene 0');
 });
 
-// ---------------------------------------------------------------------------
-// T17c — [R16.4] servir 1 visible → entra el siguiente: clientsDrawn 3→4,
-// activeClients se refilla a 3, clientsServed 1.
-// ---------------------------------------------------------------------------
 test('T17c [R16.4] servir 1 visible → clientsDrawn 3→4, activeClients se refilla', () => {
   need('createGame'); need('openRun'); need('serveOrder');
   const s = mkGame(2);
@@ -110,7 +80,6 @@ test('T17c [R16.4] servir 1 visible → clientsDrawn 3→4, activeClients se ref
   assert.ok(st.run.activeClients.some(c => !oldIds.includes(c.id)), 'RED: entra un cliente nuevo de la cola');
   assert.equal(st.run.orders.find(o => o.id === vis.id).served, true, 'RED: pedido served=true');
   assert.equal(st.progress.coins, coins0 + Math.round(5 * vis.qty ** 1.25), 'RED: paga pay(order) [R5.1]');
-  // el cliente NO visible no se sirve manualmente [R16.4]
   const s2 = mkGame(3);
   s2.run.orders.push({ id: 'hidden-y', color: 2, qty: 3, served: false });
   const r2 = G.serveOrder(s2, 'hidden-y', 0);
@@ -118,10 +87,6 @@ test('T17c [R16.4] servir 1 visible → clientsDrawn 3→4, activeClients se ref
     `RED: serveOrder de un NO visible debe dar {error:"notVisible"}, dio ${JSON.stringify(r2)} [R16.4]`);
 });
 
-// ---------------------------------------------------------------------------
-// T17d — [R17.3] capacidad: modelo levels; TOTAL = 20 + level (tope 100);
-// precio CAP_PRICE_BASE * CAP_RATIO^level creciente; level 80 → {error:'max'}.
-// ---------------------------------------------------------------------------
 test('T17d [v2.21] capacidad no cambia N: TOTAL queda en 100 y la compra está retirada', () => {
   need('buySkill'); need('totalClients');
   const s = G.createGame({ progress: { coins: 1e13 } });
@@ -136,14 +101,8 @@ test('T17d [v2.21] capacidad no cambia N: TOTAL queda en 100 y la compra está r
   assert.equal(G.totalClients(fat), 100, 'aunque el save traiga level, N es 100');
 });
 
-// ---------------------------------------------------------------------------
-// T17e — [R17.1] queueSkip: los 3 visibles van al FONDO de la cola (FIFO en
-// run.queueBack, se consume ANTES de dibujar nuevos) y entran 3 nuevos;
-// uses-1; {error} si uses===0 o !owned.
-// ---------------------------------------------------------------------------
 test('T17e [R17.1] queueSkip: 3 visibles al fondo de la cola, entran 3 nuevos; re-entran FIFO', () => {
   need('useQueueSkip'); need('buySkill'); need('serveOrder');
-  // v2.22: sin monedas no rota; con monedas rota desde el inicio (sin compra)
   const sNo = mkGame(3);
   sNo.progress.coins = 0;
   const r0 = G.useQueueSkip(sNo);
@@ -160,7 +119,6 @@ test('T17e [R17.1] queueSkip: 3 visibles al fondo de la cola, entran 3 nuevos; r
   assert.deepEqual(st.run.queueBack.map(c => c.id), oldIds,
     'RED: los viejos van a queueBack en orden FIFO [R17.1]');
   assert.equal(st.run.clientsDrawn, 6, 'RED: entran 3 nuevos dibujados (clientsDrawn 3→6)');
-  // al servir, la refill consume queueBack ANTES de dibujar nuevos: re-entra un viejo
   const vis = st.run.activeClients[0];
   const ci = st.run.board.findIndex(c => !c.blocked && !c.dormant);
   st.run.board[ci].stack = Array.from({ length: vis.qty }, () => vis.color);
@@ -171,22 +129,16 @@ test('T17e [R17.1] queueSkip: 3 visibles al fondo de la cola, entran 3 nuevos; r
     'RED: queueBack se consume ANTES de dibujar nuevos (clientsDrawn no cambia)');
 });
 
-// ---------------------------------------------------------------------------
-// T17f — [R17.2 v2.3] buyUsesUp: +1 uso por partida en skills modelo 'uses';
-// precio USES_UP_BASE * USES_UP_RATIO^compras (exponencial, sin tope);
-// openRun repone uses = usesBought (v2.3: sin base gratis).
-// ---------------------------------------------------------------------------
 test('T17f [R17.2 v2.3] buyUsesUp: usesBought+1, openRun uses=usesBought, precio exponencial', () => {
   need('buyUsesUp'); need('buySkill'); need('openRun');
   needCfg('USES_UP_BASE'); needCfg('USES_UP_RATIO');
   assert.equal(G.CONFIG.USES_UP_BASE, 60, 'RED: CONFIG.USES_UP_BASE===60 [R17.2]');
   assert.equal(G.CONFIG.USES_UP_RATIO, 1.6, 'RED: CONFIG.USES_UP_RATIO===1.6 [R17.2]');
   let s = G.createGame({ progress: { coins: 1e9 } });
-  s.progress.cafeLevel = 6;                        // unlock destroyPile (5)
+  s.progress.cafeLevel = 6;
   s = unwind(G.buySkill(s, 'destroyPile'), s);
   assert.equal(s.skills.destroyPile.usesBought, 1, 'RED: v2.3 la compra ya cuenta como 1 uso');
   const c0 = s.progress.coins;
-  // gastar el uso de la compra antes de buyUsesUp
   s.skills.destroyPile.uses = 0;
   const st = unwind(G.buyUsesUp(s, 'destroyPile'), s);
   assert.equal(st.skills.destroyPile.usesBought, 2, 'RED: buyUsesUp → usesBought+1 [R17.2]');
@@ -196,25 +148,17 @@ test('T17f [R17.2 v2.3] buyUsesUp: usesBought+1, openRun uses=usesBought, precio
   const c1 = st.progress.coins;
   const st2 = unwind(G.buyUsesUp(st, 'destroyPile'), st);
   assert.equal(st2.skills.destroyPile.usesBought, 3, 'RED: 2a mejora → usesBought 3 (1 compra + 2 mejoras)');
-  // v2.1-clients: tolerancia 1e-2 — convención "sin redondeo" (igual que
-  // permTilePrice): delta float vs precio exponencial difiere ~1e-4 con coins grandes.
   assert.ok(Math.abs((c1 - st2.progress.coins) - G.CONFIG.USES_UP_BASE * G.CONFIG.USES_UP_RATIO ** 2) < 1e-2,
     'RED: precio exponencial creciente: 60*1.6^2=153.6 en la 2a mejora [R17.2]');
-  // tras openRun: uses = usesBought (v2.3, sin base)
   const st3 = unwind(G.openRun(st2, rng(5)), st2);
   assert.equal(st3.skills.destroyPile.uses, 3,
     'RED: openRun repone uses = usesBought (1 compra + 2 mejoras) [R17.2 v2.3]');
-  // guards: sin owned → {error}; skill sin modelo uses → {error}
   const s4 = mkGame(4);
   assert.ok(G.buyUsesUp(s4, 'swapPiles').error, 'RED: buyUsesUp sin owned → {error}');
   assert.ok(G.buyUsesUp(st3, 'previewPool').error,
     'RED: buyUsesUp solo aplica a skills modelo uses (previewPool es levels) [R17.2]');
 });
 
-// ---------------------------------------------------------------------------
-// T17g — [R16.4] victoria: clientsServed === TOTAL_CLIENTS; refill inmediato
-// mantiene 3 visibles mientras quede cola → no hay victoria momentánea.
-// ---------------------------------------------------------------------------
 test('T17g [R16.4] victoria: clientsServed===TOTAL → closeRun(allServed); refill inmediato', () => {
   need('runVictory'); need('totalClients'); need('serveOrder'); need('closeRun');
   let s = mkGame(4);
@@ -233,9 +177,6 @@ test('T17g [R16.4] victoria: clientsServed===TOTAL → closeRun(allServed); refi
     served++;
     assert.ok(served <= TOTAL, 'RED: el bucle debe terminar en TOTAL servicios');
     if (s.run.clientsServed < TOTAL) {
-      // v2.1-clients: refill inmediato — visibles = min(3, restantes de cola).
-      // Al final de la cola (clientsDrawn===TOTAL) los visibles se agotan de a
-      // 1: 3 → 2 → 1 → 0 (la cola perezosa no sobre-dibuja más allá de TOTAL).
       assert.equal(s.run.activeClients.length, Math.min(3, TOTAL - s.run.clientsServed),
         'RED: refill inmediato — visibles = min(3, cola restante) [R16.4]');
       assert.equal(G.runVictory(s), false,
@@ -253,23 +194,14 @@ test('T17g [R16.4] victoria: clientsServed===TOTAL → closeRun(allServed); refi
   assert.equal(closed.metaClose.total, TOTAL, 'RED: metaClose.total === TOTAL efectivo');
 });
 
-// ---------------------------------------------------------------------------
-// T17h — [R16.2 v2.1-corregido / v2.23] tope = min(colorsOwned+1, palette).
-// Con colorsOwned=4 el roster ARRANCA en 5 y NO avanza; tras comprar
-// (owned 6 → tope 7) avanza cada 3 pilas y se estanca en 7. Con
-// colorsOwned=10 el techo es el subconjunto de la run (7), no 10 ni 11.
-// ---------------------------------------------------------------------------
 test('T17h [R16.2] roster: arranca 5, tope colorsOwned+1 dentro del palette de 7', () => {
   need('createGame'); need('openRun'); need('placeStack'); need('buyColor');
   needCfg('UNLOCK_PLACED_PILES'); needCfg('MAX_COLORS');
-  // GIVEN colorsOwned=4 → rosterMax = 5 = arranque: colocar pilas NO avanza
   let s = mkGame(1);
   assert.equal(s.run.rosterIndex, 5, 'RED: arranque v2.1 rosterIndex===5 [R13.3 v2.1]');
   const place = (st, n, seed) => {
     let cur = st;
     for (let i = 0; i < n; i++) {
-      // v2.2 R3.5: placeStack SOLO en celdas VACÍAS — 1ª jugable vacía; si no
-      // hay (todas ocupadas), vaciar (simula servicio) y seguir.
       let cell = cur.run.board.findIndex(c => !c.blocked && !c.dormant && !(c.stack && c.stack.length));
       if (cell < 0) {
         cur.run.board.forEach(c => { if (!c.blocked && !c.dormant) c.stack = []; });
@@ -281,26 +213,23 @@ test('T17h [R16.2] roster: arranca 5, tope colorsOwned+1 dentro del palette de 7
     }
     return cur;
   };
-  const s1 = place(s, 9, 31);                     // 9 pilas: sin techo nuevo no avanza
+  const s1 = place(s, 9, 31);
   assert.equal(s1.run.rosterIndex, 5,
     'RED: con colorsOwned=4 el tope es 5 (colorsOwned+1) — el roster NO avanza [R16.2 corregido]');
-  // comprar 2 colores: colorsOwned 6 → rosterMax 7 → el roster SÍ avanza
   let s2 = unwind(G.buyColor(s1), s1);
   s2 = unwind(G.buyColor(s2), s2);
   assert.equal(s2.progress.colorsOwned, 6, 'RED: precondition colorsOwned=6');
   assert.equal(s2.run.rosterIndex, 5, 'RED: comprar colores no sube el roster en caliente');
-  s2 = place(s2, 3, 41);                          // 3 pilas → rosterIndex 6
+  s2 = place(s2, 3, 41);
   assert.equal(s2.run.rosterIndex, 6, 'RED: tras comprar y 3 pilas, roster 5→6 [R16.2]');
   s2 = place(s2, 3, 42);
   assert.equal(s2.run.rosterIndex, 7, 'RED: otras 3 pilas → rosterIndex 7 (tope colorsOwned+1)');
   s2 = place(s2, 3, 42);
   assert.equal(s2.run.rosterIndex, 7, 'RED: el roster se ESTANCA en rosterMax=colorsOwned+1=7 [R16.2]');
-  // v2.23: colorsOwned=10 ya no abre las 10. El techo es el subconjunto
-  // de la run (7). Sigue sin haber un 11º.
   const s10 = G.createGame({ progress: { coins: 1e9, colorsOwned: 10 } });
   const s10r = unwind(G.openRun(s10, rng(9)), s10);
   assert.equal(s10r.run.palette.length, G.CONFIG.RUN_COLORS);
-  const s10b = place(s10r, 3 * 6, 43);            // 18 pilas: sobra para llegar al tope
+  const s10b = place(s10r, 3 * 6, 43);
   assert.equal(s10b.run.rosterIndex, G.CONFIG.RUN_COLORS,
     'RED: con palette de la run el roster se estanca en RUN_COLORS, no en 10 ni en 11');
 });

@@ -1,6 +1,3 @@
-// A pile draws at most 6 tiles. Anything under that is one wood slab on the
-// same footprint as the bottom tile, so the base stays on the cell. The
-// total sits on the front and the top run sits on the top tile.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -108,7 +105,7 @@ test('lift pad covers 6 steps and the run badge from hx 16 to 60', () => {
 });
 
 test('pointy and flat boards share one lift pad and the renderer uses it', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.39'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.40'/);
   assert.match(html, /const liftPad=stackLiftPadPx\(hxN\)/);
   assert.match(html, /\(m\.h-m\.liftPad\)<=availH-slack/);
   assert.match(html, /const needsScroll=hxN<=HX_MIN && \(m\.w>availW\+0\.5 \|\| cellsH>availH\+0\.5\)/);

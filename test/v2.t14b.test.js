@@ -1,9 +1,3 @@
-// ============================================================================
-// Cozy Cat Café × HexaSort — TDD suite v2.2 (node:test, no deps).
-// Block T14b — tablero RECTANGULAR pointy + activación temporal ×1.6 (v2.20).
-// Fuente de verdad: RULES.md §R14.
-// Run: node --test test/v2.t14b.test.js
-// ============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -22,12 +16,6 @@ const mkGame = (seed = 1) => {
   return unwind(G.openRun(s, rng(seed)), s);
 };
 
-// ---------------------------------------------------------------------------
-// T14g — Forma RECTANGULAR 8×4 pointy [R14.1 v2.2]: 32 celdas, 4 filas axiales
-// de 8. En coordenada plegada col = q + floor(r/2), cada fila cubre 8 columnas
-// CONSECUTIVAS y las 4 filas comparten el MISMO patrón (rectángulo con offset
-// de panal, contorno tipo marco de Catan).
-// ---------------------------------------------------------------------------
 test('T14g [R14.1 v2.24.18] generateBoard: rectángulo pointy 6×6 (6 filas de 6)', () => {
   need('generateBoard');
   const board = G.generateBoard(36, mulberry32(1));
@@ -49,10 +37,6 @@ test('T14g [R14.1 v2.24.18] generateBoard: rectángulo pointy 6×6 (6 filas de 6
   for (const p of patterns) assert.equal(p.join(','), base, 'RED: las 6 filas deben compartir el patrón de columnas (rectángulo)');
 });
 
-// ---------------------------------------------------------------------------
-// T14h — Arranque: núcleo 2-3-2 jugable (7), resto dormant (25) [R14.2]
-// (el núcleo mantiene sus coords axial — solo cambia el shape del tablero)
-// ---------------------------------------------------------------------------
 test('T14h [R14.2 v2.24.18] tras openRun: 7 jugables (núcleo 2-3-2) y 29 dormant', () => {
   need('createGame'); need('openRun');
   const s = mkGame(1);
@@ -68,9 +52,6 @@ test('T14h [R14.2 v2.24.18] tras openRun: 7 jugables (núcleo 2-3-2) y 29 dorman
   assert.equal(board.length - playable.length, 29, 'RED: las otras 29 celdas dormant');
 });
 
-// ---------------------------------------------------------------------------
-// Activación temporal [R14.3 v2.20]: cobra 40 × 1.6^n. No hay skill de usos.
-// ---------------------------------------------------------------------------
 test('T14i [R14.3 v2.20] activateTile cobra la curva y no pide la skill tables', () => {
   need('activateTile'); need('runTilePrice');
   const s = mkGame(1);
@@ -89,7 +70,7 @@ test('T14i [R14.3 v2.20] activateTile cobra la curva y no pide la skill tables',
 test('T14j [R14.3 v2.20] activateTile sin saldo => {error:"noFunds"} sin mutar', () => {
   need('activateTile');
   const s = mkGame(1);
-  s.progress.coins = 10; // por debajo de la base 40
+  s.progress.coins = 10;
   const cell = s.run.board.find(c => c.dormant && !c.blocked && G.isActivateEligible(s, c));
   const ret = G.activateTile(s, cell.id);
   assert.equal(ret && ret.error, 'noFunds');
@@ -119,7 +100,6 @@ test('T14l [R14.3 v2.20] openRun no conserva mesas ni el precio de la run anteri
   assert.equal(st.run.runTilesActivated, 0);
   assert.equal(G.runTilePrice(st), 40);
   assert.equal(st.run.board.filter(c => !c.dormant && !c.blocked).length, 7);
-  // los campos permanentes que el caller dejó en memoria no reponen usos
   assert.notEqual(st.skills.tables && st.skills.tables.uses, 9);
 });
 

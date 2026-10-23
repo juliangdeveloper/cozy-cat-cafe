@@ -1,36 +1,15 @@
-// ============================================================================
-// Cozy Cat Café × HexaSort — TDD suite v2 (node:test, no deps).
-// Block T14 (board dual peaked-hex 32 / baldosas) — [R14.1..R14.4].
-// TDD ROJO: ../js/game.js aún NO implementa los exports v2; cada test falla
-// con mensaje `RED:` claro. Dynamic import en before() para que el archivo
-// cargue aunque falten exports. NO se modifica js/game.js.
-// Run: node --test test/v2.t14.test.js
-// ============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-let G; // módulo ../js/game.js (cargado en before())
+let G;
 test.before(async () => { G = await import('../js/game.js'); });
 
-// RED gate: assert que un export existe, si no falla con mensaje claro
 const need = n => assert.ok(typeof G[n] === 'function', `RED: export ${n} no implementado`);
-// RED gate para constantes de balance CONFIG (R14.3/R14.4)
 const needCfg = k => assert.ok(G.CONFIG && G.CONFIG[k] !== undefined, `RED: CONFIG.${k} no definido`);
 
-// rng determinista (misma implementación mulberry32 que rules.test.js)
 const mulberry32 = s => () => { s|=0; s=s+0x6D2B79F5|0; let t=Math.imul(s^s>>>15,1|s); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; };
 const rng = n => mulberry32(n);
 
-// ---------------------------------------------------------------------------
-// Convenciones v2 asumidas (documentadas aquí; la implementación decide):
-//  * generateBoard(size, rng) -> array de `size` celdas axiales
-//    { id, q, r, dormant, blocked, ... }. `size` SIEMPRE 32 en el juego
-//    (R14.1 v2-shape: panal con picos filas [7,9,9,7]). Se pasa 32 explícito
-//    para que el test no dependa de un default interno.
-//  * openRun(state, rng) -> state con state.run = { board, runTilesActivated, ... }
-//  * activateTile(state, cellId) cobra runTilePrice y retorna state (o {error,state}).
-//  * runTilePrice(state) = RUN_TILE_BASE * 1.6^runTilesActivated.
-// ---------------------------------------------------------------------------
 const unwind = (ret, s) => (ret && ret.state) ? ret.state : (ret || s);
 const boardOf = (x) => Array.isArray(x) ? x : (x && Array.isArray(x.board) ? x.board : null);
 
@@ -40,18 +19,11 @@ const mkGame = (seed = 1) => {
   return s;
 };
 
-// primera baldosa apagada (dormant), preferendo no bloqueada
 const dormantCell = (s) =>
   s.run.board.find(c => c.dormant && !c.blocked && G.isActivateEligible(s, c)) ||
   s.run.board.find(c => c.dormant && !c.blocked) ||
   s.run.board.find(c => c.dormant || c.blocked);
 
-// ---------------------------------------------------------------------------
-// T14a — Tablero dual 32 celdas [R14.1]
-// v2-shape: orientación axial (agrupa por `r`); 4 filas consecutivas con picos
-// [7,9,9,7] = 32 (estilo hexágono Catan pequeño, simetría de 180°). Cualquier
-// orientación global pasa (se exige el multiconjunto/orden por fila r).
-// ---------------------------------------------------------------------------
 test('T14a [R14.1 v2.24.18] generateBoard: rectángulo pointy 6×6 (6 filas de 6)', () => {
   need('generateBoard');
   let board = null;
@@ -81,9 +53,6 @@ test('T14a [R14.1 v2.24.18] generateBoard: rectángulo pointy 6×6 (6 filas de 6
     'RED: las 6 filas deben compartir el patrón de columnas (rectángulo)');
 });
 
-// ---------------------------------------------------------------------------
-// T14b — Jugables = núcleo 2-3-2 (7); resto apagadas/bloqueadas [R14.2]
-// ---------------------------------------------------------------------------
 test('T14b [R14.2] tras openRun: 7 jugables y 29 dormant/blocked', () => {
   need('createGame'); need('openRun');
   const s = mkGame(1);
@@ -96,9 +65,6 @@ test('T14b [R14.2] tras openRun: 7 jugables y 29 dormant/blocked', () => {
   assert.equal(off, 29, 'RED: las otras 29 celdas deben estar dormant/blocked');
 });
 
-// ---------------------------------------------------------------------------
-// T14c — Activación temporal por monedas [R14.3 v2.20]: 40 × 1.6^n.
-// ---------------------------------------------------------------------------
 test('T14c [R14.3 v2.20] activateTile cobra RUN_TILE_BASE y la siguiente es ×1.6', () => {
   need('activateTile'); need('runTilePrice'); needCfg('RUN_TILE_BASE'); needCfg('RUN_TILE_RATIO');
   assert.equal(G.CONFIG.RUN_TILE_BASE, 40, 'base histórica de la curva temporal');
@@ -117,9 +83,6 @@ test('T14c [R14.3 v2.20] activateTile cobra RUN_TILE_BASE y la siguiente es ×1.
   assert.ok(Math.abs(G.runTilePrice(st) / price - 1.6) < 1e-9, 'la siguiente cuesta ×1.6');
 });
 
-// ---------------------------------------------------------------------------
-// T14d — Sin saldo no activa. El gate de usos (noUses) ya no existe.
-// ---------------------------------------------------------------------------
 test('T14d [R14.3 v2.20] sin saldo => {error:"noFunds"} sin mutar', () => {
   need('activateTile');
   const s = mkGame(1);
@@ -134,9 +97,6 @@ test('T14d [R14.3 v2.20] sin saldo => {error:"noFunds"} sin mutar', () => {
   assert.equal(st.progress.coins, 0);
 });
 
-// ---------------------------------------------------------------------------
-// T14e — No hay compra permanente. Un permTiles residual no techa la activación.
-// ---------------------------------------------------------------------------
 test('T14e [R14.4 retirada] no hay compra permanente y permTiles no techa', () => {
   assert.equal(typeof G.buyTablesUp, 'undefined');
   assert.equal(typeof G.buyPermTile, 'undefined');
@@ -153,9 +113,6 @@ test('T14e [R14.4 retirada] no hay compra permanente y permTiles no techa', () =
   assert.equal(G.buySkill(G.createGame({ progress: { coins: 1e9 } }), 'tables').error, 'noSkill');
 });
 
-// ---------------------------------------------------------------------------
-// T14f — Al reabrir, contador, precio y baldosas activadas vuelven al inicio.
-// ---------------------------------------------------------------------------
 test('T14f [R14.3] openRun resetea precio, contador y baldosas activadas', () => {
   need('activateTile'); need('openRun');
   let s = mkGame(1);
@@ -170,9 +127,6 @@ test('T14f [R14.3] openRun resetea precio, contador y baldosas activadas', () =>
     'la siguiente run vuelve al núcleo 2-3-2');
 });
 
-// ---------------------------------------------------------------------------
-// T14g — Tres activaciones seguidas: 40, luego ×1.6, luego ×1.6.
-// ---------------------------------------------------------------------------
 test('T14g [R14.3] tres activaciones cobran 40, 64 y 102.4', () => {
   need('activateTile'); need('runTilePrice');
   let s = mkGame(1);
