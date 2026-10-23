@@ -3924,14 +3924,50 @@ function brandExportId(state, ms) {
 
 // ---- META (meta.v1 progress) ----
 // Shared meta.v1 writer. Same steps in every app: read, merge, write, post.
-// Never throws. A bad stored value is ignored and the write starts fresh.
+// Never throws. At most one record write per second, including backfill and flush.
 
-function metaCleanStats(obj) {
+let metaWroteAt = 0;
+let metaTimer = 0;
+let metaPending = null;
+
+function metaIsDemo() {
+  try {
+    const loc = globalThis.location || (globalThis.window && globalThis.window.location);
+    if (!loc) return false;
+    const params = new URLSearchParams(loc.search || '');
+    const on = (name) => {
+      const v = params.get(name);
+      return v === '1' || v === 'true';
+    };
+    return on('demo') || on('preview');
+  } catch (e) {
+    return false;
+  }
+}
+
+function metaPlainVersion(version) {
+  const s = version == null ? '' : String(version);
+  return s.charAt(0) === 'v' || s.charAt(0) === 'V' ? s.slice(1) : s;
+}
+
+function metaFinite(n) {
+  return typeof n === 'number' && Number.isFinite(n);
+}
+
+// Declared keys only, in declared order, at most 20.
+// A monotonic key keeps the greater of the stored and new values.
+// A declared key omitted from this call keeps its stored value.
+function metaMergeStats(prevStats, given) {
+  const prev = prevStats && typeof prevStats === 'object' && !Array.isArray(prevStats) ? prevStats : {};
+  const next = given && typeof given === 'object' && !Array.isArray(given) ? given : {};
   const stats = {};
-  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return stats;
-  for (const key of Object.keys(obj)) {
-    const n = obj[key];
-    if (typeof n === 'number' && Number.isFinite(n)) stats[key] = n;
+  const list = STATS.slice(0, 20);
+  for (const spec of list) {
+    const hasNew = Object.prototype.hasOwnProperty.call(next, spec.key) && metaFinite(next[spec.key]);
+    const hasOld = metaFinite(prev[spec.key]);
+    if (hasNew && spec.monotonic && hasOld) stats[spec.key] = Math.max(prev[spec.key], next[spec.key]);
+    else if (hasNew) stats[spec.key] = next[spec.key];
+    else if (hasOld) stats[spec.key] = prev[spec.key];
   }
   return stats;
 }
@@ -3951,8 +3987,20 @@ function metaUnionLogros(prev, next) {
   return ids;
 }
 
+function metaStored(raw, slug) {
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    if (parsed.v !== 1 || parsed.slug !== slug) return null;
+    return parsed;
+  } catch (e) {
+    return null;
+  }
+}
+
 function metaUpdate(slug, version, input) {
   try {
+    if (metaIsDemo()) return null;
     const storage = globalThis.localStorage;
     if (!storage) return null;
     const key = 'meta.v1.' + slug;
@@ -3960,14 +4008,13 @@ function metaUpdate(slug, version, input) {
     try {
       const raw = storage.getItem(key);
       if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) prev = parsed;
+        const parsed = metaStored(raw, slug);
+        if (parsed) prev = parsed;
       }
     } catch (e) {
       prev = {};
     }
-    // Replace stats with the finite numbers from this call.
-    const stats = metaCleanStats(input && input.stats);
+    const stats = metaMergeStats(prev.stats, input && input.stats);
     const logros = metaUnionLogros(prev.logros, input && input.logros);
     const prevHitos = prev.hitos && typeof prev.hitos === 'object' && !Array.isArray(prev.hitos) ? prev.hitos : {};
     const now = new Date().toISOString();
@@ -3979,7 +4026,7 @@ function metaUpdate(slug, version, input) {
     const record = {
       v: 1,
       slug,
-      version: version == null ? '' : String(version),
+      version: metaPlainVersion(version),
       updatedAt: now,
       stats,
       logros,
@@ -3998,18 +4045,73 @@ function metaUpdate(slug, version, input) {
   }
 }
 
-// Writes once, and only when the key is absent. An existing value stays, even if it is not JSON.
+// Missing key: write once from the snapshot. A valid record is left untouched.
+// Unreadable JSON, a non-object, v !== 1, or a slug mismatch is copied to
+// meta.v1.<slug>.corrupt and rebuilt (hitos = this write).
 function metaBackfill(slug, version, snapshot) {
   try {
+    if (metaIsDemo()) return false;
     const storage = globalThis.localStorage;
     if (!storage) return false;
     const key = 'meta.v1.' + slug;
-    if (storage.getItem(key) != null) return false;
-    metaUpdate(slug, version, snapshot || {});
-    return true;
+    const raw = storage.getItem(key);
+    if (raw != null && metaStored(raw, slug)) return false;
+    if (raw != null) {
+      try { storage.setItem(key + '.corrupt', raw); } catch (e) {}
+    }
+    const record = metaUpdate(slug, version, snapshot || {});
+    if (record) metaWroteAt = Date.now();
+    return !!record;
   } catch (e) {
     return false;
   }
+}
+
+// Queue one record write. A call inside the same second only marks it pending.
+function metaSchedule(slug, version, snapshot) {
+  try {
+    if (metaIsDemo()) return;
+    metaPending = { slug, version, snapshot };
+    const now = Date.now();
+    if (now - metaWroteAt >= 1000) {
+      metaFlush();
+      return;
+    }
+    if (metaTimer) return;
+    metaTimer = setTimeout(() => {
+      metaTimer = 0;
+      metaFlush();
+    }, 1000 - (now - metaWroteAt));
+  } catch (e) {}
+}
+
+// Write the pending snapshot, and only when the one-per-second window is open.
+function metaFlush() {
+  try {
+    if (metaIsDemo()) {
+      metaPending = null;
+      if (metaTimer) { clearTimeout(metaTimer); metaTimer = 0; }
+      return;
+    }
+    if (!metaPending) return;
+    const now = Date.now();
+    if (now - metaWroteAt < 1000) return;
+    if (metaTimer) { clearTimeout(metaTimer); metaTimer = 0; }
+    const pending = metaPending;
+    metaPending = null;
+    metaWroteAt = now;
+    const snap = typeof pending.snapshot === 'function' ? pending.snapshot() : pending.snapshot;
+    metaUpdate(pending.slug, pending.version, snap || {});
+  } catch (e) {}
+}
+
+function metaResetClock() {
+  try {
+    if (metaTimer) clearTimeout(metaTimer);
+  } catch (e) {}
+  metaTimer = 0;
+  metaPending = null;
+  metaWroteAt = 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -4029,27 +4131,32 @@ function metaTipLevel(state) {
   return Math.floor(n);
 }
 
+// Declared stat keys, in write order. monotonic: totals, finished counts, bests, highest levels.
+const STATS = [
+  { key: 'runs_finished', monotonic: true }, // finished sittings kept in runHistory
+  { key: 'victories', monotonic: true }, // kept sittings that served 100 guests
+  { key: 'best_clients', monotonic: true }, // most guests served in one counted sitting
+  { key: 'clients_total', monotonic: true }, // guests served across counted sittings
+  { key: 'guests_now', monotonic: false }, // guests served in the open sitting
+  { key: 'best_coins', monotonic: true }, // highest purse in a kept sitting or the live purse
+  { key: 'coins', monotonic: false }, // coins in the live café
+  { key: 'best_stacks', monotonic: true }, // most paid stacks in one counted sitting
+  { key: 'stacks_total', monotonic: true }, // paid stacks across counted sittings
+  { key: 'best_trays', monotonic: true }, // most trays dealt in one counted sitting
+  { key: 'trays_total', monotonic: true }, // trays dealt across counted sittings
+  { key: 'colors_owned', monotonic: true }, // highest colors owned
+  { key: 'tip_level', monotonic: true }, // highest tip multiplier level
+  { key: 'tables_opened', monotonic: true }, // most tables activated in a sitting
+  { key: 'skills_used', monotonic: true }, // skill uses across counted sittings
+  { key: 'best_skill_uses', monotonic: true }, // most uses of one skill in a counted sitting
+  { key: 'calamities_seen', monotonic: false }, // calamity cells on the open board
+  { key: 'tutorial_done', monotonic: true }, // 1 after the spotlight is finished or skipped
+];
+
 function metaBlankStats() {
-  return {
-    runs_finished: 0, // finished sittings kept in runHistory
-    victories: 0, // kept sittings that served 100 guests
-    best_clients: 0, // most guests served in one counted sitting
-    clients_total: 0, // guests served across counted sittings
-    guests_now: 0, // guests served in the open sitting
-    best_coins: 0, // highest purse in a kept sitting or the live purse
-    coins: 0, // coins in the live café
-    best_stacks: 0, // most paid stacks in one counted sitting
-    stacks_total: 0, // paid stacks across counted sittings
-    best_trays: 0, // most trays dealt in one counted sitting
-    trays_total: 0, // trays dealt across counted sittings
-    colors_owned: 0, // colors owned in the live café
-    tip_level: 0, // tip multiplier level
-    tables_opened: 0, // tables activated in the open sitting
-    skills_used: 0, // skill uses across counted sittings
-    best_skill_uses: 0, // most uses of one skill in a counted sitting
-    calamities_seen: 0, // calamity cells on the open board
-    tutorial_done: 0, // 1 after the spotlight is finished or skipped
-  };
+  const stats = {};
+  for (const spec of STATS) stats[spec.key] = 0;
+  return stats;
 }
 
 function metaSkillTotals(uses) {
@@ -4495,38 +4602,21 @@ async function settlePasses(){
   }
   renderAll(); checkServedAll();
 }
-function writeMeta(){
-  try {
-    if(!state) return;
-    metaUpdate(META_SLUG, GAME_VERSION, metaFromState(state));
-  } catch (e) {}
-}
-let metaTimer = 0;
-let metaLast = 0;
 function scheduleMeta(){
-  const now = Date.now();
-  const since = now - metaLast;
-  if(since >= 1000){
-    metaLast = now;
-    writeMeta();
-    return;
-  }
-  if(metaTimer) return;
-  metaTimer = setTimeout(()=>{
-    metaTimer = 0;
-    metaLast = Date.now();
-    writeMeta();
-  }, 1000 - since);
+  try { metaSchedule(META_SLUG, GAME_VERSION, () => state ? metaFromState(state) : null); }
+  catch (e) {}
 }
 function flushMeta(){
-  if(metaTimer){ clearTimeout(metaTimer); metaTimer = 0; }
-  metaLast = Date.now();
-  writeMeta();
+  try { metaFlush(); } catch (e) {}
 }
 function persist(){
   state.meta.lastSavedAt = Date.now();
   localStorage.setItem(KEY, serializeState(state));
   scheduleMeta();
+}
+function leaveCafe(){
+  persist();
+  flushMeta();
 }
 function captureCellPos(){
   const map=new Map();
@@ -6722,7 +6812,8 @@ async function boot(){
   renderAll();
   bindGlobal();
   startLoop();
-  window.addEventListener('beforeunload', ()=>{ persist(); flushMeta(); });
+  window.addEventListener('beforeunload', leaveCafe);
+  window.addEventListener('pagehide', leaveCafe);
   // v2.22.3: show the spotlight when this save has not finished it.
   // A finished flag stays finished — this does not clear seenTutorial.
   maybeStartTutorial();
@@ -6731,7 +6822,7 @@ async function boot(){
 // v2.5: dial de balance (BALANCE_REPORT.md §6) — cap 60×1.145/40;
 // economía usos con tope 5/partida, badge = run del tope, powerbar wrap,
 // vuelo de fichas centralizado, "apenas entre" con settlePasses.
-const GAME_VERSION = 'v2.24.35';
+const GAME_VERSION = 'v2.24.36';
 // Hook de verificación DOM headless (puppeteer): permite inspeccionar state y
 // computar resolveCascade/placeStack para comparar el estado final de cascada.
 window.__dbg = { get state(){ return state; }, set state(v){ state=v; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, maybeBoardShuffle, applyBoardShuffle, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, stackVisual, stackLiftPadPx, get boardHx(){ return boardHx(); } };
