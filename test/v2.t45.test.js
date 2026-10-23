@@ -12,8 +12,8 @@ const css = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
 
 const CLIP_IDS = ['destroyPile','swapPiles','refreshPool','tables','tips','undoMove','color','unlockLocks','clearBoard','rotateBoard'];
 
-test('version footer is v2.24.38', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.38'/);
+test('version footer is v2.24.39', () => {
+  assert.match(html, /GAME_VERSION = 'v2\.24\.39'/);
 });
 
 test('tutorial steps name a gesture and a target only where a touch is shown', () => {
