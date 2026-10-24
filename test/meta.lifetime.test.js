@@ -9,7 +9,7 @@ import {
 
 const SLUG = 'cozy-cat-cafe';
 const META_KEY = 'meta.v1.' + SLUG;
-const VERSION = '2.24.42';
+const VERSION = '2.24.43';
 
 function useStorage(initial) {
   const bag = Object.assign({}, initial);

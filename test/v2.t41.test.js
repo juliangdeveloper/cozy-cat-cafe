@@ -19,7 +19,7 @@ function slotKey(cell) {
 }
 
 test('a shuffle keeps 36 unique cells, and a broken save is repaired on load', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.42'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.43'/);
   assert.match(html, /function stopBoardMotion/);
   assert.match(html, /fill:'backwards'/);
   assert.doesNotMatch(html, /fill:'both'/);
