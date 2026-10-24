@@ -7,8 +7,8 @@ import { STACK_VISUAL_CAP, stackVisual } from '../js/game.js';
 
 const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'index.html'), 'utf8');
 
-test('version footer is v2.24.44', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.44'/);
+test('version footer is v2.24.45', () => {
+  assert.match(html, /GAME_VERSION = 'v2\.24\.45'/);
 });
 
 test('every height seats its bottom tile on the cell', () => {
