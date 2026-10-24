@@ -12,7 +12,8 @@ export const PROYECTO = {
   objetivo: 'Juego cozy de café publicado en la App Store: apilar comida en hexágonos y servir clientes, con tutorial y habilidades.',
   fase: FASE.CONSTRUCCION,
   fase_estado: ESTADO_FASE.EN_CURSO,
-  fases_completadas: 3
+  fases_completadas: 3,
+  tipo: TIPO_PROYECTO.PROYECTO
 };
 
 let proyectoSource = PROYECTO;

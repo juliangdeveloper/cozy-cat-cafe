@@ -13,8 +13,8 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(root, 'index.html'), 'utf8');
 const SAVE_KEY = 'cozy-cat-cafe.save.v1';
 const META_KEY = 'meta.v1.cozy-cat-cafe';
-const VERSION = 'v2.24.43';
-const PLAIN = '2.24.43';
+const VERSION = 'v2.24.44';
+const PLAIN = '2.24.44';
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
 function memoryStorage(initial) {
@@ -547,7 +547,7 @@ test('pagehide and a hidden tab flush a pending change inside one second', async
 });
 
 test('the café schedules one meta write and flushes a pending hide immediately', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.43'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.44'/);
   assert.match(html, /import \{ metaBackfill, metaFromState, metaSchedule, metaFlush, metaTotalsStart, metaRunFinished \} from '\.\/js\/meta\.js'/);
   assert.match(html, /const META_SLUG = 'cozy-cat-cafe'/);
   assert.match(html, /metaBackfill\(META_SLUG, GAME_VERSION, metaFromState\(state\)\);\s*metaTotalsStart\(META_SLUG, state\);/);

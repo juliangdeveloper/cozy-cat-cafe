@@ -113,7 +113,7 @@ test('fase 7 (Descartada) is accepted', () => {
 });
 
 test('tipo is optional, independent of fase, and must be a TIPO_PROYECTO value', () => {
-  assert.strictEqual('tipo' in metaProyecto(PROYECTO), false);
+  assert.strictEqual('tipo' in metaProyecto(Object.assign({}, PROYECTO, { tipo: undefined })), false);
   for (const tipo of Object.values(TIPO_PROYECTO)) {
     for (const fase of Object.values(FASE)) {
       const p = Object.assign({}, PROYECTO, { fase, tipo });
@@ -159,6 +159,28 @@ test('an old record without tipo gains a valid tipo on the next write and keeps 
   assert.equal(rec.hitos.first_service, '2026-01-01T00:00:00.000Z');
   assert.equal(bag[KEY + '.corrupt'], undefined);
   assert.strictEqual(rec.stats.coins, 7);
+
+  metaSetProyecto({ fase: 9 });
+  metaResetClock();
+  const second = useStorage({ [KEY]: JSON.stringify(old) });
+  metaUpdate(SLUG, 'v9.9.9', { stats: {}, logros: [] });
+  assert.equal('proyecto' in JSON.parse(second[KEY]), false);
+});
+
+test('the written proyecto block carries tipo proyecto', () => {
+  const old = {
+    v: 1, slug: SLUG, version: '2.24.37', updatedAt: '2026-01-01T00:00:00.000Z',
+    stats: { coins: 7 }, logros: ['first_service'], hitos: { first_service: '2026-01-01T00:00:00.000Z' },
+    proyecto: { extra: 1, objetivo: 'Objetivo anterior.', fase: 2, fase_estado: 3, fases_completadas: 1 },
+  };
+  const bag = useStorage({ [KEY]: JSON.stringify(old) });
+  metaUpdate(SLUG, 'v9.9.9', { stats: {}, logros: [] });
+  const rec = JSON.parse(bag[KEY]);
+  assert.strictEqual(PROYECTO.tipo, TIPO_PROYECTO.PROYECTO);
+  assert.strictEqual(rec.proyecto.tipo, 'proyecto');
+  assert.deepEqual(rec.proyecto, { ...PROYECTO });
+  assert.equal(rec.hitos.first_service, '2026-01-01T00:00:00.000Z');
+  assert.equal(bag[KEY + '.corrupt'], undefined);
 
   metaSetProyecto({ fase: 9 });
   metaResetClock();

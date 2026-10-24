@@ -101,7 +101,7 @@ test('finished runs store a count for every skill, and undo removes that use', (
 });
 
 test('history rows use icons, and a run without skill counts shows a dash', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.43'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.44'/);
   assert.match(html, /useRotateBoard\(state\)/);
   assert.match(game, /skillUses: snapshotSkillUses\(state\)/);
   assert.match(html, /Skill uses unknown/);
