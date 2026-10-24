@@ -17,8 +17,8 @@ function pngSize(buf) {
   return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
 }
 
-test('version footer is v2.24.42', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.42'/);
+test('version footer is v2.24.44', () => {
+  assert.match(html, /GAME_VERSION = 'v2\.24\.44'/);
   assert.match(html, /☕ Cozy Cat Café \$\{GAME_VERSION\}/);
 });
 

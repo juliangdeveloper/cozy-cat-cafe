@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "cozy-cat-cafe",
-  "version": "2.24.42",
+  "version": "2.24.44",
   "description": "Cozy Cat Café × HexaSort — Warm Vintage Café idle × hex-sort",
   "main": "index.html",
   "scripts": {

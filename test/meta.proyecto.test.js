@@ -1,7 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  metaUpdate, metaBackfill, metaResetClock, metaProyecto, metaSetProyecto, PROYECTO, STATS,
+  metaUpdate,
+  metaBackfill,
+  metaResetClock,
+  metaProyecto,
+  metaSetProyecto,
+  PROYECTO,
+  STATS,
+  FASE,
+  TIPO_PROYECTO,
 } from '../js/meta.js';
 
 const SLUG = 'cozy-cat-cafe';
@@ -102,4 +110,81 @@ test('a stored record with a different proyecto gets the current block on the ne
 test('fase 7 (Descartada) is accepted', () => {
   const D = { ...PROYECTO, fase: 7, fase_estado: 4 };
   assert.deepEqual(metaProyecto(D), D);
+});
+
+test('tipo is optional, independent of fase, and must be a TIPO_PROYECTO value', () => {
+  assert.strictEqual('tipo' in metaProyecto(Object.assign({}, PROYECTO, { tipo: undefined })), false);
+  for (const tipo of Object.values(TIPO_PROYECTO)) {
+    for (const fase of Object.values(FASE)) {
+      const p = Object.assign({}, PROYECTO, { fase, tipo });
+      assert.deepStrictEqual(metaProyecto(p), p);
+    }
+  }
+  for (const tipo of ['', 'Proyecto', 'otro', 1, null, {}, []]) {
+    assert.strictEqual(metaProyecto(Object.assign({}, PROYECTO, { tipo })), null);
+  }
+});
+
+test('a stored proyecto with an invalid tipo is tolerated and replaced on the next write', () => {
+  const old = {
+    v: 1, slug: SLUG, version: '2.24.37', updatedAt: '2026-01-01T00:00:00.000Z',
+    stats: { coins: 7 }, logros: ['first_service'], hitos: { first_service: '2026-01-01T00:00:00.000Z' },
+    proyecto: { extra: 1, objetivo: 'Objetivo anterior.', fase: 2, fase_estado: 3, fases_completadas: 1, tipo: 'no_vale' },
+  };
+  const bag = useStorage({ [KEY]: JSON.stringify(old) });
+  metaUpdate(SLUG, 'v9.9.9', { stats: {}, logros: [] });
+  const rec = JSON.parse(bag[KEY]);
+  assert.deepEqual(rec.proyecto, { ...PROYECTO });
+  assert.equal(rec.hitos.first_service, '2026-01-01T00:00:00.000Z');
+  assert.equal(bag[KEY + '.corrupt'], undefined);
+
+  metaSetProyecto(Object.assign({}, PROYECTO, { tipo: 'no_vale' }));
+  metaResetClock();
+  const second = useStorage({ [KEY]: JSON.stringify(old) });
+  metaUpdate(SLUG, 'v9.9.9', { stats: {}, logros: [] });
+  assert.equal('proyecto' in JSON.parse(second[KEY]), false);
+});
+
+test('an old record without tipo gains a valid tipo on the next write and keeps stats and hitos', () => {
+  metaSetProyecto(Object.assign({}, PROYECTO, { tipo: TIPO_PROYECTO.RECURSO }));
+  const old = {
+    v: 1, slug: SLUG, version: '2.24.37', updatedAt: '2026-01-01T00:00:00.000Z',
+    stats: { coins: 7 }, logros: ['first_service'], hitos: { first_service: '2026-01-01T00:00:00.000Z' },
+    proyecto: { extra: 1, objetivo: 'Objetivo anterior.', fase: 2, fase_estado: 3, fases_completadas: 1 },
+  };
+  const bag = useStorage({ [KEY]: JSON.stringify(old) });
+  metaUpdate(SLUG, 'v9.9.9', { stats: {}, logros: [] });
+  const rec = JSON.parse(bag[KEY]);
+  assert.deepEqual(rec.proyecto, Object.assign({}, PROYECTO, { tipo: 'recurso' }));
+  assert.equal(rec.hitos.first_service, '2026-01-01T00:00:00.000Z');
+  assert.equal(bag[KEY + '.corrupt'], undefined);
+  assert.strictEqual(rec.stats.coins, 7);
+
+  metaSetProyecto({ fase: 9 });
+  metaResetClock();
+  const second = useStorage({ [KEY]: JSON.stringify(old) });
+  metaUpdate(SLUG, 'v9.9.9', { stats: {}, logros: [] });
+  assert.equal('proyecto' in JSON.parse(second[KEY]), false);
+});
+
+test('the written proyecto block carries tipo proyecto', () => {
+  const old = {
+    v: 1, slug: SLUG, version: '2.24.37', updatedAt: '2026-01-01T00:00:00.000Z',
+    stats: { coins: 7 }, logros: ['first_service'], hitos: { first_service: '2026-01-01T00:00:00.000Z' },
+    proyecto: { extra: 1, objetivo: 'Objetivo anterior.', fase: 2, fase_estado: 3, fases_completadas: 1 },
+  };
+  const bag = useStorage({ [KEY]: JSON.stringify(old) });
+  metaUpdate(SLUG, 'v9.9.9', { stats: {}, logros: [] });
+  const rec = JSON.parse(bag[KEY]);
+  assert.strictEqual(PROYECTO.tipo, TIPO_PROYECTO.PROYECTO);
+  assert.strictEqual(rec.proyecto.tipo, 'proyecto');
+  assert.deepEqual(rec.proyecto, { ...PROYECTO });
+  assert.equal(rec.hitos.first_service, '2026-01-01T00:00:00.000Z');
+  assert.equal(bag[KEY + '.corrupt'], undefined);
+
+  metaSetProyecto({ fase: 9 });
+  metaResetClock();
+  const second = useStorage({ [KEY]: JSON.stringify(old) });
+  metaUpdate(SLUG, 'v9.9.9', { stats: {}, logros: [] });
+  assert.equal('proyecto' in JSON.parse(second[KEY]), false);
 });
