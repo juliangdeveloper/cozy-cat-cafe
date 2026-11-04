@@ -17,6 +17,7 @@
 
 ## Stack
 JavaScript vanilla, HTML y CSS, con sprites pixel art y audio con [howler.js](https://howlerjs.com/) (incluido en `vendor/`). Tests con `node:test`.
+Al abrirse guarda el progreso en `localStorage` (`meta.v1.cozy-cat-cafe`), que lee el [portafolio](https://juliangdeveloper.github.io/).
 
 ```
 python3 -m http.server 8000   # abrir http://localhost:8000

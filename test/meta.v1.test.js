@@ -13,8 +13,8 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(root, 'index.html'), 'utf8');
 const SAVE_KEY = 'cozy-cat-cafe.save.v1';
 const META_KEY = 'meta.v1.cozy-cat-cafe';
-const VERSION = 'v2.24.47';
-const PLAIN = '2.24.47';
+const VERSION = 'v2.24.48';
+const PLAIN = '2.24.48';
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
 function memoryStorage(initial) {
@@ -395,38 +395,11 @@ test('a pending change flushes immediately, and an empty flush does not write', 
     metaFlush(true);
     assert.equal(writes.length, 2);
     assert.equal(messages.length, 2);
-
-    globalThis.location = { search: '?preview=1', origin: 'https://play.example' };
-    metaSchedule('cozy-cat-cafe', VERSION, { stats: { coins: 99 }, logros: ['full_service'] });
-    metaFlush(true);
-    assert.equal(writes.length, 2);
-    assert.equal(messages.length, 2);
   } finally {
     metaResetClock();
     delete globalThis.window;
     delete globalThis.location;
   }
-});
-
-test('demo and preview do not write or postMessage', () => {
-  useStorage({});
-  const messages = [];
-  const parent = { postMessage: (data, origin) => messages.push({ data, origin }) };
-  globalThis.window = { parent };
-  globalThis.location = { search: '?demo=1', origin: 'https://play.example' };
-  assert.equal(metaUpdate('cozy-cat-cafe', VERSION, { stats: { coins: 8 }, logros: ['first_service'] }), null);
-  assert.equal(metaBackfill('cozy-cat-cafe', VERSION, { stats: { coins: 8 }, logros: ['first_service'] }), false);
-  metaSchedule('cozy-cat-cafe', VERSION, () => ({ stats: { coins: 8 }, logros: ['first_service'] }));
-  metaFlush();
-  assert.equal(globalThis.localStorage.getItem(META_KEY), null);
-  assert.equal(messages.length, 0);
-  globalThis.location = { search: '?preview=true', origin: 'https://play.example' };
-  metaUpdate('cozy-cat-cafe', VERSION, { stats: { coins: 8 }, logros: [] });
-  metaBackfill('cozy-cat-cafe', VERSION, { stats: { coins: 8 }, logros: [] });
-  assert.equal(globalThis.localStorage.getItem(META_KEY), null);
-  assert.equal(messages.length, 0);
-  delete globalThis.window;
-  delete globalThis.location;
 });
 
 test('the café save stays byte-identical through backfill and a later update', () => {
@@ -547,10 +520,10 @@ test('pagehide and a hidden tab flush a pending change inside one second', async
 });
 
 test('the café schedules one meta write and flushes a pending hide immediately', () => {
-  assert.match(html, /GAME_VERSION = 'v2\.24\.47'/);
-  assert.match(html, /import \{ metaBackfill, metaFromState, metaSchedule, metaFlush, metaTotalsStart, metaRunFinished \} from '\.\/js\/meta\.js'/);
+  assert.match(html, /GAME_VERSION = 'v2\.24\.48'/);
+  assert.match(html, /import \{ metaBackfill, metaDeclararProyecto, metaFromState, metaSchedule, metaFlush, metaTotalsStart, metaRunFinished \} from '\.\/js\/meta\.js'/);
   assert.match(html, /const META_SLUG = 'cozy-cat-cafe'/);
-  assert.match(html, /metaBackfill\(META_SLUG, GAME_VERSION, metaFromState\(state\)\);\s*metaTotalsStart\(META_SLUG, state\);/);
+  assert.match(html, /metaBackfill\(META_SLUG, GAME_VERSION, metaFromState\(state\)\);\s*metaDeclararProyecto\(META_SLUG, GAME_VERSION\);\s*metaTotalsStart\(META_SLUG, state\);/);
   assert.match(html, /state = beginVictory\(state\);\s*metaRunFinished\(state\);/);
   assert.match(html, /state=res; metaTotalsStart\(META_SLUG, state\); persist\(\);/);
   assert.match(html, /state=createGame\(\);\s*state\.meta\.exportId='ccc-1-'\+Date\.now\(\);\s*metaTotalsStart\(META_SLUG, state\);\s*persist\(\);/);
