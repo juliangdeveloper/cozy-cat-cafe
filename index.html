@@ -761,9 +761,6 @@ const TILE_CSS = {1:'--tile-mint',2:'--tile-blue',3:'--tile-pink',4:'--tile-blus
 function faceColor(logical){ return runFaceColor(state, logical); }
 const tileVar = c => TILE_CSS[faceColor(c)]||'--tile-mint';
 function faceToken(face){ return TILE_CSS[face]||'--tile-mint'; }
-function creatureName(logical){
-  return guestForColor(state, logical).name;
-}
 
 const SPR = { byId:{}, img:null, w:0, h:0 };
 const PLH = { idle_tips_plate:'#e6c87c', idle_fame_star:'var(--tile-blue)', worker_tray:'var(--tile-mint)' };
@@ -1162,8 +1159,6 @@ function glideBoard(from, oldPos, token){
   Promise.all(anims.map(a=>a.finished.catch(()=>{}))).then(finish);
   setTimeout(finish, 2100);
 }
-
-function renderMenu(){ renderRun(); }
 
 function renderRun(){
   const won = state.run && state.run.phase === 'victory';
@@ -3078,7 +3073,7 @@ async function boot(){
   document.addEventListener('visibilitychange', onCafeVisibility);
   maybeStartTutorial();
 }
-const GAME_VERSION = 'v2.24.45';
+const GAME_VERSION = 'v2.24.46';
 window.__dbg = { get state(){ return state; }, set state(v){ state=v; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, maybeBoardShuffle, applyBoardShuffle, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, stackVisual, stackLiftPadPx, get boardHx(){ return boardHx(); } };
 fitFrame();
 window.addEventListener('load', boot);
