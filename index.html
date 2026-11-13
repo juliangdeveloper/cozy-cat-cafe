@@ -3048,7 +3048,10 @@ window.addEventListener('pageshow', (ev)=>{
 });
 window.addEventListener('orientationchange', ()=>{ if(tutActive) setTimeout(showTutStep, 120); });
 
+let booted=false;
 async function boot(){
+  if(booted) return;
+  booted=true;
   fitFrame();
   if(window.visualViewport){
     visualViewport.addEventListener('resize', fitFrame);
@@ -3074,7 +3077,7 @@ async function boot(){
   document.addEventListener('visibilitychange', onCafeVisibility);
   maybeStartTutorial();
 }
-const GAME_VERSION = 'v2.24.48';
+const GAME_VERSION = 'v2.24.49';
 window.__dbg = { get state(){ return state; }, set state(v){ state=v; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, maybeBoardShuffle, applyBoardShuffle, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, stackVisual, stackLiftPadPx, get boardHx(){ return boardHx(); } };
 fitFrame();
 window.addEventListener('load', boot);
