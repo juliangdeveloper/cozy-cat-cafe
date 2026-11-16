@@ -4,7 +4,7 @@
 
 **[▶ Jugar ahora](https://juliangdeveloper.github.io/cozy-cat-cafe/)** · gratis, en el navegador, sin instalar
 
-<img src="docs/screenshot.png" alt="Cozy Cat Café con clientes pixel art, el tablero de hexágonos y las bandejas" width="320">
+<img src="assets/screenshot.png" alt="Cozy Cat Café con clientes pixel art, el tablero de hexágonos y las bandejas" width="320">
 
 ## Cómo se juega
 - La primera partida trae un tutorial guiado: una patita de gato señala dónde tocar. El botón ❓ lo vuelve a abrir.
