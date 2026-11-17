@@ -357,29 +357,3 @@ with open(os.path.join(asset_dir, "sprites.json"), "w", encoding="utf-8") as f:
 
 print(f"Sheet: {SHEET_W}x{SHEET_H}, cell {SPRITE_CELL}, sprites {len(sprites_map)}")
 print("Saved sprites.png + sprites.json")
-
-import stat, glob
-fonts = glob.glob("C:/Windows/Fonts/*.ttf")
-fname = None
-for cand in ["arialbd.ttf","arial.ttf","segoeuib.ttf","seguisb.ttf","calibrib.ttf"]:
-    p = f"C:/Windows/Fonts/{cand}"
-    if os.path.exists(p):
-        fname = p; break
-label_font = ImageFont.truetype(fname, 30) if fname else ImageFont.load_default()
-
-pad = 10
-cap = 60
-pv_w = pad*2 + COLS*(CELL+8) - 8
-pv_h = pad*2 + ROWS*(CELL+8) - 8 + cap
-pv = Image.new("RGBA", (pv_w, pv_h), (247,209,225,255))
-pv_d = ImageDraw.Draw(pv)
-for idx,(sid,name,fn) in enumerate(sprites_spec):
-    col = idx%COLS; row = idx//COLS
-    sx = pad + col*(CELL+8); sy = pad + row*(CELL+8)
-    img = render(fn)
-    pv_d.rounded_rectangle((sx-4, sy-4, sx+CELL+4, sy+CELL+4+cap), radius=12, fill=(255,255,255,120),
-                           outline=(121,72,53), width=2)
-    pv.paste(img, (sx, sy), img)
-    pv_d.multiline_text((sx, sy+CELL+6), sid, font=label_font, fill=(121,72,53))
-pv.convert("RGB").save(os.path.join(asset_dir, "sprite_preview.png"))
-print("Saved sprite_preview.png")
