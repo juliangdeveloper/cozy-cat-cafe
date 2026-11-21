@@ -18,9 +18,8 @@ const AUDIO_DIR = join(ROOT, 'assets', 'audio');
 const OUT_HTML = join(ROOT, 'dist', 'index.html');
 const HOWLER_TAG = '<script src="./vendor/howler.min.js"></script>\n';
 const AUDIO_MIME = {
-  'hybrid-sunlatte-90s.ogg': 'audio/ogg',
-  'hybrid-sunlatte-90s.mp3': 'audio/mpeg',
-  'hybrid-sunlatte-90s.wav': 'audio/wav',
+  'gm.ogg': 'audio/ogg',
+  'gm.mp3': 'audio/mpeg',
   'sfx-stack.ogg': 'audio/ogg',
   'sfx-stack.mp3': 'audio/mpeg',
   'sfx-merge.ogg': 'audio/ogg',
@@ -193,7 +192,7 @@ const howlerSrc = readFileSync(SRC_HOWLER, 'utf8');
 if (!howlerSrc.includes('howler.js v2.2.4')) fail('vendor/howler.min.js no es Howler 2.2.4');
 if (/https?:\/\//i.test(howlerSrc)) fail('vendor/howler.min.js contiene una URL remota');
 
-const bundle = `${howlerSrc}\n\n// ---- AMBIENCE (Hybrid Sunlatte + stack/merge/serve) ----\n${amb}\n\n${game}\n\n// ---- META (meta.v1 progress) ----\n${metaSrc}\n\n// ---- APP (DOM + browser lifecycle) -------------------------------\n${app}\n`;
+const bundle = `${howlerSrc}\n\n// ---- AMBIENCE ----\n${amb}\n\n${game}\n\n// ---- META (meta.v1 progress) ----\n${metaSrc}\n\n// ---- APP (DOM + browser lifecycle) -------------------------------\n${app}\n`;
 const outHtml = `${html.slice(0, i0 + OPEN_TAG.length)}\n${bundle}${html.slice(i1)}`;
 
 mkdirSync(join(ROOT, 'dist'), { recursive: true });
