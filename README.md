@@ -6,6 +6,8 @@
 
 <img src="assets/screenshot.png" alt="Cozy Cat Café con clientes pixel art, el tablero de hexágonos y las bandejas" width="320">
 
+Música: Salomón Orrego.
+
 ## Cómo se juega
 - La primera partida trae un tutorial guiado: una patita de gato señala dónde tocar. El botón ❓ lo vuelve a abrir.
 - Toca una bandeja y luego una mesa del tablero para apilar la comida.
