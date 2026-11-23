@@ -101,6 +101,7 @@ let ambRunOpen = false;
 let ambGestureBound = false;
 let ambHeard = true;
 let ambGestureAt = 0;
+let ambAway = false;
 
 function ambReadMute() {
   try { return localStorage.getItem(ambMuteKey) === '1'; }
@@ -122,6 +123,7 @@ function ambCoarseScreen() {
   } catch (e) { return false; }
 }
 function ambHearable() {
+  if (ambAway) return false;
   if (typeof document === 'undefined') return true;
   if (document.visibilityState === 'hidden') return false;
   if (Date.now() - ambGestureAt < 400) return true;
@@ -419,8 +421,16 @@ function ambSilenceSfx() {
   }
 }
 
+function ambSuspendCtx() {
+  if (!ambHowlerReady() || !Howler.ctx || typeof Howler.ctx.suspend !== 'function') return;
+  try {
+    const pending = Howler.ctx.suspend();
+    if (pending && typeof pending.catch === 'function') pending.catch(() => {});
+  } catch (e) { }
+}
+
 function ambBlurIsRebuild() {
-  if (typeof document === 'undefined' || document.visibilityState === 'hidden') return false;
+  if (ambAway || typeof document === 'undefined' || document.visibilityState === 'hidden') return false;
   return Date.now() - ambGestureAt < 400;
 }
 
@@ -437,9 +447,30 @@ function ambSyncHearing() {
   if (!hear) {
     ambSilenceSfx();
     ambPauseMusic();
+    if (ambAway || (typeof document !== 'undefined' && document.visibilityState === 'hidden')) ambSuspendCtx();
     return;
   }
   if (!ambMuted) ambStartMusic();
+}
+
+export function setCafeAudioAway(away) {
+  ambAway = !!away;
+  if (ambAway) {
+    ambHeard = false;
+    ambSilenceSfx();
+    ambPauseMusic();
+    ambSuspendCtx();
+    return;
+  }
+  ambSyncHearing();
+}
+
+function ambOnPageHide() {
+  setCafeAudioAway(true);
+}
+
+function ambOnPageShow() {
+  setCafeAudioAway(false);
 }
 
 function ambOnGesture(e) {
@@ -468,6 +499,9 @@ export function bindCafeAudio() {
   if (host && typeof host.addEventListener === 'function') {
     host.addEventListener('blur', ambSyncHearing);
     host.addEventListener('focus', ambSyncHearing);
+    host.addEventListener('pagehide', ambOnPageHide);
+    host.addEventListener('pageshow', ambOnPageShow);
+    host.cafeAudioAway = setCafeAudioAway;
   }
   ambSyncHearing();
 }
