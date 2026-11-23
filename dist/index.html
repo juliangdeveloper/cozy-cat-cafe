@@ -25,7 +25,8 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
   height:100%;touch-action:manipulation}
 #stage{position:fixed;left:0;top:0;width:100%;height:100%;overflow:hidden;
   background:var(--bg-primary);visibility:hidden;
-  padding:env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px)}
+  padding:max(env(safe-area-inset-top, 0px), var(--safe-top, 0px)) max(env(safe-area-inset-right, 0px), var(--safe-right, 0px))
+    max(env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px)) max(env(safe-area-inset-left, 0px), var(--safe-left, 0px))}
 #frame{position:absolute;left:0;top:0;width:100%;height:100%;overflow:hidden}
 #app{width:100%;height:100%;max-width:none;margin:0;padding:0;
   display:flex;flex-direction:column;min-height:0;overflow:hidden}
@@ -819,6 +820,7 @@ let ambRunOpen = false;
 let ambGestureBound = false;
 let ambHeard = true;
 let ambGestureAt = 0;
+let ambAway = false;
 
 function ambReadMute() {
   try { return localStorage.getItem(ambMuteKey) === '1'; }
@@ -840,6 +842,7 @@ function ambCoarseScreen() {
   } catch (e) { return false; }
 }
 function ambHearable() {
+  if (ambAway) return false;
   if (typeof document === 'undefined') return true;
   if (document.visibilityState === 'hidden') return false;
   if (Date.now() - ambGestureAt < 400) return true;
@@ -1137,8 +1140,16 @@ function ambSilenceSfx() {
   }
 }
 
+function ambSuspendCtx() {
+  if (!ambHowlerReady() || !Howler.ctx || typeof Howler.ctx.suspend !== 'function') return;
+  try {
+    const pending = Howler.ctx.suspend();
+    if (pending && typeof pending.catch === 'function') pending.catch(() => {});
+  } catch (e) { }
+}
+
 function ambBlurIsRebuild() {
-  if (typeof document === 'undefined' || document.visibilityState === 'hidden') return false;
+  if (ambAway || typeof document === 'undefined' || document.visibilityState === 'hidden') return false;
   return Date.now() - ambGestureAt < 400;
 }
 
@@ -1155,9 +1166,30 @@ function ambSyncHearing() {
   if (!hear) {
     ambSilenceSfx();
     ambPauseMusic();
+    if (ambAway || (typeof document !== 'undefined' && document.visibilityState === 'hidden')) ambSuspendCtx();
     return;
   }
   if (!ambMuted) ambStartMusic();
+}
+
+function setCafeAudioAway(away) {
+  ambAway = !!away;
+  if (ambAway) {
+    ambHeard = false;
+    ambSilenceSfx();
+    ambPauseMusic();
+    ambSuspendCtx();
+    return;
+  }
+  ambSyncHearing();
+}
+
+function ambOnPageHide() {
+  setCafeAudioAway(true);
+}
+
+function ambOnPageShow() {
+  setCafeAudioAway(false);
 }
 
 function ambOnGesture(e) {
@@ -1186,6 +1218,9 @@ function bindCafeAudio() {
   if (host && typeof host.addEventListener === 'function') {
     host.addEventListener('blur', ambSyncHearing);
     host.addEventListener('focus', ambSyncHearing);
+    host.addEventListener('pagehide', ambOnPageHide);
+    host.addEventListener('pageshow', ambOnPageShow);
+    host.cafeAudioAway = setCafeAudioAway;
   }
   ambSyncHearing();
 }
@@ -5885,7 +5920,7 @@ function positionTut(sel){
   if(!el){
     hole.hidden = true;
     card.style.top = 'auto';
-    card.style.bottom = 'max(16px, env(safe-area-inset-bottom, 0px))';
+    card.style.bottom = '16px';
     return;
   }
   hole.hidden = false;
@@ -5902,10 +5937,10 @@ function positionTut(sel){
   hole.style.height = (h + pad*2) + 'px';
   const midY = top + h/2;
   if(midY > box.h * 0.42){
-    card.style.top = 'max(12px, env(safe-area-inset-top, 0px))';
+    card.style.top = '12px';
     card.style.bottom = 'auto';
   } else {
-    card.style.bottom = 'max(16px, env(safe-area-inset-bottom, 0px))';
+    card.style.bottom = '16px';
     card.style.top = 'auto';
   }
 }
@@ -5969,9 +6004,10 @@ async function boot(){
   document.addEventListener('visibilitychange', onCafeVisibility);
   maybeStartTutorial();
 }
-const GAME_VERSION = 'v2.24.54';
+const GAME_VERSION = 'v2.24.55';
 window.__dbg = { get state(){ return state; }, set state(v){ state=v; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, maybeBoardShuffle, applyBoardShuffle, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, stackVisual, stackLiftPadPx, get boardHx(){ return boardHx(); } };
 fitFrame();
+if(typeof ResizeObserver!=='undefined') new ResizeObserver(()=>fitFrame()).observe(document.getElementById('stage'));
 window.addEventListener('load', boot);
 
 </script>
