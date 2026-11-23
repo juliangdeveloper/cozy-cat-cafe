@@ -15,6 +15,7 @@ Música: Salomón Orrego.
 - La meta de cada partida es atender a 100 clientes.
 - Gasta monedas en habilidades (destruir, intercambiar, refrescar y más); mantén pulsada una para ver qué hace.
 - ¿Atascado? Mantén pulsada la bandera 3 segundos para reiniciar la partida (las monedas vuelven a cero).
+- En iPhone la barra de arriba se acomoda a la isla o el notch de cada modelo, y la música se pausa al salir de la app o bloquear el teléfono.
 - El progreso se guarda en tu navegador. La interfaz del juego está en inglés.
 
 ## Stack
