@@ -150,6 +150,8 @@ body{background:var(--bg-primary);color:var(--ink);font-family:var(--font-ui);
 .run-history .rh-sk-rotateBoard{background-image:url(./assets/pixel/history/rotate.png)}
 .run-history .rh-note{font-size:11px;color:var(--ink-soft);font-weight:700;line-height:1.35}
 .foot{text-align:center;font-size:11px;color:var(--ink-soft);font-weight:700;margin:4px 0 2px;flex-shrink:0}
+.foot>span{white-space:nowrap}
+.foot-credit{display:block;font-size:10px;line-height:1.2}
 .order-card.legendary{box-shadow:0 0 0 3px var(--highlight),0 3px 0 var(--shadow)}
 
 .btn{font-family:var(--font-ui);font-weight:800;border:2px solid var(--ink);cursor:pointer;border-radius:16px;
@@ -531,6 +533,7 @@ button.locked,.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 @media(hover:none){.btn:hover{transform:none;filter:none}}
 @media(prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01s!important;transition:none!important}}
 @media(prefers-reduced-motion: reduce){.px-idle{animation:none!important;background-position:0 0!important}}
+@media(max-height:600px){.foot{line-height:1.1}.foot-credit{font-size:9px;line-height:1.1}.poolslot{height:76px;min-height:76px;max-height:76px}}
 .order-card .px-avatar{width:auto;height:100%;aspect-ratio:1;flex:1 1 auto;min-height:0;max-width:100%;max-height:100%;overflow:hidden}
 .order-card .px-avatar .px32{display:block!important;width:100%!important;height:100%!important;
   background-size:400% 100%!important;image-rendering:pixelated;animation-name:px-idle-fill}
@@ -4121,7 +4124,7 @@ function renderRun(){
       <div class="pool" id="pool"></div>
       <div class="preview" id="preview" style="display:none"></div>
       <div class="powerbar" id="powerbar"></div>
-      <div class="foot">☕ Cozy Cat Café ${GAME_VERSION}</div>
+      <div class="foot"><span>☕ Cozy Cat Café ${GAME_VERSION}</span> <span class="foot-credit">Developed by Julian Pineda · Music by Salomon Orrego</span></div>
     </div>`;
   if(keepOrders){
     const neu = document.getElementById('orders');
@@ -6004,7 +6007,7 @@ async function boot(){
   document.addEventListener('visibilitychange', onCafeVisibility);
   maybeStartTutorial();
 }
-const GAME_VERSION = 'v2.24.55';
+const GAME_VERSION = 'v2.24.56';
 window.__dbg = { get state(){ return state; }, set state(v){ state=v; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, maybeBoardShuffle, applyBoardShuffle, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, stackVisual, stackLiftPadPx, get boardHx(){ return boardHx(); } };
 fitFrame();
 if(typeof ResizeObserver!=='undefined') new ResizeObserver(()=>fitFrame()).observe(document.getElementById('stage'));
