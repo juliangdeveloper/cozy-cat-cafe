@@ -46,6 +46,10 @@ jobs:
       - name: Web files
         run: sh ios/sync-web.sh
 
+      - name: Core tests
+        working-directory: ios
+        run: swift test
+
       - name: Project
         env:
           BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID }}
@@ -73,6 +77,7 @@ jobs:
           test -f "$app/CozyCatCafe_CozyCatCafe.bundle/web/js/game.js"
           test -f "$app/CozyCatCafe_CozyCatCafe.bundle/web/vendor/howler.min.js"
           test -f "$app/CozyCatCafe_CozyCatCafe.bundle/web/assets/pixel/manifest.json"
+          test -f "$app/CozyCatCafe_CozyCatCafe.bundle/web/assets/audio/gm.mp3"
           plutil -extract CFBundleIcons.CFBundlePrimaryIcon.CFBundleIconName raw "$app/Info.plist"
           plutil -extract CFBundleIdentifier raw "$app/Info.plist"
           test "$(plutil -extract CFBundleShortVersionString raw "$app/Info.plist")" = "$(sh ios/version.sh)"

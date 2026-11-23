@@ -16,10 +16,18 @@ let package = Package(
     ],
     targets: [
         .target(
+            name: "CozyCatCafeCore"
+        ),
+        .target(
             name: "CozyCatCafe",
+            dependencies: ["CozyCatCafeCore"],
             resources: [
                 .copy("web"),
             ]
+        ),
+        .testTarget(
+            name: "CozyCatCafeCoreTests",
+            dependencies: ["CozyCatCafeCore"]
         ),
     ]
 )

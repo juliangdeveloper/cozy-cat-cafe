@@ -1,4 +1,5 @@
 #if canImport(UIKit)
+import CozyCatCafeCore
 import Foundation
 import SwiftUI
 import WebKit
@@ -17,8 +18,8 @@ struct WebContainer: UIViewRepresentable {
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.isOpaque = false
         webView.backgroundColor = UIColor(named: "LaunchBackground") ?? .white
-        webView.scrollView.bounces = false
         webView.scrollView.isScrollEnabled = false
+        webView.scrollView.bounces = false
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.load(URLRequest(url: WebFiles.entryURL))
         return webView

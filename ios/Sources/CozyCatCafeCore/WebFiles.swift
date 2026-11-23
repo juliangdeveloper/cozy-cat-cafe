@@ -1,9 +1,9 @@
 import Foundation
 
-enum WebFiles {
-    static let scheme = "app"
-    static let host = "localhost"
-    static let directory = "web"
+public enum WebFiles {
+    public static let scheme = "app"
+    public static let host = "localhost"
+    public static let directory = "web"
     static let entry = "index.html"
     static let fallbackType = "application/octet-stream"
     static let types: [String: String] = [
@@ -23,11 +23,13 @@ enum WebFiles {
         "mp3": "audio/mpeg",
         "m4a": "audio/mp4",
         "ogg": "audio/ogg",
+        "mp4": "video/mp4",
+        "webm": "video/webm",
         "woff2": "font/woff2",
         "wasm": "application/wasm",
     ]
 
-    static var rootURL: URL {
+    public static var rootURL: URL {
         var parts = URLComponents()
         parts.scheme = scheme
         parts.host = host
@@ -35,16 +37,15 @@ enum WebFiles {
         return parts.url!
     }
 
-    static var entryURL: URL {
+    public static var entryURL: URL {
         rootURL.appendingPathComponent(entry)
     }
 
-    static func mimeType(for file: URL) -> String {
-        if file.lastPathComponent == "VERSION" { return types["txt"]! }
+    public static func mimeType(for file: URL) -> String {
         return types[file.pathExtension.lowercased()] ?? fallbackType
     }
 
-    static func file(for url: URL, in root: URL) -> URL? {
+    public static func file(for url: URL, in root: URL) -> URL? {
         guard url.scheme == scheme, url.host == host else { return nil }
         let relative = url.path.split(separator: "/").map(String.init)
         let parts = relative.isEmpty ? [entry] : relative
