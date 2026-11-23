@@ -26,6 +26,11 @@ python3 -m http.server 8000   # abrir http://localhost:8000
 npm test
 ```
 
+## App iOS
+`ios/` envuelve el juego en una app SwiftUI con `WKWebView`. Al compilar, `ios/sync-web.sh` copia los archivos web dentro de la app, así que funciona sin conexión. La versión es la de `package.json` y el build es el número de ejecución del workflow. El bundle ID está en `ios/xtool.yml`.
+
+`.github/workflows/ios.yml` hace un archive sin firmar en cada push a `main` o `ios-testflight`. Un tag `ios-v<versión>` (por ejemplo `ios-v2.24.53`) firma con una API key de App Store Connect y sube el build a TestFlight. Secrets: `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` e `IOS_TEAM_ID`.
+
 ---
 
 Más proyectos: https://juliangdeveloper.github.io/

@@ -3,3 +3,10 @@ package-lock.json
 test/
 *.map
 dist/
+.DS_Store
+ios/.build/
+ios/.bsp/
+ios/.gen/
+ios/xtool/
+ios/*.xcodeproj/
+ios/Sources/CozyCatCafe/web/
