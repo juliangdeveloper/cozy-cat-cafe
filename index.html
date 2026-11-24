@@ -1198,7 +1198,7 @@ function renderRun(){
       <div class="pool" id="pool"></div>
       <div class="preview" id="preview" style="display:none"></div>
       <div class="powerbar" id="powerbar"></div>
-      <div class="foot"><span>☕ Cozy Cat Café ${GAME_VERSION}</span> <span class="foot-credit">Developed by Julian Pineda · Music by Salomon Orrego</span></div>
+      <div class="foot"><span>☕ Cozy Cat Café ${GAME_VERSION}</span> <span class="foot-credit">Developed by Julian Pineda</span></div>
     </div>`;
   if(keepOrders){
     const neu = document.getElementById('orders');
@@ -3081,7 +3081,7 @@ async function boot(){
   document.addEventListener('visibilitychange', onCafeVisibility);
   maybeStartTutorial();
 }
-const GAME_VERSION = 'v2.24.56';
+const GAME_VERSION = 'v2.24.57';
 window.__dbg = { get state(){ return state; }, set state(v){ state=v; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, maybeBoardShuffle, applyBoardShuffle, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, stackVisual, stackLiftPadPx, get boardHx(){ return boardHx(); } };
 fitFrame();
 if(typeof ResizeObserver!=='undefined') new ResizeObserver(()=>fitFrame()).observe(document.getElementById('stage'));
