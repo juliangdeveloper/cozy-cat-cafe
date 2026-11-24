@@ -6,10 +6,11 @@ const ambServeVol = 0.26;
 const ambDestroyVol = 0.38;
 
 const ambLoopSrc = [
-  './assets/audio/gm.ogg',
-  './assets/audio/gm.mp3',
+  './assets/audio/hybrid-sunlatte-90s.ogg',
+  './assets/audio/hybrid-sunlatte-90s.mp3',
+  './assets/audio/hybrid-sunlatte-90s.wav',
 ];
-const ambLoopFmt = ['ogg', 'mp3'];
+const ambLoopFmt = ['ogg', 'mp3', 'wav'];
 function ambWavUri(samples, sampleRate) {
   const n = samples.length;
   const buffer = new ArrayBuffer(44 + n * 2);
@@ -206,7 +207,7 @@ function ambOggOk() {
 }
 function ambPrefetchMp3() {
   if (ambMp3Blob) return;
-  const url = './assets/audio/gm.mp3';
+  const url = './assets/audio/hybrid-sunlatte-90s.mp3';
   if (url.indexOf('data:') === 0) { ambMp3Blob = url; return; }
   const fetchFn = typeof window !== 'undefined' && typeof window.fetch === 'function' ? window.fetch.bind(window) : null;
   if (!fetchFn || typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') return;

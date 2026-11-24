@@ -6,7 +6,7 @@
 
 <img src="assets/screenshot.png" alt="Cozy Cat Café con clientes pixel art, el tablero de hexágonos y las bandejas" width="320">
 
-Desarrollado por Julian Pineda. Música: Salomon Orrego. Ambos créditos aparecen junto a la versión, al pie del juego.
+Desarrollado por Julian Pineda. El crédito aparece junto a la versión, al pie del juego.
 
 ## Cómo se juega
 - La primera partida trae un tutorial guiado: una patita de gato señala dónde tocar. El botón ❓ lo vuelve a abrir.
