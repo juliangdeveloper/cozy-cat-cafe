@@ -19,12 +19,11 @@ Desarrollado por Julian Pineda. El crédito aparece junto a la versión, al pie 
 - El progreso se guarda en tu navegador. La interfaz del juego está en inglés.
 
 ## Stack
-JavaScript vanilla, HTML y CSS, con sprites pixel art y audio con [howler.js](https://howlerjs.com/) (incluido en `vendor/`). Tests con `node:test`.
+JavaScript vanilla, HTML y CSS, con sprites pixel art y audio con [howler.js](https://howlerjs.com/) (incluido en `vendor/`).
 Al abrirse guarda el progreso en `localStorage` (`meta.v1.cozy-cat-cafe`), que lee el [portafolio](https://juliangdeveloper.github.io/). La app para iPhone y iPad está en prueba en TestFlight.
 
 ```
 python3 -m http.server 8000   # abrir http://localhost:8000
-npm test
 ```
 
 ---
