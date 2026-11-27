@@ -1501,8 +1501,6 @@ function bindOrderClicks(box){
     renderOrders(); renderBoard();
   });
 }
-function colorName(c){ return {1:'peppermint',2:'sky',3:'rose',4:'blush',5:'lavender',6:'vanilla',
-  7:'denim',8:'teal',9:'pine',10:'orchid'}[c]||'tile'; }
 function orderIsReady(o){
   const r=state.run; if(!r) return false;
   return r.board.some(c=>{
@@ -3081,7 +3079,7 @@ async function boot(){
   document.addEventListener('visibilitychange', onCafeVisibility);
   maybeStartTutorial();
 }
-const GAME_VERSION = 'v2.24.58';
+const GAME_VERSION = 'v2.24.59';
 window.__dbg = { get state(){ return state; }, set state(v){ state=v; }, get ui(){ return ui; }, resolveCascade, placeStack, cascadeLinks, serializeState, maybeBoardShuffle, applyBoardShuffle, renderAll: () => renderAll(), renderBoard, boardMetrics, fitBoardHx, fitFrame, stackVisual, stackLiftPadPx, get boardHx(){ return boardHx(); } };
 fitFrame();
 if(typeof ResizeObserver!=='undefined') new ResizeObserver(()=>fitFrame()).observe(document.getElementById('stage'));
